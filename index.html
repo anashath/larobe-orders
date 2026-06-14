@@ -440,17 +440,20 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
       <div class="pg-sub">Export orders as plain text</div>
     </div>
     <div class="copy-body">
-      <div class="fblock"><label>Select Date</label><input type="date" id="copyDate"></div>
       <div class="fblock">
-        <label>Filter Orders</label>
+        <label>Select Date</label>
+        <input type="date" id="copyDate">
+      </div>
+      <div class="fblock">
+        <label>Filter</label>
         <div style="display:flex;gap:8px;">
-          <button type="button" class="copy-flt-btn on" id="cflt-all"     onclick="setCopyFlt('all',this)">All Orders</button>
-          <button type="button" class="copy-flt-btn"   id="cflt-pending"  onclick="setCopyFlt('pending',this)">Pending Only</button>
+          <button type="button" class="copy-flt-btn on" id="cflt-all" onclick="setCopyFlt(this,'all')">All Orders</button>
+          <button type="button" class="copy-flt-btn" id="cflt-pending" onclick="setCopyFlt(this,'pending')">Pending Only</button>
         </div>
       </div>
       <div class="copy-actions">
         <span class="copy-count" id="copyCount"></span>
-        <button class="btn-copy" id="copyBtn" onclick="doCopy()">Copy as Text</button>
+        <button class="btn-copy" id="copyBtn" onclick="runCopy()">Copy as Text</button>
       </div>
       <pre class="copy-preview" id="copyPre"></pre>
     </div>
@@ -590,7 +593,7 @@ const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
 const db = supabase.createClient(SB_URL, SB_KEY);
 
-let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false, copyFlt='all';
+let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
 
 /* THEME */
 function setTheme(t) {
@@ -637,7 +640,7 @@ function go(s) {
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   document.querySelector('.scroll').scrollTo(0,0);
   if(s==='products') renderProds();
-  if(s==='copy')     initCopy();
+  if(s==='copy')     { initCopy(); }
   if(s==='settings') updSett();
 }
 
@@ -882,54 +885,67 @@ async function delOrder(id) {
 }
 
 /* COPY */
-function initCopy() {
-  const d=document.getElementById('copyDate'); if(!d.value) d.value=today();
-  updCopyCount();
-}
-function setCopyFlt(f, btn) {
-  copyFlt = f;
-  document.querySelectorAll('.copy-flt-btn').forEach(b=>b.classList.remove('on'));
+
+
+/* COPY */
+var _copyFlt = 'all';
+
+function setCopyFlt(btn, flt) {
+  _copyFlt = flt;
+  document.querySelectorAll('.copy-flt-btn').forEach(function(b){ b.classList.remove('on'); });
   btn.classList.add('on');
-  updCopyCount();
+  updateCopyCount();
 }
-async function updCopyCount() {
-  const date=document.getElementById('copyDate').value; if(!date)return;
-  let q=db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
-  if(copyFlt==='pending') q=q.eq('status','pending');
-  const {count}=await q;
-  const label = copyFlt==='pending' ? 'pending order' : 'order';
-  document.getElementById('copyCount').textContent=count?count+' '+label+(count!==1?'s':''):'No orders found';
+
+function initCopy() {
+  var d = document.getElementById('copyDate');
+  if (d && !d.value) d.value = today();
+  updateCopyCount();
 }
-async function doCopy() {
-  try {
-    const dateEl = document.getElementById('copyDate');
-    const date = dateEl ? dateEl.value : '';
-    if (!date) { toast('Select a date first', true); return; }
 
-    const btn = document.getElementById('copyBtn');
-    btn.disabled = true; btn.textContent = 'Loading…';
+function updateCopyCount() {
+  var date = document.getElementById('copyDate');
+  if (!date || !date.value) return;
+  var q = db.from('orders').select('*', {count:'exact', head:true}).eq('order_date', date.value);
+  if (_copyFlt === 'pending') q = q.eq('status', 'pending');
+  q.then(function(res) {
+    var el = document.getElementById('copyCount');
+    if (!el) return;
+    var n = res.count || 0;
+    var label = _copyFlt === 'pending' ? 'pending order' : 'order';
+    el.textContent = n ? (n + ' ' + label + (n !== 1 ? 's' : '')) : 'No orders found';
+  });
+}
 
-    let q = db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true});
-    if (copyFlt === 'pending') q = q.eq('status', 'pending');
+function runCopy() {
+  var dateEl = document.getElementById('copyDate');
+  if (!dateEl || !dateEl.value) { toast('Select a date first', true); return; }
+  var date = dateEl.value;
+  var btn = document.getElementById('copyBtn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
 
-    const { data, error } = await q;
+  var q = db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true});
+  if (_copyFlt === 'pending') q = q.eq('status', 'pending');
+
+  q.then(function(res) {
     btn.disabled = false;
-
-    if (error) { toast('Error: ' + error.message, true); btn.textContent = 'Copy as Text'; return; }
+    if (res.error) { toast('Error: ' + res.error.message, true); btn.textContent = 'Copy as Text'; return; }
+    var data = res.data;
     if (!data || data.length === 0) {
-      toast(copyFlt === 'pending' ? 'No pending orders on this date' : 'No orders on this date', true);
-      btn.textContent = 'Copy as Text'; return;
+      toast(_copyFlt === 'pending' ? 'No pending orders on this date' : 'No orders on this date', true);
+      btn.textContent = 'Copy as Text';
+      return;
     }
-
-    const d = new Date(date + 'T00:00:00').toLocaleDateString('en-MV', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-    const filterLabel = copyFlt === 'pending' ? ' — PENDING ONLY' : '';
-    const sep = '─'.repeat(36);
-    const lines = [];
-
-    lines.push('LA ROBE MALDIVES — ' + d + filterLabel);
+    var parts = date.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    var d = dt.toLocaleDateString('en-US', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    var flabel = _copyFlt === 'pending' ? ' - PENDING ONLY' : '';
+    var sep = '----------------------------------';
+    var lines = [];
+    lines.push('LA ROBE MALDIVES - ' + d + flabel);
     lines.push('');
     lines.push(sep);
-
     data.forEach(function(o) {
       lines.push('ORDER #' + o.num);
       lines.push('Customer         : ' + o.customer_name);
@@ -941,50 +957,48 @@ async function doCopy() {
       lines.push('Delivery Method  : ' + o.delivery);
       lines.push('');
       lines.push('Payment Method   : ' + o.payment);
-      lines.push('Payment Status   : ' + (o.payment_done ? 'Received ✓' : 'Not Received ✗'));
+      lines.push('Payment Status   : ' + (o.payment_done ? 'Received' : 'Not Received'));
       if (o.notes) { lines.push(''); lines.push('Notes            : ' + o.notes); }
       lines.push(sep);
       lines.push('');
     });
-
-    const text = lines.join('\n').trimEnd();
-
-    const pre = document.getElementById('copyPre');
+    var text = lines.join('\n').replace(/\n+$/, '');
+    var pre = document.getElementById('copyPre');
     if (pre) { pre.textContent = text; pre.style.display = 'block'; }
-
     try {
-      await navigator.clipboard.writeText(text);
-    } catch(e) {
-      const el = document.createElement('textarea');
-      el.value = text;
-      el.style.position = 'fixed';
-      el.style.opacity = '0';
-      document.body.appendChild(el);
-      el.focus();
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-    }
-
-    btn.textContent = 'Copied!';
-    btn.style.background = '#2A7A50';
-    setTimeout(function() {
-      btn.textContent = 'Copy as Text';
-      btn.style.background = '';
-    }, 2500);
-
-    toast('Copied ' + data.length + (data.length !== 1 ? ' orders' : ' order') + ' copied!');
-
-  } catch(err) {
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = 'Copied!';
+        btn.style.background = '#2A7A50';
+        setTimeout(function(){ btn.textContent = 'Copy as Text'; btn.style.background = ''; }, 2500);
+        toast('Copied ' + data.length + (data.length !== 1 ? ' orders' : ' order'));
+      }).catch(function() { fallbackCopy(text, btn, data.length); });
+    } catch(e) { fallbackCopy(text, btn, data.length); }
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = 'Copy as Text';
     toast('Error: ' + err.message, true);
-    const btn = document.getElementById('copyBtn');
-    if (btn) { btn.disabled = false; btn.textContent = 'Copy as Text'; }
-  }
+  });
+}
+
+function fallbackCopy(text, btn, count) {
+  var el = document.createElement('textarea');
+  el.value = text;
+  el.style.position = 'fixed';
+  el.style.opacity = '0';
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(el);
+  btn.textContent = 'Copied!';
+  btn.style.background = '#2A7A50';
+  setTimeout(function(){ btn.textContent = 'Copy as Text'; btn.style.background = ''; }, 2500);
+  toast('Copied ' + count + (count !== 1 ? ' orders' : ' order'));
 }
 
 /* INIT */
 document.getElementById('smask').addEventListener('click',function(e){if(e.target===this)closeSheet();});
-document.getElementById('copyDate').addEventListener('change',updCopyCount);
+document.getElementById('copyDate').addEventListener('change', updateCopyCount);
 document.getElementById('newProd').addEventListener('keydown',e=>{if(e.key==='Enter')addProd();});
 document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 document.getElementById('pg-date').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
