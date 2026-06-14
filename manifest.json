@@ -1,13 +1,13 @@
 {
   "name": "La Robe Orders",
   "short_name": "La Robe",
-  "description": "La Robe Maldives — Daily Order Recording App",
+  "description": "La Robe Maldives \u2014 Daily Order Recording App",
   "start_url": "/larobe-orders/index.html",
   "scope": "/larobe-orders/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#2C2218",
-  "theme_color": "#2C2218",
+  "background_color": "#419ab5",
+  "theme_color": "#419ab5",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -34,6 +34,9 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "lang": "en"
 }
