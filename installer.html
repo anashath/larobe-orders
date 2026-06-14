@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Robe — App Installer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5EFE6; --surface: #FFFFFF; --surface2: #FAF7F2;
+    --border: #E2D5C8; --ink: #2C2218; --ink-light: #6B5B4E;
+    --ink-muted: #A89880; --blush: #D4A5A5; --blush-deep: #B87E7E;
+    --delivered: #7A9E7E; --cancelled: #C0635C;
+  }
+  [data-theme="dark"] {
+    --bg: #1A1410; --surface: #241D17; --surface2: #1F1812;
+    --border: #3D3028; --ink: #F0E8DF; --ink-light: #B8A898;
+    --ink-muted: #7A6A5A; --blush: #C4908F; --blush-deep: #D4A5A5;
+    --delivered: #7A9E7E; --cancelled: #C0635C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Jost', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; transition: background 0.25s, color 0.25s; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: min(420px, 100%);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(44,34,24,0.12);
+  }
+
+  .card-header {
+    background: #2C2218;
+    padding: 32px 28px 24px;
+    text-align: center;
+  }
+
+  .logo-mark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 38px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #F5EFE6;
+    line-height: 1;
+  }
+  .logo-mark span { color: #D4A5A5; font-style: italic; font-weight: 400; }
+  .logo-sub { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #A89880; margin-top: 6px; }
+
+  .card-body { padding: 28px; }
+
+  .app-info { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .app-icon { width: 52px; height: 52px; background: #2C2218; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .app-name { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 500; color: var(--ink); }
+  .app-desc { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+
+  .section-title {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-muted);
+    margin-bottom: 12px;
+  }
+
+  /* PREFERENCES */
+  .prefs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+  .pref-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .pref-label { font-size: 13px; color: var(--ink); }
+  .pref-hint  { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+  /* TOGGLE SWITCH */
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: 0.2s; }
+  .slider:before { content:''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+  input:checked + .slider { background: #2C2218; }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  /* THEME SELECTOR */
+  .theme-select { display: flex; gap: 8px; }
+  .theme-opt {
+    flex: 1; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--border);
+    cursor: pointer; text-align: center; font-family: 'Jost', sans-serif;
+    font-size: 12px; color: var(--ink-light); background: var(--surface);
+    transition: all 0.15s;
+  }
+  .theme-opt .t-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+  .theme-opt.selected { border-color: #2C2218; color: var(--ink); background: var(--surface2); }
+  [data-theme="dark"] .theme-opt.selected { border-color: var(--blush-deep); }
+
+  /* DEFAULT TAB */
+  .tab-select { display: flex; gap: 8px; }
+  .tab-opt {
+    flex: 1; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--border);
+    cursor: pointer; text-align: center; font-family: 'Jost', sans-serif;
+    font-size: 12px; color: var(--ink-light); background: var(--surface);
+    transition: all 0.15s;
+  }
+  .tab-opt.selected { border-color: #2C2218; color: var(--ink); background: var(--surface2); }
+  [data-theme="dark"] .tab-opt.selected { border-color: var(--blush-deep); }
+
+  /* INSTALL BUTTON */
+  .btn-install {
+    width: 100%; padding: 14px; background: #2C2218; color: #F5EFE6;
+    border: none; border-radius: 10px; font-family: 'Jost', sans-serif;
+    font-size: 13px; font-weight: 500; letter-spacing: 0.12em;
+    text-transform: uppercase; cursor: pointer; transition: background 0.15s;
+    margin-bottom: 12px;
+  }
+  .btn-install:hover { background: var(--blush-deep); }
+
+  .btn-open {
+    width: 100%; padding: 12px; background: transparent; color: var(--ink-light);
+    border: 1px solid var(--border); border-radius: 10px; font-family: 'Jost', sans-serif;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s; text-decoration: none; display: block; text-align: center;
+  }
+  .btn-open:hover { border-color: var(--ink-light); }
+
+  /* SUCCESS STATE */
+  .success-state { display: none; text-align: center; padding: 16px 0 8px; }
+  .success-icon { font-size: 40px; margin-bottom: 10px; }
+  .success-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+  .success-sub { font-size: 12px; color: var(--ink-muted); line-height: 1.6; }
+
+  /* INSTRUCTIONS */
+  .instructions { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-top: 20px; }
+  .inst-title { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 10px; }
+  .inst-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; font-size: 12px; color: var(--ink-light); line-height: 1.4; }
+  .inst-step:last-child { margin-bottom: 0; }
+  .inst-num { background: #2C2218; color: #F5EFE6; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* THEME TOGGLE TOP */
+  .top-theme { position: absolute; top: 16px; right: 16px; display: flex; gap: 4px; }
+  .top-theme-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .top-theme-btn:hover { border-color: var(--ink-muted); }
+
+  .version { font-size: 10px; color: var(--ink-muted); text-align: center; margin-top: 16px; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<div style="position:relative;width:min(420px,100%)">
+  <div class="top-theme">
+    <button class="top-theme-btn" onclick="toggleBodyTheme()" id="themeToggleBtn">🌙</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="logo-mark">La <span>Robe</span></div>
+      <div class="logo-sub">Maldives · Order Manager</div>
+    </div>
+
+    <div class="card-body">
+
+      <!-- DEFAULT FORM -->
+      <div id="formState">
+        <div class="app-info">
+          <div class="app-icon">🛍</div>
+          <div>
+            <div class="app-name">La Robe Orders</div>
+            <div class="app-desc">Daily order recording · Supabase sync · Multi-device</div>
+          </div>
+        </div>
+
+        <div class="section-title">Your Preferences</div>
+        <div class="prefs">
+
+          <!-- Theme -->
+          <div class="pref-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+            <div>
+              <div class="pref-label">Theme</div>
+              <div class="pref-hint">Choose how the app looks on this device</div>
+            </div>
+            <div class="theme-select" style="width:100%">
+              <div class="theme-opt selected" id="opt-light" onclick="selectTheme('light')">
+                <span class="t-icon">☀️</span>Light
+              </div>
+              <div class="theme-opt" id="opt-dark" onclick="selectTheme('dark')">
+                <span class="t-icon">🌙</span>Dark
+              </div>
+              <div class="theme-opt" id="opt-system" onclick="selectTheme('system')">
+                <span class="t-icon">🖥</span>System
+              </div>
+            </div>
+          </div>
+
+          <!-- Default Tab -->
+          <div class="pref-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+            <div>
+              <div class="pref-label">Open on</div>
+              <div class="pref-hint">Which tab opens when you launch the app</div>
+            </div>
+            <div class="tab-select" style="width:100%">
+              <div class="tab-opt selected" id="tab-orders" onclick="selectTab('orders')">📋 Orders</div>
+              <div class="tab-opt" id="tab-products" onclick="selectTab('products')">🏷 Products</div>
+            </div>
+          </div>
+
+          <!-- Filter default -->
+          <div class="pref-row">
+            <div>
+              <div class="pref-label">Default filter</div>
+              <div class="pref-hint">Orders shown on launch</div>
+            </div>
+            <select id="defaultFilter" style="width:auto;padding:6px 10px;font-size:12px;background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:6px">
+              <option value="all">All orders</option>
+              <option value="pending">Pending only</option>
+              <option value="delivered">Delivered only</option>
+            </select>
+          </div>
+
+          <!-- Confirm delete -->
+          <div class="pref-row">
+            <div>
+              <div class="pref-label">Confirm before delete</div>
+              <div class="pref-hint">Show a prompt before removing orders</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="confirmDelete" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Sound -->
+          <div class="pref-row">
+            <div>
+              <div class="pref-label">Sound on order saved</div>
+              <div class="pref-hint">Play a subtle chime when recording</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="playSound">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+        </div>
+
+        <button class="btn-install" onclick="install()">Save & Open App</button>
+        <a class="btn-open" href="https://anashath.github.io/larobe-orders/" target="_blank">Open Without Saving</a>
+
+        <div class="instructions">
+          <div class="inst-title">Add to Home Screen</div>
+          <div class="inst-step"><div class="inst-num">1</div><div>On iPhone: tap the Share button in Safari, then "Add to Home Screen"</div></div>
+          <div class="inst-step"><div class="inst-num">2</div><div>On Android: tap the three-dot menu in Chrome, then "Add to Home Screen"</div></div>
+          <div class="inst-step"><div class="inst-num">3</div><div>The app will open full-screen with your saved preferences every time</div></div>
+        </div>
+      </div>
+
+      <!-- SUCCESS STATE -->
+      <div id="successState" class="success-state">
+        <div class="success-icon">✅</div>
+        <div class="success-title">Preferences Saved</div>
+        <div class="success-sub">Your settings have been saved to this device.<br>The app will open with your preferences.</div>
+        <div class="divider"></div>
+        <a class="btn-install" href="https://anashath.github.io/larobe-orders/" target="_blank" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px">Open La Robe Orders →</a>
+        <button class="btn-open" onclick="resetForm()">Edit Preferences</button>
+
+        <div class="instructions" style="margin-top:16px">
+          <div class="inst-title">Your Settings</div>
+          <div id="summaryList"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="version">La Robe Orders · v1.0 · anashath.github.io/larobe-orders</div>
+</div>
+
+<script>
+  let selectedTheme = 'light';
+  let selectedTab   = 'orders';
+
+  // ── BODY THEME (installer itself) ─────────────────────────────────────────
+  function toggleBodyTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    document.getElementById('themeToggleBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+  }
+
+  // ── PREFERENCES ───────────────────────────────────────────────────────────
+  function selectTheme(t) {
+    selectedTheme = t;
+    ['light','dark','system'].forEach(x => document.getElementById('opt-' + x).classList.toggle('selected', x === t));
+  }
+
+  function selectTab(t) {
+    selectedTab = t;
+    ['orders','products'].forEach(x => document.getElementById('tab-' + x).classList.toggle('selected', x === t));
+  }
+
+  // ── INSTALL ───────────────────────────────────────────────────────────────
+  function install() {
+    const prefs = {
+      theme:         selectedTheme,
+      defaultTab:    selectedTab,
+      defaultFilter: document.getElementById('defaultFilter').value,
+      confirmDelete: document.getElementById('confirmDelete').checked,
+      playSound:     document.getElementById('playSound').checked,
+      installedAt:   new Date().toISOString()
+    };
+
+    // Save to localStorage — same key the main app reads
+    localStorage.setItem('larobe_theme',         prefs.theme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : prefs.theme);
+    localStorage.setItem('larobe_default_tab',    prefs.defaultTab);
+    localStorage.setItem('larobe_default_filter', prefs.defaultFilter);
+    localStorage.setItem('larobe_confirm_delete', prefs.confirmDelete);
+    localStorage.setItem('larobe_play_sound',     prefs.playSound);
+    localStorage.setItem('larobe_installed',      JSON.stringify(prefs));
+
+    // Show summary
+    const themeLabel = { light:'☀️ Light', dark:'🌙 Dark', system:'🖥 System default' };
+    const tabLabel   = { orders:'📋 Orders', products:'🏷 Products' };
+    const filterLabel= { all:'All orders', pending:'Pending only', delivered:'Delivered only' };
+    document.getElementById('summaryList').innerHTML = [
+      ['Theme',            themeLabel[prefs.theme]],
+      ['Opens on',         tabLabel[prefs.defaultTab]],
+      ['Default filter',   filterLabel[prefs.defaultFilter]],
+      ['Confirm delete',   prefs.confirmDelete ? 'On' : 'Off'],
+      ['Order sound',      prefs.playSound ? 'On' : 'Off'],
+    ].map(([k,v]) => `
+      <div class="inst-step">
+        <div class="inst-num">✓</div>
+        <div><strong>${k}:</strong> ${v}</div>
+      </div>`).join('');
+
+    document.getElementById('formState').style.display    = 'none';
+    document.getElementById('successState').style.display = 'block';
+  }
+
+  function resetForm() {
+    document.getElementById('successState').style.display = 'none';
+    document.getElementById('formState').style.display    = 'block';
+    loadSaved();
+  }
+
+  // ── LOAD SAVED PREFS ──────────────────────────────────────────────────────
+  function loadSaved() {
+    const raw = localStorage.getItem('larobe_installed');
+    if (!raw) return;
+    try {
+      const p = JSON.parse(raw);
+      if (p.theme)         selectTheme(p.theme);
+      if (p.defaultTab)    selectTab(p.defaultTab);
+      if (p.defaultFilter) document.getElementById('defaultFilter').value = p.defaultFilter;
+      document.getElementById('confirmDelete').checked = p.confirmDelete !== false;
+      document.getElementById('playSound').checked     = !!p.playSound;
+    } catch(e) {}
+  }
+
+  loadSaved();
+</script>
+</body>
+</html>
