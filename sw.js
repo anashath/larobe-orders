@@ -1,9 +1,7 @@
-const CACHE = 'larobe-v1';
+const CACHE = 'larobe-v2';
 const ASSETS = [
   '/larobe-orders/',
-  '/larobe-orders/index.html',
-  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  '/larobe-orders/index.html'
 ];
 
 self.addEventListener('install', e => {
