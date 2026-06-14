@@ -3,520 +3,495 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>La Robe — Daily Orders</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<title>La Robe Orders</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2C2218">
+<meta name="theme-color" content="#ffffff">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="La Robe">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
-  /* ── THEMES ── */
-  :root, [data-theme="light"] {
-    --bg:#F5EFE6; --surface:#FFFFFF; --surface2:#FAF7F2;
-    --border:#E2D5C8; --ink:#2C2218; --ink-light:#6B5B4E; --ink-muted:#A89880;
-    --blush:#D4A5A5; --blush-deep:#B87E7E;
-    --nav-bg:#FFFFFF; --nav-fg:#6B5B4E; --nav-active:#B87E7E;
-    --nav-border: #E2D5C8;
-    --header-bg:#2C2218; --header-fg:#F5EFE6;
-    --pending:#C4956A; --delivered:#7A9E7E; --cancelled:#C0635C;
-    --shadow:rgba(44,34,24,0.10);
-    --drawer-bg:#FFFFFF; --overlay:rgba(44,34,24,0.5);
-    --stat-bg:#FFFFFF; --card-bg:#FFFFFF;
-  }
-  [data-theme="dark"] {
-    --bg:#1A1410; --surface:#241D17; --surface2:#1F1812;
-    --border:#3D3028; --ink:#F0E8DF; --ink-light:#B8A898; --ink-muted:#7A6A5A;
-    --blush:#C4908F; --blush-deep:#D4A5A5;
-    --nav-bg:#120E0A; --nav-fg:#7A6A5A; --nav-active:#D4A5A5;
-    --nav-border: #2A1E16;
-    --header-bg:#120E0A; --header-fg:#F0E8DF;
-    --pending:#C4956A; --delivered:#7A9E7E; --cancelled:#C0635C;
-    --shadow:rgba(0,0,0,0.35);
-    --drawer-bg:#241D17; --overlay:rgba(0,0,0,0.65);
-    --stat-bg:#241D17; --card-bg:#241D17;
-  }
+:root {
+  --bg:       #F7F7F9;
+  --surface:  #FFFFFF;
+  --surface2: #F2F2F5;
+  --border:   #EBEBEF;
+  --ink:      #111118;
+  --ink2:     #555560;
+  --ink3:     #9999A8;
+  --accent:   #111118;
+  --accent2:  #D4A5A5;
+  --rose:     #C08080;
+  --pending:  #B87A3A;
+  --delivered:#3A8A50;
+  --cancelled:#B04040;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:0 8px 32px rgba(0,0,0,0.10);
+  --nav-h:    72px;
+  --hdr-h:    56px;
+}
+[data-theme="dark"] {
+  --bg:       #0F0F12;
+  --surface:  #1A1A20;
+  --surface2: #141418;
+  --border:   #2A2A32;
+  --ink:      #F0F0F5;
+  --ink2:     #A0A0B0;
+  --ink3:     #606070;
+  --accent:   #F0F0F5;
+  --accent2:  #C4908F;
+  --rose:     #D4A5A5;
+  --pending:  #C4956A;
+  --delivered:#6A9E70;
+  --cancelled:#C0635C;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md:0 8px 32px rgba(0,0,0,0.5);
+}
 
-  * { box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
-  html, body { height:100%; overflow:hidden; }
-  body { font-family:'Jost',sans-serif; background:var(--bg); color:var(--ink); font-size:14px; display:flex; flex-direction:column; transition:background 0.25s,color 0.25s; }
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; overflow:hidden; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); font-size:14px; }
 
-  /* ── FIXED HEADER ── */
-  .app-header {
-    position: fixed; top:0; left:0; right:0; z-index:50;
-    background: var(--header-bg); color: var(--header-fg);
-    padding: 14px 16px 14px 16px;
-    padding-top: max(14px, env(safe-area-inset-top));
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-  }
-  .hamburger {
-    background: none; border: none; cursor: pointer;
-    color: var(--header-fg); padding: 4px; display: flex;
-    flex-direction: column; gap: 4px; flex-shrink:0;
-  }
-  .hamburger span { display:block; width:20px; height:2px; background:currentColor; border-radius:2px; transition: all 0.2s; }
-  .brand { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; flex:1; }
-  .brand em { color:var(--blush); font-style:italic; font-weight:400; }
-  .header-right { display:flex; align-items:center; gap:10px; }
-  .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--delivered); flex-shrink:0; }
-  .sync-dot.offline { background:var(--cancelled); }
-  .theme-toggle { display:flex; background:rgba(255,255,255,0.12); border-radius:16px; padding:2px; border:1px solid rgba(255,255,255,0.2); }
-  .theme-btn { background:none; border:none; cursor:pointer; padding:4px 10px; border-radius:12px; font-size:13px; color:rgba(255,255,255,0.4); transition:all 0.2s; line-height:1; }
-  .theme-btn.active { background:rgba(255,255,255,0.25); color:#fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+/* ── HEADER ── */
+.hdr {
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  height:var(--hdr-h);
+  padding-top:env(safe-area-inset-top);
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding-left:20px; padding-right:20px;
+}
+.hdr-left { display:flex; align-items:center; gap:14px; }
+.hamburger { background:none; border:none; cursor:pointer; padding:6px; display:flex; flex-direction:column; gap:4.5px; }
+.hamburger span { display:block; width:18px; height:1.5px; background:var(--ink); border-radius:2px; transition:all 0.2s; }
+.hdr-title { font-family:'Cormorant Garamond',serif; font-size:19px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); }
+.hdr-title em { color:var(--rose); font-style:italic; font-weight:400; }
+.hdr-right { display:flex; align-items:center; gap:12px; }
+.sync-pill { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink3); }
+.sync-dot { width:6px; height:6px; border-radius:50%; background:var(--delivered); flex-shrink:0; }
+.sync-dot.off { background:var(--cancelled); }
+.theme-pill { display:flex; background:var(--surface2); border-radius:20px; padding:2px; }
+.theme-pill button { background:none; border:none; cursor:pointer; width:30px; height:26px; border-radius:16px; font-size:14px; display:flex; align-items:center; justify-content:center; color:var(--ink3); transition:all 0.18s; }
+.theme-pill button.on { background:var(--ink); color:var(--surface); }
 
-  /* ── DRAWER OVERLAY ── */
-  .drawer-overlay {
-    position:fixed; inset:0; z-index:80;
-    background:var(--overlay); opacity:0; pointer-events:none;
-    transition: opacity 0.25s;
-  }
-  .drawer-overlay.open { opacity:1; pointer-events:all; }
+/* ── DRAWER ── */
+.drawer-mask { position:fixed; inset:0; z-index:80; background:rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:opacity 0.22s; }
+.drawer-mask.open { opacity:1; pointer-events:all; }
+.drawer {
+  position:fixed; top:0; left:0; bottom:0; z-index:90;
+  width:272px; background:var(--surface);
+  transform:translateX(-100%); transition:transform 0.26s cubic-bezier(.4,0,.2,1);
+  display:flex; flex-direction:column;
+  padding-top:env(safe-area-inset-top);
+}
+.drawer.open { transform:translateX(0); }
+.drawer-hdr { padding:24px 20px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.drawer-logo { font-family:'Cormorant Garamond',serif; font-size:17px; letter-spacing:0.1em; text-transform:uppercase; }
+.drawer-logo em { color:var(--rose); font-style:italic; }
+.drawer-close { background:none; border:none; cursor:pointer; color:var(--ink3); font-size:20px; padding:2px; line-height:1; }
+.drawer-date { font-size:11px; color:var(--ink3); padding:12px 20px; border-bottom:1px solid var(--border); letter-spacing:0.03em; }
+.drawer-nav { flex:1; padding:10px 0; overflow-y:auto; }
+.drawer-label { font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink3); padding:14px 20px 6px; }
+.drawer-btn {
+  display:flex; align-items:center; gap:14px;
+  width:100%; padding:13px 20px;
+  background:none; border:none; border-left:3px solid transparent;
+  font-family:'Inter',sans-serif; font-size:13px; color:var(--ink2);
+  cursor:pointer; text-align:left; transition:all 0.12s;
+}
+.drawer-btn:hover { background:var(--surface2); }
+.drawer-btn.on { color:var(--ink); border-left-color:var(--rose); background:var(--surface2); font-weight:500; }
+.drawer-btn-icon { font-size:17px; width:22px; text-align:center; flex-shrink:0; }
+.drawer-foot { padding:16px 20px; border-top:1px solid var(--border); padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+.drawer-ver { font-size:11px; color:var(--ink3); }
 
-  /* ── SIDE DRAWER ── */
-  .drawer {
-    position:fixed; top:0; left:0; bottom:0; z-index:90;
-    width:260px; background:var(--drawer-bg);
-    transform:translateX(-100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1);
-    display:flex; flex-direction:column;
-    box-shadow:4px 0 20px rgba(0,0,0,0.2);
-    padding-top: env(safe-area-inset-top);
-  }
-  .drawer.open { transform:translateX(0); }
+/* ── CONTENT ── */
+.content { height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-top:calc(var(--hdr-h) + env(safe-area-inset-top)); padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom)); }
+.screen { display:none; padding:20px 20px; max-width:600px; margin:0 auto; }
+.screen.on { display:block; }
 
-  .drawer-header {
-    background:var(--header-bg); padding:20px 20px 16px;
-    display:flex; align-items:center; justify-content:space-between;
-  }
-  .drawer-brand { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--header-fg); }
-  .drawer-brand em { color:var(--blush); font-style:italic; }
-  .drawer-close { background:none; border:none; color:rgba(255,255,255,0.6); font-size:18px; cursor:pointer; padding:2px; }
+/* ── BOTTOM NAV ── */
+.bnav {
+  position:fixed; bottom:0; left:0; right:0; z-index:50;
+  height:var(--nav-h); padding-bottom:env(safe-area-inset-bottom);
+  background:var(--surface); border-top:1px solid var(--border);
+  display:flex;
+}
+.bnav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:none; border:none; cursor:pointer; color:var(--ink3); transition:color 0.15s; padding:8px 0; }
+.bnav-btn.on { color:var(--ink); }
+.bnav-icon { font-size:22px; line-height:1; position:relative; }
+.bnav-dot { position:absolute; top:-2px; right:-6px; width:7px; height:7px; border-radius:50%; background:var(--rose); border:1.5px solid var(--surface); display:none; }
+.bnav-btn.on .bnav-dot { display:block; }
+.bnav-label { font-size:10px; font-weight:500; letter-spacing:0.04em; }
+.bnav-bar { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:28px; height:2.5px; border-radius:2px; background:var(--ink); opacity:0; transition:opacity 0.15s; }
+.bnav-btn.on .bnav-bar { opacity:1; }
 
-  .drawer-date { font-size:11px; color:var(--ink-muted); letter-spacing:0.06em; padding:12px 20px; border-bottom:1px solid var(--border); }
+/* ── STATS ── */
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
+.stat-card { background:var(--surface); border-radius:16px; padding:18px 16px; box-shadow:var(--shadow-sm); }
+.stat-card.accent { background:var(--ink); }
+.stat-num { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:600; line-height:1; color:var(--ink); }
+.stat-card.accent .stat-num { color:var(--surface); }
+.stat-lbl { font-size:11px; color:var(--ink3); margin-top:4px; letter-spacing:0.04em; }
+.stat-card.accent .stat-lbl { color:rgba(255,255,255,0.5); }
+.stat-sub { font-size:10px; color:var(--rose); margin-top:2px; font-weight:500; }
+.stat-card.accent .stat-sub { color:var(--accent2); }
 
-  .drawer-nav { flex:1; padding:8px 0; overflow-y:auto; }
-  .drawer-item {
-    display:flex; align-items:center; gap:14px;
-    padding:13px 20px; cursor:pointer; border:none; background:none;
-    width:100%; text-align:left; color:var(--ink-light);
-    font-family:'Jost',sans-serif; font-size:13px; font-weight:400;
-    letter-spacing:0.04em; transition:background 0.12s,color 0.12s;
-    border-left:3px solid transparent;
-  }
-  .drawer-item:hover { background:var(--surface2); }
-  .drawer-item.active { color:var(--ink); border-left-color:var(--blush-deep); background:var(--surface2); font-weight:500; }
-  .drawer-item-icon { font-size:18px; width:24px; text-align:center; flex-shrink:0; }
-  .drawer-section-label { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); padding:14px 20px 6px; }
+/* ── SECTION HEADER ── */
+.sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.sec-title { font-size:16px; font-weight:600; color:var(--ink); letter-spacing:-0.01em; }
+.filter-strip { display:flex; gap:6px; }
+.flt { font-size:11px; font-weight:500; padding:5px 13px; border-radius:20px; border:1.5px solid var(--border); background:none; color:var(--ink3); cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.12s; letter-spacing:0.03em; }
+.flt.on { background:var(--ink); color:var(--surface); border-color:var(--ink); }
 
-  .drawer-footer { padding:16px 20px; border-top:1px solid var(--border); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
-  .drawer-sync { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-muted); }
+/* ── ORDER CARDS ── */
+.orders-list { display:flex; flex-direction:column; gap:10px; }
+.ocard {
+  background:var(--surface); border-radius:16px;
+  padding:16px; display:flex; gap:14px; align-items:center;
+  cursor:pointer; box-shadow:var(--shadow-sm);
+  transition:transform 0.12s, box-shadow 0.12s;
+  -webkit-user-select:none;
+}
+.ocard:active { transform:scale(0.984); box-shadow:none; }
+.onum-wrap { width:40px; height:40px; border-radius:12px; background:var(--surface2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.onum { font-family:'Cormorant Garamond',serif; font-size:17px; font-weight:600; color:var(--rose); line-height:1; }
+.oinfo { flex:1; min-width:0; }
+.ocust { font-size:14px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.oprod { font-size:12px; color:var(--ink2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ometa { font-size:11px; color:var(--ink3); margin-top:3px; }
+.oright { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+.oprice { font-size:14px; font-weight:600; color:var(--ink); letter-spacing:-0.01em; }
+.obadge { font-size:9px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:3px 8px; border-radius:20px; }
+.b-pending   { background:#FFF3E8; color:var(--pending);   }
+.b-delivered { background:#E8F5EB; color:var(--delivered); }
+.b-cancelled { background:#FAEAEA; color:var(--cancelled); }
 
-  /* ── SCROLLABLE CONTENT ── */
-  .app-content {
-    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
-    padding-top:56px; /* header height */
-    padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 70px)); /* bottom nav */
-  }
-  .screen { display:none; padding:16px; max-width:700px; margin:0 auto; }
-  .screen.active { display:block; }
+/* ── FORM ── */
+.panel { background:var(--surface); border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:var(--shadow-sm); }
+.panel-hdr { font-size:15px; font-weight:600; color:var(--ink); margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border); letter-spacing:-0.01em; }
+.fg { display:flex; flex-direction:column; gap:5px; }
+.fg label { font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); }
+.fg input, .fg select, .fg textarea {
+  border:1.5px solid var(--border); border-radius:10px;
+  padding:11px 14px; font-family:'Inter',sans-serif; font-size:14px;
+  color:var(--ink); background:var(--surface2);
+  outline:none; width:100%; transition:border-color 0.15s, background 0.15s;
+  -webkit-appearance:none;
+}
+.fg input:focus, .fg select:focus, .fg textarea:focus { border-color:var(--ink); background:var(--surface); }
+.fg textarea { resize:none; min-height:72px; }
+.fg select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239999A8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.full { grid-column:1/-1; }
 
-  /* ── BOTTOM NAV ── */
-  .bottom-nav {
-    position:fixed; bottom:0; left:0; right:0; z-index:50;
-    background:var(--nav-bg);
-    border-top: 1px solid var(--nav-border);
-    display:flex; align-items:stretch;
-    padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -2px 16px var(--shadow);
-  }
-  .nav-item {
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:10px 4px 8px; gap:3px; cursor:pointer; border:none; background:none;
-    color:var(--nav-fg); transition:all 0.15s;
-    font-family:'Jost',sans-serif; position:relative;
-  }
-  .nav-item.active { color:var(--nav-active); }
-  .nav-item.active::before {
-    content:''; position:absolute; top:0; left:20%; right:20%;
-    height:2px; background:var(--nav-active); border-radius:0 0 2px 2px;
-  }
-  .nav-item-icon { font-size:20px; line-height:1; }
-  .nav-item-label { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; font-weight:500; }
+/* ── BUTTONS ── */
+.btn-row { display:flex; gap:10px; margin-top:18px; }
+.btn { font-family:'Inter',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.02em; padding:13px 20px; border:none; border-radius:12px; cursor:pointer; transition:all 0.15s; }
+.btn-dark { background:var(--ink); color:var(--surface); flex:1; }
+.btn-dark:active { opacity:0.85; }
+.btn-dark:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-outline { background:none; color:var(--ink2); border:1.5px solid var(--border); flex:0 0 auto; }
+.btn-red { background:none; color:var(--cancelled); border:1.5px solid rgba(176,64,64,0.25); flex:0 0 auto; }
+.btn-rose { background:none; color:var(--rose); border:1.5px solid rgba(192,128,128,0.3); flex:0 0 auto; }
 
-  /* ── STATS ── */
-  .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px; }
-  .stat { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
-  .stat-value { font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:600; color:var(--ink); line-height:1; }
-  .stat-label { font-size:10px; color:var(--ink-muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:4px; }
-  .stat.revenue .stat-value { color:var(--blush-deep); }
+/* ── PRODUCTS ── */
+.prod-add { display:flex; gap:10px; margin-bottom:16px; }
+.prod-add input { flex:1; }
+.prod-list { display:flex; flex-direction:column; gap:8px; }
+.pitem { background:var(--surface2); border-radius:12px; padding:13px 14px; display:flex; align-items:center; gap:10px; }
+.pitem.off { opacity:0.4; }
+.pname { flex:1; font-size:14px; font-weight:500; color:var(--ink); }
+.pname-inp { flex:1; border:1.5px solid var(--rose); border-radius:8px; padding:7px 10px; font-family:'Inter',sans-serif; font-size:13px; background:var(--surface); color:var(--ink); outline:none; }
+.ptoggle { font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:4px 10px; border-radius:20px; cursor:pointer; border:none; font-family:'Inter',sans-serif; }
+.pon  { background:#E8F5EB; color:var(--delivered); }
+.poff { background:var(--border); color:var(--ink3); }
+.icon-btn { background:none; border:none; cursor:pointer; color:var(--ink3); padding:5px; border-radius:6px; font-size:15px; line-height:1; transition:color 0.12s; }
+.icon-btn:hover { color:var(--ink); }
+.icon-btn.del:hover { color:var(--cancelled); }
 
-  /* ── PANEL ── */
-  .panel { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:14px; }
-  .panel-title { font-family:'Cormorant Garamond',serif; font-size:15px; font-weight:500; letter-spacing:0.06em; margin-bottom:14px; color:var(--ink); border-bottom:1px solid var(--border); padding-bottom:10px; }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .form-group { display:flex; flex-direction:column; gap:4px; }
-  .form-group.full { grid-column:1/-1; }
-  label { font-size:10px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-muted); }
-  input,select,textarea {
-    border:1px solid var(--border); border-radius:6px; padding:10px 12px;
-    font-family:'Jost',sans-serif; font-size:14px; color:var(--ink);
-    background:var(--surface2); outline:none; width:100%;
-    transition:border-color 0.15s;
-    -webkit-appearance:none; appearance:none;
-  }
-  input:focus,select:focus,textarea:focus { border-color:var(--blush-deep); background:var(--surface); }
-  textarea { resize:none; min-height:70px; }
-  select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23A89880' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px; }
+/* ── COPY SCREEN ── */
+.copy-wrap { display:flex; flex-direction:column; gap:14px; }
+.copy-preview { background:var(--surface); border-radius:16px; padding:16px; box-shadow:var(--shadow-sm); font-size:12px; line-height:1.7; color:var(--ink2); white-space:pre-wrap; word-break:break-word; max-height:320px; overflow-y:auto; display:none; }
 
-  /* ── BUTTONS ── */
-  .btn-row { display:flex; gap:10px; margin-top:14px; }
-  .btn { font-family:'Jost',sans-serif; font-size:12px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; transition:all 0.15s; flex:1; }
-  .btn-primary { background:var(--ink); color:var(--bg); }
-  .btn-primary:hover,.btn-primary:active { background:var(--blush-deep); color:#fff; }
-  .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
-  .btn-ghost { background:transparent; color:var(--ink-light); border:1px solid var(--border); flex:0 0 auto; }
-  .btn-danger { background:transparent; color:var(--cancelled); border:1px solid rgba(192,99,92,0.4); flex:0 0 auto; }
-  .btn-edit-inline { background:transparent; color:var(--blush-deep); border:1px solid rgba(180,126,126,0.4); flex:0 0 auto; }
-  .btn-sm { padding:8px 14px; font-size:11px; flex:0 0 auto; }
+/* ── SETTINGS ── */
+.srow { display:flex; align-items:center; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--border); }
+.srow:last-child { border-bottom:none; }
+.slabel { font-size:14px; font-weight:500; color:var(--ink); }
+.shint { font-size:12px; color:var(--ink3); margin-top:2px; }
+.switch { position:relative; width:44px; height:26px; flex-shrink:0; }
+.switch input { opacity:0; width:0; height:0; }
+.sslider { position:absolute; inset:0; background:var(--border); border-radius:26px; cursor:pointer; transition:0.2s; }
+.sslider:before { content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.18); }
+input:checked + .sslider { background:var(--ink); }
+input:checked + .sslider:before { transform:translateX(18px); }
 
-  /* ── FILTER ROW ── */
-  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .section-title { font-family:'Cormorant Garamond',serif; font-size:17px; font-weight:500; }
-  .filter-row { display:flex; gap:6px; }
-  .filter-btn { font-size:11px; padding:5px 12px; border-radius:16px; border:1px solid var(--border); background:var(--surface); color:var(--ink-muted); cursor:pointer; font-family:'Jost',sans-serif; transition:all 0.12s; }
-  .filter-btn.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+/* ── EMPTY ── */
+.empty { text-align:center; padding:56px 20px; }
+.empty-ico { font-size:40px; opacity:0.25; margin-bottom:12px; }
+.empty-txt { font-size:16px; font-weight:600; color:var(--ink2); }
+.empty-sub { font-size:13px; color:var(--ink3); margin-top:6px; }
 
-  /* ── ORDER CARDS ── */
-  .orders-list { display:flex; flex-direction:column; gap:8px; }
-  .order-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; gap:12px; align-items:center; cursor:pointer; transition:box-shadow 0.15s,border-color 0.15s; active:scale(0.98); }
-  .order-card:active { transform:scale(0.985); }
-  .order-card:hover { box-shadow:0 2px 10px var(--shadow); border-color:var(--blush); }
-  .order-num { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:600; color:var(--blush); min-width:34px; text-align:center; flex-shrink:0; }
-  .order-info { flex:1; min-width:0; }
-  .order-customer { font-weight:500; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .order-product { font-size:12px; color:var(--ink-light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .order-meta { font-size:11px; color:var(--ink-muted); margin-top:2px; }
-  .order-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
-  .order-price { font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:600; }
-  .status-badge { font-size:9px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; padding:3px 8px; border-radius:12px; white-space:nowrap; }
-  .status-pending   { background:rgba(196,149,106,0.15); color:var(--pending);   border:1px solid rgba(196,149,106,0.35); }
-  .status-delivered { background:rgba(122,158,126,0.15); color:var(--delivered); border:1px solid rgba(122,158,126,0.35); }
-  .status-cancelled { background:rgba(192,99,92,0.15);  color:var(--cancelled); border:1px solid rgba(192,99,92,0.35); }
+/* ── MODAL SHEET ── */
+.sheet-mask { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:flex-end; }
+.sheet-mask.open { display:flex; }
+.sheet { background:var(--surface); border-radius:24px 24px 0 0; width:100%; max-height:92vh; overflow-y:auto; animation:up 0.22s ease; }
+@keyframes up { from { transform:translateY(40px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.sheet-grip { width:36px; height:4px; background:var(--border); border-radius:2px; margin:12px auto 0; }
+.sheet-hdr { padding:16px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; }
+.sheet-title { font-size:18px; font-weight:700; color:var(--ink); letter-spacing:-0.01em; }
+.sheet-sub { font-size:12px; color:var(--ink3); margin-top:2px; }
+.sheet-x { background:var(--surface2); border:none; cursor:pointer; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink2); font-size:14px; flex-shrink:0; }
+.sheet-body { padding:18px 20px; }
+.sheet-foot { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; padding-bottom:max(14px,env(safe-area-inset-bottom)); }
 
-  /* ── COPY BAR ── */
-  .copy-bar { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .copy-bar-label { font-size:10px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-muted); white-space:nowrap; }
-  .copy-date-input { border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-family:'Jost',sans-serif; font-size:13px; color:var(--ink); background:var(--surface2); outline:none; flex:1; min-width:130px; -webkit-appearance:none; }
-  .copy-count { font-size:11px; color:var(--ink-muted); white-space:nowrap; }
-  .btn-copy { font-family:'Jost',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; background:var(--ink); color:var(--bg); transition:all 0.15s; white-space:nowrap; }
-  .btn-copy:active { background:var(--blush-deep); color:#fff; }
-  .btn-copy.copied { background:var(--delivered); color:#fff; }
+/* ── DETAIL VIEW ── */
+.det-hero { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+.det-num { font-family:'Cormorant Garamond',serif; font-size:44px; font-weight:600; color:var(--rose); line-height:1; }
+.det-sec { margin-bottom:16px; }
+.det-sec-ttl { font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); margin-bottom:10px; }
+.det-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.det-field { display:flex; flex-direction:column; gap:3px; }
+.det-field.full { grid-column:1/-1; }
+.det-lbl { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); }
+.det-val { font-size:14px; font-weight:500; color:var(--ink); }
+.det-val.big { font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:600; color:var(--rose); line-height:1; margin-top:2px; }
+.det-val.muted { color:var(--ink3); font-style:italic; font-weight:400; }
+.det-note { background:var(--surface2); border-radius:12px; padding:13px 14px; font-size:13px; color:var(--ink2); line-height:1.6; }
 
-  /* ── PRODUCTS ── */
-  .product-add-row { display:flex; gap:8px; margin-bottom:14px; }
-  .product-add-row input { flex:1; }
-  .product-list { display:flex; flex-direction:column; gap:8px; }
-  .product-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
-  .product-item.inactive { opacity:0.45; }
-  .product-name { flex:1; font-size:14px; }
-  .product-name-input { flex:1; border:1px solid var(--blush-deep); border-radius:6px; padding:7px 10px; font-family:'Jost',sans-serif; font-size:13px; background:var(--surface); color:var(--ink); outline:none; width:100%; }
-  .product-actions { display:flex; gap:6px; align-items:center; }
-  .toggle-badge { font-size:10px; padding:3px 9px; border-radius:12px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; border:none; font-family:'Jost',sans-serif; }
-  .toggle-badge.active-p  { background:rgba(122,158,126,0.15); color:var(--delivered); border:1px solid rgba(122,158,126,0.35); }
-  .toggle-badge.inactive-p { background:var(--surface); color:var(--ink-muted); border:1px solid var(--border); }
-  .icon-btn { background:none; border:none; cursor:pointer; color:var(--ink-light); padding:4px 6px; border-radius:4px; font-size:15px; line-height:1; transition:color 0.12s; }
-  .icon-btn:hover { color:var(--blush-deep); }
-  .icon-btn.del:hover { color:var(--cancelled); }
+/* ── EDIT ── */
+.edit-warn { background:#FFF8F0; border:1.5px solid #F0D0A0; border-radius:12px; padding:12px 14px; margin-bottom:16px; font-size:13px; color:#8A5A20; line-height:1.5; }
+[data-theme="dark"] .edit-warn { background:#2A1E10; border-color:#5A3A10; color:#D4A050; }
+.edit-warn strong { display:block; font-size:14px; margin-bottom:3px; }
+.edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.edit-full { grid-column:1/-1; }
 
-  /* ── SETTINGS SCREEN ── */
-  .settings-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); }
-  .settings-row:last-child { border-bottom:none; }
-  .settings-label { font-size:13px; color:var(--ink); }
-  .settings-hint { font-size:11px; color:var(--ink-muted); margin-top:2px; }
-  .switch { position:relative; width:44px; height:24px; flex-shrink:0; }
-  .switch input { opacity:0; width:0; height:0; }
-  .slider { position:absolute; inset:0; background:var(--border); border-radius:24px; cursor:pointer; transition:0.2s; }
-  .slider:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:white; border-radius:50%; transition:0.2s; }
-  input:checked + .slider { background:var(--ink); }
-  input:checked + .slider:before { transform:translateX(20px); }
-
-  /* ── EMPTY ── */
-  .empty { text-align:center; padding:48px 20px; color:var(--ink-light); }
-  .empty-icon { font-size:36px; margin-bottom:10px; opacity:0.35; }
-  .empty-text { font-family:'Cormorant Garamond',serif; font-size:18px; font-style:italic; }
-  .empty-sub { font-size:12px; color:var(--ink-muted); margin-top:6px; }
-
-  /* ── MODALS ── */
-  .modal-overlay { display:none; position:fixed; inset:0; background:var(--overlay); z-index:100; align-items:flex-end; justify-content:center; }
-  .modal-overlay.open { display:flex; }
-  .modal { background:var(--surface); border-radius:18px 18px 0 0; width:100%; max-height:90vh; overflow-y:auto; border-top:1px solid var(--border); animation: slideUp 0.25s ease; }
-  @keyframes slideUp { from { transform:translateY(60px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-  .modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:12px auto 0; }
-  .modal-header { padding:16px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-  .modal-title { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:500; color:var(--ink); }
-  .modal-subtitle { font-size:11px; color:var(--ink-muted); margin-top:2px; }
-  .modal-close { background:none; border:none; cursor:pointer; color:var(--ink-muted); font-size:18px; padding:2px; }
-  .modal-body { padding:18px 20px; }
-  .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; padding-bottom:max(14px,env(safe-area-inset-bottom)); }
-
-  .detail-badge-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
-  .detail-order-num { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:600; color:var(--blush); line-height:1; }
-  .detail-section { margin-bottom:16px; }
-  .detail-section-title { font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .detail-field { display:flex; flex-direction:column; gap:3px; }
-  .detail-field.full { grid-column:1/-1; }
-  .detail-label { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-muted); }
-  .detail-value { font-size:14px; color:var(--ink); }
-  .detail-value.price { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:600; color:var(--blush-deep); }
-  .detail-value.empty-val { color:var(--ink-muted); font-style:italic; }
-  .detail-notes-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:13px; color:var(--ink); line-height:1.5; }
-
-  /* ── EDIT MODE ── */
-  .edit-warning { background:rgba(196,149,106,0.12); border:1px solid rgba(196,149,106,0.4); border-radius:8px; padding:12px 14px; margin-bottom:16px; display:flex; gap:10px; }
-  .edit-warning-text { font-size:12px; color:var(--pending); line-height:1.5; }
-  .edit-warning-text strong { display:block; margin-bottom:2px; font-size:13px; }
-  .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .edit-grid .form-group { margin:0; }
-  .edit-full { grid-column:1/-1; }
-  .edit-input { border:1px solid var(--blush-deep) !important; }
-
-
-  .settings-theme-btn { background:none; border:none; cursor:pointer; padding:6px 14px; border-radius:12px; font-size:13px; transition:all 0.2s; color:var(--ink-muted); }
-  /* ── TOAST ── */
-  #toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--ink); color:var(--bg); padding:10px 20px; border-radius:20px; font-size:13px; opacity:0; transition:all 0.25s; pointer-events:none; z-index:999; white-space:nowrap; }
-  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-  #toast.error { background:var(--cancelled); color:#fff; }
+/* ── TOAST ── */
+#toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--ink); color:var(--surface); padding:10px 20px; border-radius:24px; font-size:13px; font-weight:500; opacity:0; transition:all 0.22s; pointer-events:none; z-index:999; white-space:nowrap; box-shadow:var(--shadow-md); }
+#toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.err { background:#B04040; }
 </style>
 </head>
 <body>
 
-<!-- ── FIXED HEADER ── -->
-<header class="app-header">
-  <button class="hamburger" onclick="openDrawer()" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="brand">La <em>Robe</em></div>
-  <div class="header-right">
-    <div class="sync-dot" id="syncDot"></div>
-    <div class="theme-toggle">
-      <button class="theme-btn active" id="btnLight" onclick="setTheme('light')">☀️</button>
-      <button class="theme-btn" id="btnDark" onclick="setTheme('dark')">🌙</button>
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-left">
+    <button class="hamburger" onclick="openDrawer()"><span></span><span></span><span></span></button>
+    <div class="hdr-title">La <em>Robe</em></div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-pill"><div class="sync-dot" id="syncDot"></div><span id="syncTxt">Live</span></div>
+    <div class="theme-pill">
+      <button id="tl" class="on" onclick="setTheme('light')">☀️</button>
+      <button id="td" onclick="setTheme('dark')">🌙</button>
     </div>
   </div>
 </header>
 
-<!-- ── DRAWER OVERLAY ── -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
-
-<!-- ── SIDE DRAWER ── -->
+<!-- DRAWER -->
+<div class="drawer-mask" id="dmask" onclick="closeDrawer()"></div>
 <nav class="drawer" id="drawer">
-  <div class="drawer-header">
-    <div class="drawer-brand">La <em>Robe</em> Maldives</div>
-    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  <div class="drawer-hdr">
+    <div class="drawer-logo">La <em>Robe</em> Maldives</div>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
   </div>
   <div class="drawer-date" id="drawerDate"></div>
   <div class="drawer-nav">
-    <div class="drawer-section-label">Main</div>
-    <button class="drawer-item active" id="dnav-orders" onclick="navTo('orders')">
-      <span class="drawer-item-icon">📋</span> Orders
-    </button>
-    <button class="drawer-item" id="dnav-new" onclick="navTo('new')">
-      <span class="drawer-item-icon">➕</span> New Order
-    </button>
-    <button class="drawer-item" id="dnav-copy" onclick="navTo('copy')">
-      <span class="drawer-item-icon">📄</span> Copy Day
-    </button>
-    <div class="drawer-section-label">Manage</div>
-    <button class="drawer-item" id="dnav-products" onclick="navTo('products')">
-      <span class="drawer-item-icon">🏷</span> Products
-    </button>
-    <button class="drawer-item" id="dnav-settings" onclick="navTo('settings')">
-      <span class="drawer-item-icon">⚙️</span> Settings
-    </button>
+    <div class="drawer-label">Main</div>
+    <button class="drawer-btn on" id="dn-orders" onclick="go('orders')"><span class="drawer-btn-icon">📋</span>Orders</button>
+    <button class="drawer-btn"    id="dn-new"    onclick="go('new')">   <span class="drawer-btn-icon">➕</span>New Order</button>
+    <button class="drawer-btn"    id="dn-copy"   onclick="go('copy')">  <span class="drawer-btn-icon">📄</span>Copy Day</button>
+    <div class="drawer-label">Manage</div>
+    <button class="drawer-btn" id="dn-products" onclick="go('products')"><span class="drawer-btn-icon">🏷</span>Products</button>
+    <button class="drawer-btn" id="dn-settings" onclick="go('settings')"><span class="drawer-btn-icon">⚙️</span>Settings</button>
   </div>
-  <div class="drawer-footer">
-    <div class="drawer-sync">
-      <div class="sync-dot" id="drawerSyncDot"></div>
-      <span id="drawerSyncLabel">Connecting…</span>
-    </div>
-  </div>
+  <div class="drawer-foot"><div class="drawer-ver">La Robe Orders · v2.0</div></div>
 </nav>
 
-<!-- ── SCROLLABLE CONTENT ── -->
-<div class="app-content">
+<!-- CONTENT -->
+<main class="content">
 
-  <!-- ORDERS SCREEN -->
-  <div class="screen active" id="screen-orders">
+  <!-- ORDERS -->
+  <section class="screen on" id="sc-orders">
     <div class="stats">
-      <div class="stat"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Today</div></div>
-      <div class="stat"><div class="stat-value" id="statPending">0</div><div class="stat-label">Pending</div></div>
-      <div class="stat"><div class="stat-value" id="statDelivered">0</div><div class="stat-label">Delivered</div></div>
-      <div class="stat revenue"><div class="stat-value" id="statRevenue">0</div><div class="stat-label">MVR</div></div>
+      <div class="stat-card accent">
+        <div class="stat-num" id="stTotal">0</div>
+        <div class="stat-lbl">Orders Today</div>
+        <div class="stat-sub" id="stDate"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stRevenue" style="font-size:24px">0</div>
+        <div class="stat-lbl">MVR Revenue</div>
+        <div class="stat-sub" id="stPending"></div>
+      </div>
     </div>
-    <div class="section-header">
-      <div class="section-title">Today's Orders</div>
-      <div class="filter-row">
-        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
-        <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
-        <button class="filter-btn" onclick="setFilter('delivered',this)">Delivered</button>
+    <div class="sec-hdr">
+      <div class="sec-title">Today's Orders</div>
+      <div class="filter-strip">
+        <button class="flt on" onclick="setFlt('all',this)">All</button>
+        <button class="flt" onclick="setFlt('pending',this)">Pending</button>
+        <button class="flt" onclick="setFlt('delivered',this)">Done</button>
       </div>
     </div>
     <div class="orders-list" id="ordersList">
-      <div class="empty"><div class="empty-icon">🛍</div><div class="empty-text">Loading…</div></div>
+      <div class="empty"><div class="empty-ico">🛍</div><div class="empty-txt">Loading…</div></div>
     </div>
-  </div>
+  </section>
 
-  <!-- NEW ORDER SCREEN -->
-  <div class="screen" id="screen-new">
+  <!-- NEW ORDER -->
+  <section class="screen" id="sc-new">
     <div class="panel">
-      <div class="panel-title">New Order</div>
+      <div class="panel-hdr">New Order</div>
       <div class="form-grid">
-        <div class="form-group"><label>Customer Name</label><input type="text" id="customerName" placeholder="Aminath Riyasha"></div>
-        <div class="form-group"><label>Contact</label><input type="text" id="customerContact" placeholder="+960 7xx xxxx"></div>
-        <div class="form-group full"><label>Product</label><select id="product"><option value="">Select product…</option></select></div>
-        <div class="form-group"><label>Price (MVR)</label><input type="number" id="price" placeholder="0" min="0" inputmode="numeric"></div>
-        <div class="form-group"><label>Status</label>
-          <select id="newStatus">
+        <div class="fg"><label>Customer Name</label><input id="fName" type="text" placeholder="Aminath Riyasha"></div>
+        <div class="fg"><label>Contact</label><input id="fContact" type="tel" placeholder="+960 7xx xxxx"></div>
+        <div class="fg full"><label>Product</label><select id="fProduct"><option value="">Select product…</option></select></div>
+        <div class="fg"><label>Price (MVR)</label><input id="fPrice" type="number" placeholder="0" min="0" inputmode="numeric"></div>
+        <div class="fg"><label>Status</label>
+          <select id="fStatus">
             <option value="pending">Pending</option>
             <option value="delivered">Delivered</option>
           </select>
         </div>
-        <div class="form-group"><label>Delivery</label>
-          <select id="delivery">
+        <div class="fg"><label>Delivery</label>
+          <select id="fDelivery">
             <option value="Local Delivery">Local (Hulhumalé)</option>
-            <option value="Male Delivery">Malé</option>
+            <option value="Male Delivery">Malé Delivery</option>
             <option value="Harbour / Ferry">Harbour / Ferry</option>
-            <option value="Pickup">Pickup</option>
+            <option value="Pickup">Customer Pickup</option>
           </select>
         </div>
-        <div class="form-group"><label>Payment</label>
-          <select id="payment">
+        <div class="fg"><label>Payment</label>
+          <select id="fPayment">
             <option value="BML Transfer">BML Transfer</option>
             <option value="Cash on Delivery">Cash on Delivery</option>
             <option value="MIB Transfer">MIB Transfer</option>
             <option value="Paid via Messenger">Messenger</option>
           </select>
         </div>
-        <div class="form-group full"><label>Notes</label><textarea id="notes" placeholder="Colour, address, instructions…"></textarea></div>
+        <div class="fg full"><label>Notes</label><textarea id="fNotes" placeholder="Colour, address, special instructions…"></textarea></div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-ghost btn-sm" onclick="clearForm()">Clear</button>
-        <button class="btn btn-primary" id="submitBtn" onclick="addOrder()">Record Order</button>
+        <button class="btn btn-outline" onclick="clearForm()">Clear</button>
+        <button class="btn btn-dark" id="submitBtn" onclick="addOrder()">Record Order</button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- COPY SCREEN -->
-  <div class="screen" id="screen-copy">
+  <!-- COPY -->
+  <section class="screen" id="sc-copy">
     <div class="panel">
-      <div class="panel-title">Copy Day's Orders</div>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="form-group">
-          <label>Select Date</label>
-          <input type="date" id="copyDate" class="copy-date-input" style="width:100%">
+      <div class="panel-hdr">Copy Day's Orders</div>
+      <div class="copy-wrap">
+        <div class="fg"><label>Date</label><input type="date" id="copyDate"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="font-size:13px;color:var(--ink3)" id="copyCount"></span>
+          <button class="btn btn-dark" id="copyBtn" onclick="copyOrders()" style="flex:0 0 auto;padding:11px 18px;font-size:12px">Copy as Text</button>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span class="copy-count" id="copyCount" style="font-size:13px;color:var(--ink-muted)"></span>
-          <button class="btn-copy" id="copyBtn" onclick="copyOrders()"><span id="copyText">Copy as Text</span></button>
-        </div>
+        <pre class="copy-preview" id="copyPreview"></pre>
       </div>
     </div>
-    <div class="panel" id="copyPreviewPanel" style="display:none">
-      <div class="panel-title">Preview</div>
-      <pre id="copyPreview" style="font-size:12px;color:var(--ink-light);line-height:1.6;white-space:pre-wrap;word-break:break-word"></pre>
-    </div>
-  </div>
+  </section>
 
-  <!-- PRODUCTS SCREEN -->
-  <div class="screen" id="screen-products">
+  <!-- PRODUCTS -->
+  <section class="screen" id="sc-products">
     <div class="panel">
-      <div class="panel-title">Manage Products</div>
-      <div class="product-add-row">
-        <input type="text" id="newProductName" placeholder="e.g. Clutch Bag — Gold">
-        <button class="btn btn-primary btn-sm" onclick="addProduct()">+ Add</button>
+      <div class="panel-hdr">Manage Products</div>
+      <div class="prod-add">
+        <div class="fg" style="flex:1"><input id="newProd" type="text" placeholder="e.g. Clutch Bag — Gold"></div>
+        <button class="btn btn-dark btn-sm" onclick="addProduct()" style="flex:0 0 auto;padding:11px 16px;font-size:12px;border-radius:10px;align-self:flex-end">+ Add</button>
       </div>
-      <div class="product-list" id="productList">
-        <div class="empty"><div class="empty-text">Loading…</div></div>
+      <div class="prod-list" id="productList">
+        <div class="empty"><div class="empty-txt">Loading…</div></div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- SETTINGS SCREEN -->
-  <div class="screen" id="screen-settings">
+  <!-- SETTINGS -->
+  <section class="screen" id="sc-settings">
     <div class="panel">
-      <div class="panel-title">Settings</div>
-      <div class="settings-row">
-        <div><div class="settings-label">Theme</div><div class="settings-hint">Choose light or dark appearance</div></div>
-        <div style="display:flex;background:var(--surface2);border-radius:16px;padding:2px;border:1px solid var(--border)">
-          <button id="btnLight2" onclick="setTheme('light')" class="settings-theme-btn">☀️ Light</button>
-          <button id="btnDark2" onclick="setTheme('dark')" class="settings-theme-btn">🌙 Dark</button>
+      <div class="panel-hdr">Appearance</div>
+      <div class="srow">
+        <div><div class="slabel">Theme</div><div class="shint">Light or dark display</div></div>
+        <div class="theme-pill" style="background:var(--surface2)">
+          <button id="tl2" class="on" onclick="setTheme('light')" style="color:var(--ink2)">☀️</button>
+          <button id="td2" onclick="setTheme('dark')" style="color:var(--ink2)">🌙</button>
         </div>
       </div>
-      <div class="settings-row">
-        <div><div class="settings-label">Sync status</div><div class="settings-hint" id="settingsSyncLabel">Checking…</div></div>
-        <div class="sync-dot" id="settingsSyncDot"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr">Status</div>
+      <div class="srow">
+        <div><div class="slabel">Sync</div><div class="shint" id="settSyncHint">Checking…</div></div>
+        <div class="sync-dot" id="settSyncDot"></div>
       </div>
-      <div class="settings-row">
-        <div><div class="settings-label">App version</div><div class="settings-hint">La Robe Orders v2.0</div></div>
+      <div class="srow">
+        <div><div class="slabel">Version</div><div class="shint">La Robe Orders v2.0</div></div>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-title">About</div>
-      <div style="font-size:13px;color:var(--ink-light);line-height:1.7">
+      <div class="panel-hdr">About</div>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.7">
         La Robe Maldives daily order manager.<br>
-        Data synced to Supabase in real time.<br>
-        <span style="color:var(--ink-muted);font-size:12px">anashath.github.io/larobe-orders</span>
+        Synced live to Supabase across all devices.<br>
+        <span style="color:var(--ink3);font-size:12px">anashath.github.io/larobe-orders</span>
       </div>
     </div>
-  </div>
+  </section>
 
-</div>
+</main>
 
-<!-- ── BOTTOM NAV ── -->
-<nav class="bottom-nav">
-  <button class="nav-item active" id="bnav-orders" onclick="navTo('orders')">
-    <span class="nav-item-icon">📋</span>
-    <span class="nav-item-label">Orders</span>
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <button class="bnav-btn on" id="bn-orders" onclick="go('orders')">
+    <span class="bnav-icon">📋<span class="bnav-dot"></span></span>
+    <span class="bnav-label">Orders</span>
+    <span class="bnav-bar"></span>
   </button>
-  <button class="nav-item" id="bnav-new" onclick="navTo('new')">
-    <span class="nav-item-icon">➕</span>
-    <span class="nav-item-label">New</span>
+  <button class="bnav-btn" id="bn-new" onclick="go('new')">
+    <span class="bnav-icon">➕</span>
+    <span class="bnav-label">New</span>
+    <span class="bnav-bar"></span>
   </button>
-  <button class="nav-item" id="bnav-copy" onclick="navTo('copy')">
-    <span class="nav-item-icon">📄</span>
-    <span class="nav-item-label">Copy</span>
+  <button class="bnav-btn" id="bn-copy" onclick="go('copy')">
+    <span class="bnav-icon">📄</span>
+    <span class="bnav-label">Copy</span>
+    <span class="bnav-bar"></span>
   </button>
-  <button class="nav-item" id="bnav-products" onclick="navTo('products')">
-    <span class="nav-item-icon">🏷</span>
-    <span class="nav-item-label">Products</span>
+  <button class="bnav-btn" id="bn-products" onclick="go('products')">
+    <span class="bnav-icon">🏷</span>
+    <span class="bnav-label">Products</span>
+    <span class="bnav-bar"></span>
   </button>
-  <button class="nav-item" id="bnav-settings" onclick="navTo('settings')">
-    <span class="nav-item-icon">⚙️</span>
-    <span class="nav-item-label">Settings</span>
+  <button class="bnav-btn" id="bn-settings" onclick="go('settings')">
+    <span class="bnav-icon">⚙️</span>
+    <span class="bnav-label">Settings</span>
+    <span class="bnav-bar"></span>
   </button>
 </nav>
 
-<!-- ── ORDER DETAIL MODAL ── -->
-<div class="modal-overlay" id="detailOverlay">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-header">
+<!-- ORDER DETAIL SHEET -->
+<div class="sheet-mask" id="sheetMask">
+  <div class="sheet" id="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-hdr">
       <div>
-        <div class="modal-title" id="detailTitle">Order Detail</div>
-        <div class="modal-subtitle" id="detailTime"></div>
+        <div class="sheet-title" id="sheetTitle">Order</div>
+        <div class="sheet-sub" id="sheetSub"></div>
       </div>
-      <button class="modal-close" onclick="closeDetail()">✕</button>
+      <button class="sheet-x" onclick="closeSheet()">×</button>
     </div>
-    <div class="modal-body" id="detailBody"></div>
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" id="detailDeleteBtn">Delete</button>
-      <button class="btn btn-edit-inline btn-sm" id="detailEditBtn" onclick="enterEditMode()">Edit</button>
-      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button>
-      <button class="btn btn-primary" id="detailSaveBtn" style="display:none">Save</button>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-foot">
+      <button class="btn btn-red" id="sheetDel">Delete</button>
+      <button class="btn btn-rose" id="sheetEdit" onclick="enterEdit()">Edit</button>
+      <button class="btn btn-outline" onclick="closeSheet()">Close</button>
+      <button class="btn btn-dark" id="sheetSave" style="display:none" onclick="saveEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -524,243 +499,180 @@
 <div id="toast"></div>
 
 <script>
-const SUPABASE_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const URL_  = 'https://oyzfkknoeweafiqirurv.supabase.co';
+const KEY_  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
+const db = supabase.createClient(URL_, KEY_);
 
-let orders=[], products=[], activeFilter='all', viewingId=null, editingProductId=null, currentScreen='orders';
+let orders=[], products=[], flt='all', viewId=null, editProdId=null;
 
-// ── THEME ────────────────────────────────────────────────────────────────────
+/* ─ THEME ─ */
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('larobe_theme', t);
-
-  // Header toggle
-  const btnLight = document.getElementById('btnLight');
-  const btnDark  = document.getElementById('btnDark');
-  if (btnLight) btnLight.classList.toggle('active', t==='light');
-  if (btnDark)  btnDark.classList.toggle('active',  t==='dark');
-
-  // Settings toggle
-  const btnLight2 = document.getElementById('btnLight2');
-  const btnDark2  = document.getElementById('btnDark2');
-  if (btnLight2) {
-    btnLight2.style.background    = t==='light' ? 'var(--ink)' : 'none';
-    btnLight2.style.color         = t==='light' ? 'var(--bg)'  : 'var(--ink-muted)';
-    btnLight2.style.borderRadius  = '12px';
-    btnLight2.style.fontWeight    = t==='light' ? '500' : '400';
-  }
-  if (btnDark2) {
-    btnDark2.style.background   = t==='dark' ? 'var(--ink)' : 'none';
-    btnDark2.style.color        = t==='dark' ? 'var(--bg)'  : 'var(--ink-muted)';
-    btnDark2.style.borderRadius = '12px';
-    btnDark2.style.fontWeight   = t==='dark' ? '500' : '400';
-  }
+  localStorage.setItem('lr_theme', t);
+  ['tl','tl2'].forEach(id => { const el=document.getElementById(id); if(el) el.className=t==='light'?'on':''; });
+  ['td','td2'].forEach(id => { const el=document.getElementById(id); if(el) el.className=t==='dark'?'on':''; });
 }
 function loadTheme() {
-  const saved = localStorage.getItem('larobe_theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-  setTheme(saved);
+  setTheme(localStorage.getItem('lr_theme') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
 }
 
-// ── DRAWER ───────────────────────────────────────────────────────────────────
-function openDrawer() {
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
-}
-function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
-}
+/* ─ DRAWER ─ */
+function openDrawer()  { document.getElementById('drawer').classList.add('open'); document.getElementById('dmask').classList.add('open'); }
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('dmask').classList.remove('open'); }
 
-// ── NAVIGATION ───────────────────────────────────────────────────────────────
-function navTo(screen) {
+/* ─ NAV ─ */
+function go(s) {
   closeDrawer();
-  currentScreen = screen;
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.drawer-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('screen-' + screen).classList.add('active');
-  const bn = document.getElementById('bnav-' + screen);
-  const dn = document.getElementById('dnav-' + screen);
-  if (bn) bn.classList.add('active');
-  if (dn) dn.classList.add('active');
-  if (screen === 'products') renderProducts();
-  if (screen === 'copy') initCopy();
-  if (screen === 'settings') updateSettingsSync();
-  // Scroll to top
-  document.querySelector('.app-content').scrollTo(0, 0);
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.bnav-btn').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.drawer-btn').forEach(el=>el.classList.remove('on'));
+  document.getElementById('sc-'+s).classList.add('on');
+  const bn=document.getElementById('bn-'+s); if(bn) bn.classList.add('on');
+  const dn=document.getElementById('dn-'+s); if(dn) dn.classList.add('on');
+  document.querySelector('.content').scrollTo(0,0);
+  if(s==='products') renderProds();
+  if(s==='copy') initCopy();
+  if(s==='settings') updateSettSync();
 }
 
-// ── DATE / SYNC ──────────────────────────────────────────────────────────────
-function todayStr() { return new Date().toISOString().slice(0,10); }
-
-function setHeaderDate() {
-  const d = new Date().toLocaleDateString('en-MV', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('drawerDate').textContent = d;
+/* ─ UTILS ─ */
+function today() { return new Date().toISOString().slice(0,10); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+let _tt;
+function toast(m,err) {
+  const el=document.getElementById('toast');
+  el.textContent=m; el.className='on'+(err?' err':'');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.className='',2800);
 }
 
-function setSyncStatus(online) {
-  ['syncDot','drawerSyncDot','settingsSyncDot'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.className = 'sync-dot' + (online ? '' : ' offline'); }
-  });
-  const lbl = document.getElementById('drawerSyncLabel');
-  if (lbl) lbl.textContent = online ? 'Live sync' : 'Offline';
+/* ─ SYNC ─ */
+function setSync(ok) {
+  ['syncDot','settSyncDot'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='sync-dot'+(ok?'':' off'); });
+  const t=document.getElementById('syncTxt'); if(t) t.textContent=ok?'Live':'Offline';
+  const h=document.getElementById('settSyncHint'); if(h) h.textContent=ok?'Connected to Supabase':'Not connected';
+}
+function updateSettSync() {
+  const ok=!document.getElementById('syncDot').classList.contains('off');
+  const h=document.getElementById('settSyncHint'); if(h) h.textContent=ok?'Connected to Supabase':'Not connected';
+  const d=document.getElementById('settSyncDot'); if(d) d.className='sync-dot'+(ok?'':' off');
 }
 
-function updateSettingsSync() {
-  const dot = document.getElementById('settingsSyncDot');
-  const lbl = document.getElementById('settingsSyncLabel');
-  if (!dot || !lbl) return;
-  const isLive = !dot.classList.contains('offline');
-  lbl.textContent = isLive ? 'Connected to Supabase' : 'Not connected';
-}
-
-// ── PRODUCTS ─────────────────────────────────────────────────────────────────
+/* ─ PRODUCTS ─ */
 async function loadProducts() {
-  const {data,error} = await db.from('products').select('*').order('created_at');
-  if (error) { toast('Could not load products','error'); return; }
-  products = data || [];
-  populateProductDropdown();
+  const {data}=await db.from('products').select('*').order('created_at');
+  products=data||[]; populateDrop();
 }
 
-function populateProductDropdown() {
-  const sel = document.getElementById('product');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">Select product…</option>';
-  products.filter(p=>p.active).forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.name; opt.textContent = p.name;
-    if (p.name === cur) opt.selected = true;
-    sel.appendChild(opt);
-  });
+function populateDrop() {
+  const sel=document.getElementById('fProduct'), cur=sel.value;
+  sel.innerHTML='<option value="">Select product…</option>';
+  products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.name; o.textContent=p.name; if(p.name===cur) o.selected=true; sel.appendChild(o); });
 }
 
-function renderProducts() {
-  const list = document.getElementById('productList');
-  if (!products.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-text">No products yet</div><div class="empty-sub">Add your first product above</div></div>`;
-    return;
-  }
-  list.innerHTML = products.map(p => `
-    <div class="product-item ${p.active?'':'inactive'}" id="pitem-${p.id}">
-      ${editingProductId===p.id
-        ? `<input class="product-name-input" id="pedit-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProductName(${p.id})">`
-        : `<div class="product-name">${esc(p.name)}</div>`}
-      <div class="product-actions">
-        <button class="toggle-badge ${p.active?'active-p':'inactive-p'}" onclick="toggleProduct(${p.id},${p.active})">${p.active?'Active':'Hidden'}</button>
-        ${editingProductId===p.id
-          ? `<button class="icon-btn" onclick="saveProductName(${p.id})">✓</button><button class="icon-btn" onclick="cancelEdit()">✕</button>`
-          : `<button class="icon-btn" onclick="startEditProduct(${p.id})">✎</button>`}
-        <button class="icon-btn del" onclick="deleteProduct(${p.id})">🗑</button>
+function renderProds() {
+  const list=document.getElementById('productList');
+  if(!products.length){ list.innerHTML='<div class="empty"><div class="empty-txt">No products yet</div><div class="empty-sub">Add one above</div></div>'; return; }
+  list.innerHTML=products.map(p=>`
+    <div class="pitem ${p.active?'':'off'}" id="pi-${p.id}">
+      ${editProdId===p.id
+        ? `<input class="pname-inp" id="pe-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProd(${p.id})">`
+        : `<div class="pname">${esc(p.name)}</div>`}
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="ptoggle ${p.active?'pon':'poff'}" onclick="toggleProd(${p.id},${p.active})">${p.active?'Active':'Hidden'}</button>
+        ${editProdId===p.id
+          ? `<button class="icon-btn" onclick="saveProd(${p.id})">✓</button><button class="icon-btn" onclick="cancelEdit()">✕</button>`
+          : `<button class="icon-btn" onclick="startEdit(${p.id})">✎</button>`}
+        <button class="icon-btn del" onclick="delProd(${p.id})">🗑</button>
       </div>
     </div>`).join('');
-  if (editingProductId) { const i=document.getElementById('pedit-'+editingProductId); if(i){i.focus();i.select();} }
+  if(editProdId){ const i=document.getElementById('pe-'+editProdId); if(i){i.focus();i.select();} }
 }
 
 async function addProduct() {
-  const name = document.getElementById('newProductName').value.trim();
-  if (!name) { toast('Enter a product name', true); return; }
-  if (products.find(p=>p.name.toLowerCase()===name.toLowerCase())) { toast('Already exists', true); return; }
-  const {data,error} = await db.from('products').insert({name,active:true}).select();
-  if (error) { toast('Error: '+error.message, true); return; }
-  products.push(data[0]);
-  document.getElementById('newProductName').value='';
-  populateProductDropdown(); renderProducts();
-  toast('Product added ✓');
+  const name=document.getElementById('newProd').value.trim();
+  if(!name){toast('Enter a name',true);return;}
+  if(products.find(p=>p.name.toLowerCase()===name.toLowerCase())){toast('Already exists',true);return;}
+  const {data,error}=await db.from('products').insert({name,active:true}).select();
+  if(error){toast('Error: '+error.message,true);return;}
+  products.push(data[0]); document.getElementById('newProd').value='';
+  populateDrop(); renderProds(); toast('Product added ✓');
 }
-
-function startEditProduct(id) { editingProductId=id; renderProducts(); }
-function cancelEdit() { editingProductId=null; renderProducts(); }
-
-async function saveProductName(id) {
-  const input = document.getElementById('pedit-'+id);
-  const name = input ? input.value.trim() : '';
-  if (!name) { toast('Name cannot be empty', true); return; }
-  const {error} = await db.from('products').update({name}).eq('id',id);
-  if (error) { toast('Error: '+error.message, true); return; }
-  const p = products.find(x=>x.id===id); if(p) p.name=name;
-  editingProductId=null; populateProductDropdown(); renderProducts();
-  toast('Renamed ✓');
+function startEdit(id){editProdId=id;renderProds();}
+function cancelEdit(){editProdId=null;renderProds();}
+async function saveProd(id) {
+  const i=document.getElementById('pe-'+id); const name=i?i.value.trim():'';
+  if(!name){toast('Name empty',true);return;}
+  const {error}=await db.from('products').update({name}).eq('id',id);
+  if(error){toast('Error: '+error.message,true);return;}
+  const p=products.find(x=>x.id===id); if(p) p.name=name;
+  editProdId=null; populateDrop(); renderProds(); toast('Renamed ✓');
 }
-
-async function toggleProduct(id, cur) {
-  const {error} = await db.from('products').update({active:!cur}).eq('id',id);
-  if (error) { toast('Error: '+error.message, true); return; }
+async function toggleProd(id,cur) {
+  const {error}=await db.from('products').update({active:!cur}).eq('id',id);
+  if(error){toast('Error: '+error.message,true);return;}
   const p=products.find(x=>x.id===id); if(p) p.active=!cur;
-  populateProductDropdown(); renderProducts();
-  toast(p.active?'Shown in dropdown':'Hidden from dropdown');
+  populateDrop(); renderProds(); toast(p.active?'Shown in dropdown':'Hidden');
+}
+async function delProd(id) {
+  if(!confirm('Delete?'))return;
+  const {error}=await db.from('products').delete().eq('id',id);
+  if(error){toast('Error: '+error.message,true);return;}
+  products=products.filter(p=>p.id!==id); populateDrop(); renderProds(); toast('Deleted');
 }
 
-async function deleteProduct(id) {
-  if (!confirm('Delete this product?')) return;
-  const {error} = await db.from('products').delete().eq('id',id);
-  if (error) { toast('Error: '+error.message, true); return; }
-  products=products.filter(p=>p.id!==id);
-  populateProductDropdown(); renderProducts(); toast('Deleted');
-}
-
-// ── ORDERS ───────────────────────────────────────────────────────────────────
+/* ─ ORDERS ─ */
 async function loadOrders() {
-  const {data,error} = await db.from('orders').select('*').eq('order_date',todayStr()).order('created_at',{ascending:false});
-  if (error) { setSyncStatus(false); toast('Load error: '+error.message, true); return; }
-  setSyncStatus(true); orders=data||[]; render();
+  const {data,error}=await db.from('orders').select('*').eq('order_date',today()).order('created_at',{ascending:false});
+  if(error){setSync(false);toast('Load error',true);return;}
+  setSync(true); orders=data||[]; render();
 }
 
 async function addOrder() {
-  const name    = document.getElementById('customerName').value.trim();
-  const contact = document.getElementById('customerContact').value.trim();
-  const product = document.getElementById('product').value;
-  const price   = parseFloat(document.getElementById('price').value)||0;
-  const status  = document.getElementById('newStatus').value;
-  const delivery= document.getElementById('delivery').value;
-  const payment = document.getElementById('payment').value;
-  const notes   = document.getElementById('notes').value.trim();
-
-  if (!name||!product) { toast('Fill in name and product', true); return; }
-
-  const btn=document.getElementById('submitBtn');
-  btn.disabled=true; btn.textContent='Saving…';
-
-  const nextNum = orders.length>0 ? Math.max(...orders.map(o=>o.num||0))+1 : 1;
-  const {data,error} = await db.from('orders').insert({
-    num:nextNum, customer_name:name, contact, product, price,
-    delivery, payment, notes, status,
-    order_date:todayStr(),
+  const name=document.getElementById('fName').value.trim();
+  const contact=document.getElementById('fContact').value.trim();
+  const product=document.getElementById('fProduct').value;
+  const price=parseFloat(document.getElementById('fPrice').value)||0;
+  const status=document.getElementById('fStatus').value;
+  const delivery=document.getElementById('fDelivery').value;
+  const payment=document.getElementById('fPayment').value;
+  const notes=document.getElementById('fNotes').value.trim();
+  if(!name||!product){toast('Fill in name and product',true);return;}
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
+  const num=orders.length>0?Math.max(...orders.map(o=>o.num||0))+1:1;
+  const {data,error}=await db.from('orders').insert({
+    num,customer_name:name,contact,product,price,delivery,payment,notes,status,
+    order_date:today(),
     order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'})
   }).select();
-
   btn.disabled=false; btn.textContent='Record Order';
-  if (error) { toast('Error: '+error.message, true); return; }
-  if (data&&data.length>0) orders.unshift(data[0]);
-  render(); clearForm();
-  toast('Order #'+nextNum+' recorded ✓');
-  navTo('orders');
+  if(error){toast('Error: '+error.message,true);return;}
+  if(data&&data.length) orders.unshift(data[0]);
+  render(); clearForm(); toast('Order #'+num+' recorded ✓'); go('orders');
 }
 
 function clearForm() {
-  ['customerName','customerContact','notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('price').value='';
-  document.getElementById('product').value='';
+  ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fPrice').value='';
+  document.getElementById('fProduct').value='';
 }
 
 function render() {
-  const filtered = activeFilter==='all' ? orders : orders.filter(o=>o.status===activeFilter);
-  const list = document.getElementById('ordersList');
-  if (!filtered.length) {
-    list.innerHTML=`<div class="empty"><div class="empty-icon">🛍</div><div class="empty-text">${activeFilter==='all'?'No orders yet today':'No '+activeFilter+' orders'}</div><div class="empty-sub">${activeFilter==='all'?'Tap + New to record your first order':''}</div></div>`;
+  const list=document.getElementById('ordersList');
+  const filtered=flt==='all'?orders:orders.filter(o=>o.status===flt);
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty"><div class="empty-ico">🛍</div><div class="empty-txt">${flt==='all'?'No orders yet':'No '+flt+' orders'}</div><div class="empty-sub">${flt==='all'?'Tap + New to get started':''}</div></div>`;
   } else {
-    list.innerHTML = filtered.map(o=>`
-      <div class="order-card" onclick="openDetail(${o.id})">
-        <div class="order-num">#${o.num}</div>
-        <div class="order-info">
-          <div class="order-customer">${esc(o.customer_name)}</div>
-          <div class="order-product">${esc(o.product)}</div>
-          <div class="order-meta">${esc(o.delivery)} · ${o.order_time||''}</div>
+    list.innerHTML=filtered.map(o=>`
+      <div class="ocard" onclick="openSheet(${o.id})">
+        <div class="onum-wrap"><div class="onum">${o.num}</div></div>
+        <div class="oinfo">
+          <div class="ocust">${esc(o.customer_name)}</div>
+          <div class="oprod">${esc(o.product)}</div>
+          <div class="ometa">${esc(o.delivery)} · ${o.order_time||''}</div>
         </div>
-        <div class="order-right">
-          <div class="order-price">MVR ${Number(o.price).toLocaleString()}</div>
-          <span class="status-badge status-${o.status}">${o.status}</span>
+        <div class="oright">
+          <div class="oprice">MVR ${Number(o.price).toLocaleString()}</div>
+          <span class="obadge b-${o.status}">${o.status}</span>
         </div>
       </div>`).join('');
   }
@@ -768,214 +680,162 @@ function render() {
 }
 
 function updateStats() {
-  const pending  = orders.filter(o=>o.status==='pending').length;
-  const delivered= orders.filter(o=>o.status==='delivered').length;
-  const revenue  = orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.price),0);
-  document.getElementById('statTotal').textContent    = orders.length;
-  document.getElementById('statPending').textContent  = pending;
-  document.getElementById('statDelivered').textContent= delivered;
-  document.getElementById('statRevenue').textContent  = revenue.toLocaleString();
+  const pend=orders.filter(o=>o.status==='pending').length;
+  const rev=orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.price),0);
+  document.getElementById('stTotal').textContent=orders.length;
+  document.getElementById('stRevenue').textContent='MVR '+rev.toLocaleString();
+  document.getElementById('stDate').textContent=new Date().toLocaleDateString('en-MV',{month:'short',day:'numeric'});
+  document.getElementById('stPending').textContent=pend+' pending';
 }
 
-function setFilter(f,btn) {
-  activeFilter=f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active'); render();
+function setFlt(f,btn) {
+  flt=f;
+  document.querySelectorAll('.flt').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); render();
 }
 
-// ── DETAIL MODAL ─────────────────────────────────────────────────────────────
-function openDetail(id) {
-  viewingId=id;
-  const o=orders.find(x=>x.id===id); if(!o) return;
-  document.getElementById('detailTitle').textContent='Order #'+o.num;
-  document.getElementById('detailTime').textContent=(o.order_time||'')+' · '+(o.order_date||'');
-  document.getElementById('detailBody').innerHTML=`
-    <div class="detail-badge-row">
-      <div class="detail-order-num">#${o.num}</div>
-      <span class="status-badge status-${o.status}">${o.status}</span>
+/* ─ DETAIL SHEET ─ */
+function openSheet(id) {
+  viewId=id; const o=orders.find(x=>x.id===id); if(!o) return;
+  document.getElementById('sheetTitle').textContent='Order #'+o.num;
+  document.getElementById('sheetSub').textContent=(o.order_time||'')+' · '+(o.order_date||'');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="det-hero">
+      <div class="det-num">#${o.num}</div>
+      <span class="obadge b-${o.status}" style="font-size:10px">${o.status}</span>
     </div>
-    <div class="detail-section">
-      <div class="detail-section-title">Customer</div>
-      <div class="detail-grid">
-        <div class="detail-field"><div class="detail-label">Name</div><div class="detail-value">${esc(o.customer_name)}</div></div>
-        <div class="detail-field"><div class="detail-label">Contact</div><div class="detail-value ${o.contact?'':'empty-val'}">${o.contact?esc(o.contact):'—'}</div></div>
+    <div class="det-sec">
+      <div class="det-sec-ttl">Customer</div>
+      <div class="det-grid">
+        <div class="det-field"><div class="det-lbl">Name</div><div class="det-val">${esc(o.customer_name)}</div></div>
+        <div class="det-field"><div class="det-lbl">Contact</div><div class="det-val ${o.contact?'':'muted'}">${o.contact?esc(o.contact):'—'}</div></div>
       </div>
     </div>
-    <div class="detail-section">
-      <div class="detail-section-title">Order</div>
-      <div class="detail-grid">
-        <div class="detail-field full"><div class="detail-label">Product</div><div class="detail-value">${esc(o.product)}</div></div>
-        <div class="detail-field"><div class="detail-label">Price</div><div class="detail-value price">MVR ${Number(o.price).toLocaleString()}</div></div>
-        <div class="detail-field"><div class="detail-label">Payment</div><div class="detail-value">${esc(o.payment)}</div></div>
+    <div class="det-sec">
+      <div class="det-sec-ttl">Order</div>
+      <div class="det-grid">
+        <div class="det-field full"><div class="det-lbl">Product</div><div class="det-val">${esc(o.product)}</div></div>
+        <div class="det-field"><div class="det-lbl">Price</div><div class="det-val big">MVR ${Number(o.price).toLocaleString()}</div></div>
+        <div class="det-field"><div class="det-lbl">Payment</div><div class="det-val">${esc(o.payment)}</div></div>
+        <div class="det-field"><div class="det-lbl">Delivery</div><div class="det-val">${esc(o.delivery)}</div></div>
       </div>
     </div>
-    <div class="detail-section">
-      <div class="detail-section-title">Delivery</div>
-      <div class="detail-value">${esc(o.delivery)}</div>
-    </div>
-    ${o.notes?`<div class="detail-section"><div class="detail-section-title">Notes</div><div class="detail-notes-box">${esc(o.notes)}</div></div>`:''}`;
-  document.getElementById('detailSaveBtn').style.display='none';
-  document.getElementById('detailEditBtn').style.display='';
-  document.getElementById('detailSaveBtn').onclick=saveDetail;
-  document.getElementById('detailDeleteBtn').onclick=()=>deleteOrder(id);
-  document.getElementById('detailOverlay').classList.add('open');
+    ${o.notes?`<div class="det-sec"><div class="det-sec-ttl">Notes</div><div class="det-note">${esc(o.notes)}</div></div>`:''}`;
+  document.getElementById('sheetSave').style.display='none';
+  document.getElementById('sheetEdit').style.display='';
+  document.getElementById('sheetDel').onclick=()=>delOrder(id);
+  document.getElementById('sheetMask').classList.add('open');
 }
 
-function closeDetail() {
-  document.getElementById('detailOverlay').classList.remove('open');
-  viewingId=null;
-}
+function closeSheet() { document.getElementById('sheetMask').classList.remove('open'); viewId=null; }
 
-function enterEditMode() {
-  const o=orders.find(x=>x.id===viewingId); if(!o) return;
-  const productOptions=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
-  document.getElementById('detailBody').innerHTML=`
-    <div class="edit-warning">
-      <div class="edit-warning-text">
-        <strong>⚠️ Editing Order #${o.num}</strong>
-        Changes are saved permanently. Confirm all details before saving.
-      </div>
-    </div>
+function enterEdit() {
+  const o=orders.find(x=>x.id===viewId); if(!o) return;
+  const popts=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="edit-warn"><strong>⚠️ Editing Order #${o.num}</strong>Changes are permanent. Verify all details before saving.</div>
     <div class="edit-grid">
-      <div class="form-group"><label>Customer Name</label><input class="edit-input" id="editName" type="text" value="${esc(o.customer_name)}"></div>
-      <div class="form-group"><label>Contact</label><input class="edit-input" id="editContact" type="text" value="${esc(o.contact||'')}"></div>
-      <div class="form-group edit-full"><label>Product</label><select class="edit-input" id="editProduct">${productOptions}</select></div>
-      <div class="form-group"><label>Price (MVR)</label><input class="edit-input" id="editPrice" type="number" value="${o.price}" inputmode="numeric"></div>
-      <div class="form-group"><label>Status</label>
-        <select class="edit-input" id="editStatus">
+      <div class="fg"><label>Name</label><input id="en" type="text" value="${esc(o.customer_name)}"></div>
+      <div class="fg"><label>Contact</label><input id="ec" type="text" value="${esc(o.contact||'')}"></div>
+      <div class="fg edit-full"><label>Product</label><select id="ep">${popts}</select></div>
+      <div class="fg"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
+      <div class="fg"><label>Status</label>
+        <select id="es">
           <option value="pending"   ${o.status==='pending'  ?'selected':''}>Pending</option>
           <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
           <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
         </select>
       </div>
-      <div class="form-group"><label>Delivery</label>
-        <select class="edit-input" id="editDelivery">
+      <div class="fg"><label>Delivery</label>
+        <select id="ed">
           <option value="Local Delivery"  ${o.delivery==='Local Delivery' ?'selected':''}>Local (Hulhumalé)</option>
-          <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé</option>
+          <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé Delivery</option>
           <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry'?'selected':''}>Harbour / Ferry</option>
-          <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Pickup</option>
+          <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Customer Pickup</option>
         </select>
       </div>
-      <div class="form-group"><label>Payment</label>
-        <select class="edit-input" id="editPayment">
+      <div class="fg"><label>Payment</label>
+        <select id="epy">
           <option value="BML Transfer"       ${o.payment==='BML Transfer'      ?'selected':''}>BML Transfer</option>
           <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'  ?'selected':''}>Cash on Delivery</option>
           <option value="MIB Transfer"       ${o.payment==='MIB Transfer'      ?'selected':''}>MIB Transfer</option>
           <option value="Paid via Messenger" ${o.payment==='Paid via Messenger'?'selected':''}>Messenger</option>
         </select>
       </div>
-      <div class="form-group edit-full"><label>Notes</label><textarea class="edit-input" id="editNotes" rows="3">${esc(o.notes||'')}</textarea></div>
+      <div class="fg edit-full"><label>Notes</label><textarea id="eno" rows="3">${esc(o.notes||'')}</textarea></div>
     </div>`;
-  document.getElementById('detailSaveBtn').style.display='';
-  document.getElementById('detailEditBtn').style.display='none';
+  document.getElementById('sheetSave').style.display='';
+  document.getElementById('sheetEdit').style.display='none';
 }
 
-async function saveDetail() {
-  const get = id => { const el=document.getElementById(id); return el?el.value:null; };
-  const updates = {
-    customer_name: get('editName')||undefined,
-    contact:       get('editContact'),
-    product:       get('editProduct')||undefined,
-    price:         get('editPrice')!==null ? parseFloat(get('editPrice'))||0 : undefined,
-    delivery:      get('editDelivery')||undefined,
-    payment:       get('editPayment')||undefined,
-    notes:         get('editNotes'),
-    status:        get('editStatus')||undefined,
-  };
-  Object.keys(updates).forEach(k => updates[k]===undefined && delete updates[k]);
-  const {error} = await db.from('orders').update(updates).eq('id',viewingId);
-  if (error) { toast('Error: '+error.message, true); return; }
-  const o=orders.find(x=>x.id===viewingId); if(o) Object.assign(o,updates);
-  render(); openDetail(viewingId);
-  toast('Order saved ✓');
+async function saveEdit() {
+  const g=id=>{ const el=document.getElementById(id); return el?el.value:null; };
+  const updates={customer_name:g('en'),contact:g('ec'),product:g('ep'),price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno')};
+  Object.keys(updates).forEach(k=>updates[k]===null&&delete updates[k]);
+  const {error}=await db.from('orders').update(updates).eq('id',viewId);
+  if(error){toast('Error: '+error.message,true);return;}
+  const o=orders.find(x=>x.id===viewId); if(o) Object.assign(o,updates);
+  render(); openSheet(viewId); toast('Saved ✓');
 }
 
-async function deleteOrder(id) {
-  if (!confirm('Delete this order?')) return;
-  const {error} = await db.from('orders').delete().eq('id',id);
-  if (error) { toast('Error: '+error.message, true); return; }
-  orders=orders.filter(o=>o.id!==id);
-  closeDetail(); render(); toast('Order deleted');
+async function delOrder(id) {
+  if(!confirm('Delete this order?'))return;
+  const {error}=await db.from('orders').delete().eq('id',id);
+  if(error){toast('Error: '+error.message,true);return;}
+  orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
 }
 
-// ── COPY ─────────────────────────────────────────────────────────────────────
+/* ─ COPY ─ */
 function initCopy() {
-  const dateInput = document.getElementById('copyDate');
-  if (!dateInput.value) dateInput.value = todayStr();
+  const d=document.getElementById('copyDate');
+  if(!d.value) d.value=today();
   updateCopyCount();
 }
-
 async function updateCopyCount() {
-  const date = document.getElementById('copyDate').value;
-  if (!date) return;
-  const {count} = await db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
-  document.getElementById('copyCount').textContent = count ? count+' order'+(count!==1?'s':'') : 'No orders';
+  const date=document.getElementById('copyDate').value; if(!date)return;
+  const {count}=await db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
+  document.getElementById('copyCount').textContent=count?count+' order'+(count!==1?'s':''):'No orders on this date';
 }
-
 async function copyOrders() {
-  const date = document.getElementById('copyDate').value;
-  if (!date) { toast('Select a date', true); return; }
-  const btn=document.getElementById('copyBtn'), txt=document.getElementById('copyText');
-  btn.disabled=true; txt.textContent='Loading…';
-  const {data,error} = await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  const date=document.getElementById('copyDate').value; if(!date){toast('Select a date',true);return;}
+  const btn=document.getElementById('copyBtn'); btn.disabled=true; btn.textContent='Loading…';
+  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
   btn.disabled=false;
-  if (error) { toast('Error: '+error.message, true); txt.textContent='Copy as Text'; return; }
-  if (!data||!data.length) { toast('No orders on this date', true); txt.textContent='Copy as Text'; return; }
-
-  const d = new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  if(error){toast('Error: '+error.message,true);btn.textContent='Copy as Text';return;}
+  if(!data||!data.length){toast('No orders on this date',true);btn.textContent='Copy as Text';return;}
+  const d=new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const lines=['LA ROBE MALDIVES — '+d,''];
   data.forEach(o=>{
     lines.push('Order #'+o.num+' — '+o.customer_name);
-    if (o.contact) lines.push('Contact: '+o.contact);
+    if(o.contact) lines.push('Contact: '+o.contact);
     lines.push('Product: '+o.product);
     lines.push('Price: MVR '+Number(o.price).toLocaleString()+' ('+o.payment+')');
     lines.push('Delivery: '+o.delivery);
-    if (o.notes) lines.push('Notes: '+o.notes);
+    if(o.notes) lines.push('Notes: '+o.notes);
     lines.push('Status: '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
     lines.push('');
   });
-  const text = lines.join('\n').trimEnd();
-
-  // Show preview
-  document.getElementById('copyPreview').textContent = text;
-  document.getElementById('copyPreviewPanel').style.display = '';
-
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch(e) {
-    const el=document.createElement('textarea');
-    el.value=text; el.style.position='fixed'; el.style.opacity='0';
-    document.body.appendChild(el); el.focus(); el.select();
-    document.execCommand('copy'); document.body.removeChild(el);
-  }
-  btn.classList.add('copied'); txt.textContent='Copied!';
-  setTimeout(()=>{ btn.classList.remove('copied'); txt.textContent='Copy as Text'; }, 2500);
+  const text=lines.join('\n').trimEnd();
+  document.getElementById('copyPreview').textContent=text;
+  document.getElementById('copyPreview').style.display='block';
+  try { await navigator.clipboard.writeText(text); }
+  catch(e) { const el=document.createElement('textarea'); el.value=text; el.style.cssText='position:fixed;opacity:0'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }
+  btn.textContent='Copied!'; btn.style.background='var(--delivered)';
+  setTimeout(()=>{ btn.textContent='Copy as Text'; btn.style.background=''; },2500);
   toast('Copied '+data.length+' order'+(data.length!==1?'s':'')+' ✓');
 }
 
-// ── UTILS ────────────────────────────────────────────────────────────────────
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* ─ INIT ─ */
+document.getElementById('sheetMask').addEventListener('click',function(e){ if(e.target===this) closeSheet(); });
+document.getElementById('copyDate').addEventListener('change',updateCopyCount);
+document.getElementById('newProd').addEventListener('keydown',e=>{ if(e.key==='Enter') addProduct(); });
+document.getElementById('drawerDate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-let toastTimer;
-function toast(msg, isError) {
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.className=isError?'show error':'show';
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',2800);
-}
+db.channel('lr-rt').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
 
-document.getElementById('detailOverlay').addEventListener('click',function(e){ if(e.target===this) closeDetail(); });
-document.getElementById('newProductName').addEventListener('keydown',function(e){ if(e.key==='Enter') addProduct(); });
-document.getElementById('copyDate').addEventListener('change', updateCopyCount);
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
-// ── REALTIME ─────────────────────────────────────────────────────────────────
-db.channel('orders-rt').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
-}
 loadTheme();
-setHeaderDate();
 loadProducts();
 loadOrders();
 </script>
