@@ -160,6 +160,17 @@
   .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic; }
   .empty-sub { font-size: 12px; margin-top: 5px; color: var(--ink-muted); }
 
+
+  /* ── COPY BAR ── */
+  .copy-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .copy-bar-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
+  .copy-date-input { border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink); background: var(--surface2); outline: none; flex: 1; min-width: 140px; }
+  .copy-date-input:focus { border-color: var(--blush-deep); }
+  .btn-copy { font-family: 'Jost', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap; background: var(--ink); color: var(--bg); display: flex; align-items: center; gap: 6px; }
+  .btn-copy:hover { background: var(--blush-deep); color: #fff; }
+  .btn-copy.copied { background: var(--delivered); color: #fff; }
+  .copy-count { font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
+
   /* ── MODALS ── */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.open { display: flex; }
@@ -271,6 +282,16 @@
         <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
         <button class="btn btn-primary" id="submitBtn" onclick="addOrder()">Record Order</button>
       </div>
+    </div>
+
+    <!-- ── COPY BAR ── -->
+    <div class="copy-bar">
+      <div class="copy-bar-label">Copy day</div>
+      <input type="date" id="copyDate" class="copy-date-input">
+      <span class="copy-count" id="copyCount"></span>
+      <button class="btn-copy" id="copyBtn" onclick="copyOrders()">
+        <span id="copyIcon">📋</span> <span id="copyText">Copy as Text</span>
+      </button>
     </div>
 
     <div class="orders-header">
@@ -662,6 +683,111 @@
   setHeaderDate();
   loadProducts();
   loadOrders();
+  // ── COPY ORDERS ───────────────────────────────────────────────────────────
+  async function copyOrders() {
+    const dateInput = document.getElementById('copyDate');
+    const date = dateInput.value;
+    if (!date) { toast('Select a date first.', true); return; }
+
+    const btn  = document.getElementById('copyBtn');
+    const icon = document.getElementById('copyIcon');
+    const txt  = document.getElementById('copyText');
+    btn.disabled = true; txt.textContent = 'Loading…';
+
+    const { data, error } = await db
+      .from('orders').select('*')
+      .eq('order_date', date)
+      .order('num', { ascending: true });
+
+    btn.disabled = false;
+
+    if (error) { toast('Error: ' + error.message, true); txt.textContent = 'Copy as Text'; return; }
+    if (!data || data.length === 0) { toast('No orders found for ' + formatDate(date) + '.', true); txt.textContent = 'Copy as Text'; return; }
+
+    const lines = [];
+    const d = formatDate(date);
+    const total    = data.length;
+    const pending  = data.filter(o => o.status === 'pending').length;
+    const delivered= data.filter(o => o.status === 'delivered').length;
+    const cancelled= data.filter(o => o.status === 'cancelled').length;
+    const revenue  = data.filter(o => o.status !== 'cancelled').reduce((s,o) => s + Number(o.price), 0);
+
+    lines.push('🛍 LA ROBE MALDIVES — ORDERS');
+    lines.push('📅 ' + d);
+    lines.push('─'.repeat(32));
+    lines.push('');
+
+    data.forEach(o => {
+      const statusEmoji = o.status === 'delivered' ? '✅' : o.status === 'cancelled' ? '❌' : '⏳';
+      lines.push(statusEmoji + ' Order #' + o.num + ' — ' + o.customer_name);
+      if (o.contact)  lines.push('   📞 ' + o.contact);
+      lines.push('   🛍 ' + o.product);
+      lines.push('   💰 MVR ' + Number(o.price).toLocaleString() + ' · ' + o.payment);
+      lines.push('   🚚 ' + o.delivery);
+      if (o.notes)    lines.push('   📝 ' + o.notes);
+      lines.push('   🕐 ' + (o.order_time || ''));
+      lines.push('');
+    });
+
+    lines.push('─'.repeat(32));
+    lines.push('📊 SUMMARY');
+    lines.push('Total orders : ' + total);
+    if (pending)   lines.push('⏳ Pending   : ' + pending);
+    if (delivered) lines.push('✅ Delivered : ' + delivered);
+    if (cancelled) lines.push('❌ Cancelled : ' + cancelled);
+    lines.push('💰 Revenue   : MVR ' + revenue.toLocaleString());
+    lines.push('─'.repeat(32));
+    lines.push('La Robe Maldives · ' + d);
+
+    const text = lines.join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      icon.textContent = '✅'; txt.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        icon.textContent = '📋'; txt.textContent = 'Copy as Text';
+        btn.classList.remove('copied');
+      }, 2500);
+      toast('Orders for ' + d + ' copied to clipboard ✓');
+    } catch(e) {
+      // Fallback for older Android
+      const el = document.createElement('textarea');
+      el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+      document.body.appendChild(el); el.focus(); el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      icon.textContent = '✅'; txt.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        icon.textContent = '📋'; txt.textContent = 'Copy as Text';
+        btn.classList.remove('copied');
+      }, 2500);
+      toast('Orders for ' + d + ' copied ✓');
+    }
+  }
+
+  function formatDate(str) {
+    const d = new Date(str + 'T00:00:00');
+    return d.toLocaleDateString('en-MV', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+
+  // Set copy date picker to today by default
+  document.addEventListener('DOMContentLoaded', () => {
+    const dateInput = document.getElementById('copyDate');
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    updateCopyCount();
+    dateInput.addEventListener('change', updateCopyCount);
+  });
+
+  async function updateCopyCount() {
+    const date = document.getElementById('copyDate').value;
+    if (!date) return;
+    const { count } = await db.from('orders').select('*', { count: 'exact', head: true }).eq('order_date', date);
+    const el = document.getElementById('copyCount');
+    el.textContent = count ? count + ' order' + (count !== 1 ? 's' : '') : 'No orders';
+  }
+
 </script>
   <script>
     if ("serviceWorker" in navigator) {
