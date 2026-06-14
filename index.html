@@ -278,7 +278,14 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 .ewarn p { font-size:12px; color:var(--amber); opacity:.8; line-height:1.5; }
 [data-theme="dark"] .ewarn { background:rgba(212,160,96,0.08); border-color:rgba(212,160,96,0.2); }
 
-/* ── PAYMENT BADGE ── */
+
+  /* ── PAYMENT TOGGLE BUTTONS ── */
+  .epd-btn { flex:1; padding:12px; border-radius:12px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid; transition:all .15s; }
+  .epd-on-green { background:var(--green); color:#fff; border-color:var(--green); }
+  .epd-on-red   { background:var(--red);   color:#fff; border-color:var(--red);   }
+  .epd-off      { background:var(--bg2);   color:var(--ink3); border-color:var(--line); }
+
+  /* ── PAYMENT BADGE ── */
 .pay-done { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:rgba(58,138,80,0.1); color:var(--green); }
 .pay-pend { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:rgba(176,112,48,0.1); color:var(--amber); }
 
@@ -793,16 +800,8 @@ function enterEdit() {
       <div class="fblock ffull">
         <label>Payment Received</label>
         <div style="display:flex;gap:10px;">
-          <button type="button" id="epdNo"
-            onclick="document.getElementById('epd').value='0';document.getElementById('epdNo').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--red);background:var(--red);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';document.getElementById('epdYes').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink3);font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';"
-            style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${o.payment_done?'var(--line)':'var(--red)'};background:${o.payment_done?'var(--bg2)':'var(--red)'};color:${o.payment_done?'var(--ink3)':'#fff'};font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">
-            Unpaid
-          </button>
-          <button type="button" id="epdYes"
-            onclick="document.getElementById('epd').value='1';document.getElementById('epdYes').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--green);background:var(--green);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';document.getElementById('epdNo').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink3);font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';"
-            style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${o.payment_done?'var(--green)':'var(--line)'};background:${o.payment_done?'var(--green)':'var(--bg2)'};color:${o.payment_done?'#fff':'var(--ink3)'};font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">
-            Paid
-          </button>
+          <button type="button" class="epd-btn ${o.payment_done?'epd-off':'epd-on-red'}" id="epdNo" onclick="editSetPay(false)">Unpaid</button>
+          <button type="button" class="epd-btn ${o.payment_done?'epd-on-green':'epd-off'}" id="epdYes" onclick="editSetPay(true)">Paid</button>
         </div>
         <input type="hidden" id="epd" value="${o.payment_done?'1':'0'}">
       </div>
@@ -810,6 +809,14 @@ function enterEdit() {
     </div>`;
   document.getElementById('ssave').style.display='';
   document.getElementById('sedit').style.display='none';
+}
+function editSetPay(paid) {
+  document.getElementById('epd').value = paid ? '1' : '0';
+  const yes = document.getElementById('epdYes');
+  const no  = document.getElementById('epdNo');
+  if (!yes || !no) return;
+  yes.className = 'epd-btn ' + (paid  ? 'epd-on-green' : 'epd-off');
+  no.className  = 'epd-btn ' + (!paid ? 'epd-on-red'   : 'epd-off');
 }
 async function saveEdit() {
   const g=id=>{ const e=document.getElementById(id); return e?e.value:null; };
