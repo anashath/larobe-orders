@@ -305,10 +305,6 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
   </div>
   <div class="topbar-right">
     <div class="sync-blob"><div class="sdot" id="sdot"></div></div>
-    <div class="theme-sw">
-      <button id="tl" class="on" onclick="setTheme('light')">☀️</button>
-      <button id="td" onclick="setTheme('dark')">🌙</button>
-    </div>
   </div>
 </header>
 
@@ -556,8 +552,8 @@ let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=fa
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('lr_t', t);
-  ['tl','tl2'].forEach(id=>{ const e=document.getElementById(id); if(e) e.className=t==='light'?'on':''; });
-  ['td','td2'].forEach(id=>{ const e=document.getElementById(id); if(e) e.className=t==='dark'?'on':''; });
+  const tl2=document.getElementById('tl2'); if(tl2) tl2.className=t==='light'?'on':'';
+  const td2=document.getElementById('td2'); if(td2) td2.className=t==='dark'?'on':'';
 }
 (function() {
   const t = localStorage.getItem('lr_t') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
