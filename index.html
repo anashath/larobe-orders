@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,110 +7,163 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root {
-    --sand: #F5EFE6; --blush: #D4A5A5; --blush-deep: #B87E7E;
-    --ink: #2C2218; --ink-light: #6B5B4E; --cream: #FAF7F2; --white: #FFFFFF;
-    --border: #E2D5C8; --pending: #C4956A; --delivered: #7A9E7E; --cancelled: #C0635C;
+  /* ── LIGHT THEME ── */
+  :root, [data-theme="light"] {
+    --bg:        #F5EFE6;
+    --surface:   #FFFFFF;
+    --surface2:  #FAF7F2;
+    --border:    #E2D5C8;
+    --ink:       #2C2218;
+    --ink-light: #6B5B4E;
+    --ink-muted: #A89880;
+    --blush:     #D4A5A5;
+    --blush-deep:#B87E7E;
+    --header-bg: #2C2218;
+    --header-fg: #F5EFE6;
+    --pending:   #C4956A;
+    --delivered: #7A9E7E;
+    --cancelled: #C0635C;
+    --tab-hover: #EDE3D6;
+    --shadow:    rgba(44,34,24,0.08);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Jost', sans-serif; background: var(--sand); color: var(--ink); min-height: 100vh; font-size: 14px; }
 
-  header { background: var(--ink); color: var(--sand); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }
+  /* ── DARK THEME ── */
+  [data-theme="dark"] {
+    --bg:        #1A1410;
+    --surface:   #241D17;
+    --surface2:  #1F1812;
+    --border:    #3D3028;
+    --ink:       #F0E8DF;
+    --ink-light: #B8A898;
+    --ink-muted: #7A6A5A;
+    --blush:     #C4908F;
+    --blush-deep:#D4A5A5;
+    --header-bg: #120E0A;
+    --header-fg: #F0E8DF;
+    --pending:   #C4956A;
+    --delivered: #7A9E7E;
+    --cancelled: #C0635C;
+    --tab-hover: #2E2318;
+    --shadow:    rgba(0,0,0,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Jost', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 14px; transition: background 0.25s, color 0.25s; }
+
+  /* ── HEADER ── */
+  header { background: var(--header-bg); color: var(--header-fg); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }
   .brand { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
   .brand span { color: var(--blush); font-style: italic; font-weight: 400; }
-  .date-badge { font-size: 11px; font-weight: 300; letter-spacing: 0.08em; color: #A89880; text-transform: uppercase; }
-  .sync-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #A89880; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .date-badge { font-size: 11px; font-weight: 300; letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
+  .header-meta { display: flex; align-items: center; gap: 12px; }
+  .sync-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-muted); }
   .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--delivered); }
   .sync-dot.offline { background: var(--cancelled); }
 
-  /* TABS */
-  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 24px; background: var(--white); border-radius: 8px 8px 0 0; overflow: hidden; }
+  /* ── THEME TOGGLE ── */
+  .theme-toggle { display: flex; align-items: center; gap: 0; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 3px; border: 1px solid rgba(255,255,255,0.15); }
+  .theme-btn { background: none; border: none; cursor: pointer; padding: 4px 10px; border-radius: 16px; font-size: 13px; line-height: 1; transition: all 0.2s; color: rgba(255,255,255,0.5); }
+  .theme-btn.active { background: rgba(255,255,255,0.18); color: #fff; }
+  [data-theme="dark"] .theme-btn.active { background: rgba(255,255,255,0.15); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; background: var(--surface); border-radius: 8px 8px 0 0; overflow: hidden; }
   .tab { flex: 1; padding: 13px 16px; font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; text-align: center; cursor: pointer; border: none; background: none; color: var(--ink-light); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
   .tab.active { color: var(--ink); border-bottom-color: var(--blush-deep); }
-  .tab:hover { background: var(--sand); }
-
+  .tab:hover { background: var(--tab-hover); }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
-  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
-
+  /* ── STATS ── */
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
-  .stat { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; text-align: center; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; text-align: center; transition: background 0.25s, border-color 0.25s; }
   .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; color: var(--ink); line-height: 1; }
   .stat-label { font-size: 10px; color: var(--ink-light); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
   .stat.revenue .stat-value { color: var(--blush-deep); }
 
-  .panel { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  /* ── PANEL ── */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; transition: background 0.25s, border-color 0.25s; }
   .panel-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.06em; margin-bottom: 16px; color: var(--ink); border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-group { display: flex; flex-direction: column; gap: 5px; }
   .form-group.full { grid-column: 1 / -1; }
   label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); }
-  input, select, textarea { border: 1px solid var(--border); border-radius: 4px; padding: 9px 12px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink); background: var(--cream); transition: border-color 0.15s; outline: none; width: 100%; }
-  input:focus, select:focus, textarea:focus { border-color: var(--blush-deep); background: var(--white); }
+  input, select, textarea {
+    border: 1px solid var(--border); border-radius: 4px; padding: 9px 12px;
+    font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink);
+    background: var(--surface2); transition: border-color 0.15s, background 0.25s, color 0.25s;
+    outline: none; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--blush-deep); background: var(--surface); }
   textarea { resize: vertical; min-height: 60px; }
 
+  /* ── BUTTONS ── */
   .btn-row { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
   .btn { font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-  .btn-primary { background: var(--ink); color: var(--sand); }
-  .btn-primary:hover { background: var(--blush-deep); }
-  .btn-primary:disabled { background: var(--border); color: var(--ink-light); cursor: not-allowed; }
+  .btn-primary { background: var(--ink); color: var(--bg); }
+  .btn-primary:hover { background: var(--blush-deep); color: #fff; }
+  .btn-primary:disabled { background: var(--border); color: var(--ink-muted); cursor: not-allowed; }
   .btn-ghost { background: transparent; color: var(--ink-light); border: 1px solid var(--border); }
   .btn-ghost:hover { border-color: var(--ink-light); }
   .btn-danger { background: transparent; color: var(--cancelled); border: 1px solid #E8C0BF; }
-  .btn-danger:hover { background: #FAEAEA; }
+  .btn-danger:hover { background: rgba(192,99,92,0.1); }
   .btn-sm { padding: 6px 14px; font-size: 11px; }
 
+  /* ── ORDERS ── */
   .orders-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .orders-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 500; }
   .filter-row { display: flex; gap: 8px; }
-  .filter-btn { font-size: 11px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--white); color: var(--ink-light); cursor: pointer; font-family: 'Jost', sans-serif; transition: all 0.12s; }
-  .filter-btn.active { background: var(--ink); color: var(--sand); border-color: var(--ink); }
+  .filter-btn { font-size: 11px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-light); cursor: pointer; font-family: 'Jost', sans-serif; transition: all 0.12s; }
+  .filter-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
   .orders-list { display: flex; flex-direction: column; gap: 8px; }
-  .order-card { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; transition: box-shadow 0.15s; cursor: pointer; }
-  .order-card:hover { box-shadow: 0 2px 10px rgba(44,34,24,0.1); border-color: var(--blush); }
+  .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s, background 0.25s; }
+  .order-card:hover { box-shadow: 0 2px 10px var(--shadow); border-color: var(--blush); }
   .order-num { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: var(--blush); min-width: 38px; text-align: center; }
   .order-info { display: flex; flex-direction: column; gap: 3px; }
   .order-customer { font-weight: 500; font-size: 14px; }
   .order-product { font-size: 12px; color: var(--ink-light); }
-  .order-delivery { font-size: 11px; color: #A89880; margin-top: 1px; }
+  .order-delivery { font-size: 11px; color: var(--ink-muted); margin-top: 1px; }
   .order-price { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; text-align: right; white-space: nowrap; }
   .order-actions { display: flex; gap: 6px; align-items: center; }
-  .view-hint { font-size: 10px; color: #C4B5A8; letter-spacing: 0.05em; margin-top: 2px; }
+  .view-hint { font-size: 10px; color: var(--ink-muted); opacity: 0.7; letter-spacing: 0.05em; margin-top: 2px; }
 
+  /* ── STATUS BADGES ── */
   .status-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-  .status-pending   { background: #FDF3E7; color: var(--pending);   border: 1px solid #EDD9B8; }
-  .status-delivered { background: #EBF4EC; color: var(--delivered); border: 1px solid #BAD8BC; }
-  .status-cancelled { background: #FAEAEA; color: var(--cancelled); border: 1px solid #E8C0BF; }
+  .status-pending   { background: rgba(196,149,106,0.15); color: var(--pending);   border: 1px solid rgba(196,149,106,0.35); }
+  .status-delivered { background: rgba(122,158,126,0.15); color: var(--delivered); border: 1px solid rgba(122,158,126,0.35); }
+  .status-cancelled { background: rgba(192,99,92,0.15);  color: var(--cancelled); border: 1px solid rgba(192,99,92,0.35); }
 
-  /* PRODUCTS TAB */
+  /* ── PRODUCTS TAB ── */
   .product-add-row { display: flex; gap: 10px; margin-bottom: 20px; }
   .product-add-row input { flex: 1; }
-  .product-add-row .btn { white-space: nowrap; margin-top: 0; }
-
   .product-list { display: flex; flex-direction: column; gap: 8px; }
-  .product-item { background: var(--white); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .product-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; transition: background 0.25s; }
   .product-item.inactive { opacity: 0.45; }
   .product-name { flex: 1; font-size: 14px; color: var(--ink); }
-  .product-name-input { flex: 1; border: 1px solid var(--blush); border-radius: 4px; padding: 6px 10px; font-family: 'Jost', sans-serif; font-size: 13px; background: var(--white); outline: none; }
+  .product-name-input { flex: 1; border: 1px solid var(--blush-deep); border-radius: 4px; padding: 6px 10px; font-family: 'Jost', sans-serif; font-size: 13px; background: var(--surface); color: var(--ink); outline: none; }
   .product-actions { display: flex; gap: 6px; align-items: center; }
   .toggle-badge { font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: none; font-family: 'Jost', sans-serif; }
-  .toggle-badge.active-p  { background: #EBF4EC; color: var(--delivered); border: 1px solid #BAD8BC; }
-  .toggle-badge.inactive-p { background: #F5F0EB; color: #A89880; border: 1px solid var(--border); }
+  .toggle-badge.active-p  { background: rgba(122,158,126,0.15); color: var(--delivered); border: 1px solid rgba(122,158,126,0.35); }
+  .toggle-badge.inactive-p { background: var(--surface); color: var(--ink-muted); border: 1px solid var(--border); }
   .icon-btn { background: none; border: none; cursor: pointer; color: var(--ink-light); padding: 4px 6px; border-radius: 3px; font-size: 14px; line-height: 1; transition: color 0.12s; }
   .icon-btn:hover { color: var(--blush-deep); }
   .icon-btn.del:hover { color: var(--cancelled); }
 
+  /* ── EMPTY ── */
   .empty { text-align: center; padding: 50px 20px; color: var(--ink-light); }
   .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
   .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic; }
-  .empty-sub { font-size: 12px; margin-top: 5px; color: #A89880; }
+  .empty-sub { font-size: 12px; margin-top: 5px; color: var(--ink-muted); }
 
-  /* MODALS */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(44,34,24,0.5); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+  /* ── MODALS ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--white); border-radius: 10px; width: min(480px, 100%); max-height: 90vh; overflow-y: auto; }
+  .modal { background: var(--surface); border-radius: 10px; width: min(480px, 100%); max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
   .modal-header { padding: 22px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.2; }
   .modal-close { background: none; border: none; cursor: pointer; color: var(--ink-light); font-size: 20px; line-height: 1; padding: 2px; }
@@ -120,22 +173,23 @@
 
   .detail-badge-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .detail-order-num { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; color: var(--blush); line-height: 1; }
-  .detail-time { font-size: 12px; color: #A89880; }
+  .detail-time { font-size: 12px; color: var(--ink-muted); }
   .detail-section { margin-bottom: 20px; }
   .detail-section-title { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .detail-field { display: flex; flex-direction: column; gap: 3px; }
   .detail-field.full { grid-column: 1 / -1; }
-  .detail-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #A89880; }
+  .detail-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
   .detail-value { font-size: 14px; color: var(--ink); }
   .detail-value.price { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--blush-deep); }
-  .detail-value.empty-val { color: #C4B5A8; font-style: italic; }
-  .detail-notes-box { background: var(--cream); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.5; }
+  .detail-value.empty-val { color: var(--ink-muted); font-style: italic; }
+  .detail-notes-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.5; }
   .status-select-row select { width: 100%; }
 
-  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--sand); padding: 12px 20px; border-radius: 6px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 999; }
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 6px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 999; }
   #toast.show { opacity: 1; transform: translateY(0); }
-  #toast.error { background: var(--cancelled); }
+  #toast.error { background: var(--cancelled); color: #fff; }
 
   @media (max-width: 600px) {
     .stats { grid-template-columns: 1fr 1fr; }
@@ -152,15 +206,19 @@
 
 <header>
   <div class="brand">La <span>Robe</span> Maldives</div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+  <div class="header-right">
     <div class="date-badge" id="headerDate"></div>
-    <div class="sync-indicator"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">Connecting…</span></div>
+    <div class="header-meta">
+      <div class="sync-indicator"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">Connecting…</span></div>
+      <div class="theme-toggle">
+        <button class="theme-btn active" id="btnLight" onclick="setTheme('light')" title="Light">☀️</button>
+        <button class="theme-btn" id="btnDark" onclick="setTheme('dark')" title="Dark">🌙</button>
+      </div>
+    </div>
   </div>
 </header>
 
 <div class="container">
-
-  <!-- TABS -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('orders', this)">Orders</button>
     <button class="tab" onclick="switchTab('products', this)">Manage Products</button>
@@ -178,22 +236,10 @@
     <div class="panel">
       <div class="panel-title">New Order</div>
       <div class="form-grid">
-        <div class="form-group">
-          <label>Customer Name</label>
-          <input type="text" id="customerName" placeholder="e.g. Aminath Riyasha">
-        </div>
-        <div class="form-group">
-          <label>Contact (Viber / WhatsApp)</label>
-          <input type="text" id="customerContact" placeholder="+960 7xx xxxx">
-        </div>
-        <div class="form-group">
-          <label>Product</label>
-          <select id="product"><option value="">Select product…</option></select>
-        </div>
-        <div class="form-group">
-          <label>Price (MVR)</label>
-          <input type="number" id="price" placeholder="0" min="0">
-        </div>
+        <div class="form-group"><label>Customer Name</label><input type="text" id="customerName" placeholder="e.g. Aminath Riyasha"></div>
+        <div class="form-group"><label>Contact (Viber / WhatsApp)</label><input type="text" id="customerContact" placeholder="+960 7xx xxxx"></div>
+        <div class="form-group"><label>Product</label><select id="product"><option value="">Select product…</option></select></div>
+        <div class="form-group"><label>Price (MVR)</label><input type="number" id="price" placeholder="0" min="0"></div>
         <div class="form-group">
           <label>Delivery Method</label>
           <select id="delivery">
@@ -212,10 +258,7 @@
             <option value="Paid via Messenger">Paid via Messenger</option>
           </select>
         </div>
-        <div class="form-group full">
-          <label>Notes</label>
-          <textarea id="notes" placeholder="Colour preference, address, special instructions…"></textarea>
-        </div>
+        <div class="form-group full"><label>Notes</label><textarea id="notes" placeholder="Colour preference, address, special instructions…"></textarea></div>
       </div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
@@ -241,7 +284,7 @@
     <div class="panel">
       <div class="panel-title">
         Products
-        <span style="font-family:'Jost',sans-serif;font-size:11px;color:var(--ink-light);font-weight:400">Active products appear in the order dropdown</span>
+        <span style="font-family:'Jost',sans-serif;font-size:11px;color:var(--ink-muted);font-weight:400">Active products appear in the order dropdown</span>
       </div>
       <div class="product-add-row">
         <input type="text" id="newProductName" placeholder="e.g. Clutch Bag — Gold">
@@ -252,7 +295,6 @@
       </div>
     </div>
   </div>
-
 </div>
 
 <!-- ── ORDER DETAIL MODAL ── -->
@@ -281,22 +323,20 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let orders = [];
-  let products = [];
-  let activeFilter = 'all';
-  let viewingId = null;
-  let editingProductId = null;
+  let orders = [], products = [], activeFilter = 'all', viewingId = null, editingProductId = null;
 
-  function todayStr() { return new Date().toISOString().slice(0, 10); }
-
-  function setHeaderDate() {
-    document.getElementById('headerDate').textContent =
-      new Date().toLocaleDateString('en-MV', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  // ── THEME ─────────────────────────────────────────────────────────────────
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('larobe_theme', theme);
+    document.getElementById('btnLight').classList.toggle('active', theme === 'light');
+    document.getElementById('btnDark').classList.toggle('active',  theme === 'dark');
   }
 
-  function setSyncStatus(online) {
-    document.getElementById('syncDot').className = 'sync-dot' + (online ? '' : ' offline');
-    document.getElementById('syncLabel').textContent = online ? 'Live' : 'Offline';
+  function loadTheme() {
+    const saved = localStorage.getItem('larobe_theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(saved);
   }
 
   // ── TABS ──────────────────────────────────────────────────────────────────
@@ -308,7 +348,20 @@
     if (name === 'products') renderProducts();
   }
 
-  // ── LOAD PRODUCTS ─────────────────────────────────────────────────────────
+  // ── HEADER ────────────────────────────────────────────────────────────────
+  function setHeaderDate() {
+    document.getElementById('headerDate').textContent =
+      new Date().toLocaleDateString('en-MV', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+
+  function setSyncStatus(online) {
+    document.getElementById('syncDot').className = 'sync-dot' + (online ? '' : ' offline');
+    document.getElementById('syncLabel').textContent = online ? 'Live' : 'Offline';
+  }
+
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+  // ── PRODUCTS ──────────────────────────────────────────────────────────────
   async function loadProducts() {
     const { data, error } = await db.from('products').select('*').order('created_at');
     if (error) { toast('Could not load products: ' + error.message, true); return; }
@@ -322,8 +375,7 @@
     sel.innerHTML = '<option value="">Select product…</option>';
     products.filter(p => p.active).forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = p.name;
+      opt.value = p.name; opt.textContent = p.name;
       if (p.name === current) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -339,34 +391,26 @@
       <div class="product-item ${p.active ? '' : 'inactive'}" id="pitem-${p.id}">
         ${editingProductId === p.id
           ? `<input class="product-name-input" id="pedit-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProductName(${p.id})">`
-          : `<div class="product-name">${esc(p.name)}</div>`
-        }
+          : `<div class="product-name">${esc(p.name)}</div>`}
         <div class="product-actions">
-          <button class="toggle-badge ${p.active ? 'active-p' : 'inactive-p'}" onclick="toggleProduct(${p.id}, ${p.active})">
-            ${p.active ? 'Active' : 'Hidden'}
-          </button>
+          <button class="toggle-badge ${p.active ? 'active-p' : 'inactive-p'}" onclick="toggleProduct(${p.id}, ${p.active})">${p.active ? 'Active' : 'Hidden'}</button>
           ${editingProductId === p.id
             ? `<button class="icon-btn" onclick="saveProductName(${p.id})" title="Save">✓</button>
                <button class="icon-btn" onclick="cancelEdit()" title="Cancel">✕</button>`
-            : `<button class="icon-btn" onclick="startEditProduct(${p.id})" title="Rename">✎</button>`
-          }
+            : `<button class="icon-btn" onclick="startEditProduct(${p.id})" title="Rename">✎</button>`}
           <button class="icon-btn del" onclick="deleteProduct(${p.id})" title="Delete">🗑</button>
         </div>
       </div>`).join('');
-
     if (editingProductId) {
       const input = document.getElementById('pedit-' + editingProductId);
       if (input) { input.focus(); input.select(); }
     }
   }
 
-  // ── ADD PRODUCT ───────────────────────────────────────────────────────────
   async function addProduct() {
     const name = document.getElementById('newProductName').value.trim();
     if (!name) { toast('Enter a product name.', true); return; }
-    if (products.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-      toast('A product with this name already exists.', true); return;
-    }
+    if (products.find(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Product already exists.', true); return; }
     const { data, error } = await db.from('products').insert({ name, active: true }).select();
     if (error) { toast('Error: ' + error.message, true); return; }
     products.push(data[0]);
@@ -376,16 +420,8 @@
     toast('Product added ✓');
   }
 
-  // ── EDIT PRODUCT NAME ─────────────────────────────────────────────────────
-  function startEditProduct(id) {
-    editingProductId = id;
-    renderProducts();
-  }
-
-  function cancelEdit() {
-    editingProductId = null;
-    renderProducts();
-  }
+  function startEditProduct(id) { editingProductId = id; renderProducts(); }
+  function cancelEdit() { editingProductId = null; renderProducts(); }
 
   async function saveProductName(id) {
     const input = document.getElementById('pedit-' + id);
@@ -401,7 +437,6 @@
     toast('Product renamed ✓');
   }
 
-  // ── TOGGLE ACTIVE ─────────────────────────────────────────────────────────
   async function toggleProduct(id, currentActive) {
     const { error } = await db.from('products').update({ active: !currentActive }).eq('id', id);
     if (error) { toast('Error: ' + error.message, true); return; }
@@ -412,9 +447,8 @@
     toast(p.active ? 'Product shown in dropdown' : 'Product hidden from dropdown');
   }
 
-  // ── DELETE PRODUCT ────────────────────────────────────────────────────────
   async function deleteProduct(id) {
-    if (!confirm('Delete this product? This cannot be undone.')) return;
+    if (!confirm('Delete this product?')) return;
     const { error } = await db.from('products').delete().eq('id', id);
     if (error) { toast('Error: ' + error.message, true); return; }
     products = products.filter(p => p.id !== id);
@@ -423,7 +457,7 @@
     toast('Product deleted');
   }
 
-  // ── LOAD ORDERS ───────────────────────────────────────────────────────────
+  // ── ORDERS ────────────────────────────────────────────────────────────────
   async function loadOrders() {
     const { data, error } = await db.from('orders').select('*')
       .eq('order_date', todayStr()).order('created_at', { ascending: false });
@@ -433,7 +467,6 @@
     render();
   }
 
-  // ── ADD ORDER ─────────────────────────────────────────────────────────────
   async function addOrder() {
     const name     = document.getElementById('customerName').value.trim();
     const contact  = document.getElementById('customerContact').value.trim();
@@ -459,8 +492,7 @@
     btn.disabled = false; btn.textContent = 'Record Order';
     if (error) { toast('Error: ' + error.message, true); return; }
     if (data && data.length > 0) orders.unshift(data[0]);
-    render();
-    clearForm();
+    render(); clearForm();
     toast('Order #' + nextNum + ' recorded ✓');
   }
 
@@ -470,7 +502,6 @@
     document.getElementById('product').value = '';
   }
 
-  // ── RENDER ORDERS ─────────────────────────────────────────────────────────
   function render() {
     const filtered = activeFilter === 'all' ? orders : orders.filter(o => o.status === activeFilter);
     const list = document.getElementById('ordersList');
@@ -582,8 +613,7 @@
     if (error) { toast('Error: ' + error.message, true); return; }
     const o = orders.find(x => x.id === viewingId);
     if (o) { o.status = newStatus; o.notes = newNotes; }
-    closeDetail();
-    render();
+    closeDetail(); render();
     toast('Order updated ✓');
   }
 
@@ -592,8 +622,7 @@
     const { error } = await db.from('orders').delete().eq('id', id);
     if (error) { toast('Error: ' + error.message, true); return; }
     orders = orders.filter(o => o.id !== id);
-    closeDetail();
-    render();
+    closeDetail(); render();
     toast('Order deleted');
   }
 
@@ -614,7 +643,6 @@
   document.getElementById('detailOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeDetail();
   });
-
   document.getElementById('newProductName').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') addProduct();
   });
@@ -623,6 +651,7 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadOrders())
     .subscribe();
 
+  loadTheme();
   setHeaderDate();
   loadProducts();
   loadOrders();
