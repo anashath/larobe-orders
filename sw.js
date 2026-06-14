@@ -1,4 +1,4 @@
-const CACHE = 'larobe-v3';
+const CACHE = 'larobe-v4';
 const ASSETS = ['/larobe-orders/','/larobe-orders/index.html'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{})); self.skipWaiting(); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });
