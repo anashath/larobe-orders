@@ -395,9 +395,15 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
         </div>
         <div class="fblock ffull">
           <label>Payment Received</label>
-          <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1.5px solid var(--line);border-radius:12px;cursor:pointer" onclick="togglePayDone()" id="payDoneRow">
-            <div id="payDoneIcon" style="width:22px;height:22px;border-radius:50%;border:2px solid var(--ink3);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"></div>
-            <span id="payDoneLabel" style="font-size:14px;color:var(--ink2)">Payment not yet received</span>
+          <div style="display:flex;gap:10px;">
+            <button type="button" id="payNo" onclick="setPayDone(false)"
+              style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--red);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">
+              Unpaid
+            </button>
+            <button type="button" id="payYes" onclick="setPayDone(true)"
+              style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink3);font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">
+              Paid
+            </button>
           </div>
         </div>
         <div class="fblock ffull"><label>Notes</label><textarea id="fNotes" placeholder="Colour, address, special instructions…"></textarea></div>
@@ -682,25 +688,18 @@ function clearForm() {
   _payDone=false; renderPayDone();
 }
 function renderPayDone() {
-  const icon=document.getElementById('payDoneIcon');
-  const lbl=document.getElementById('payDoneLabel');
-  const row=document.getElementById('payDoneRow');
-  if(!icon) return;
+  const yes=document.getElementById('payYes');
+  const no=document.getElementById('payNo');
+  if(!yes||!no) return;
   if(_payDone) {
-    icon.style.background='var(--green)'; icon.style.borderColor='var(--green)';
-    icon.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    lbl.textContent='Payment received';
-    lbl.style.color='var(--green)';
-    row.style.borderColor='var(--green)';
+    yes.style.background='var(--green)'; yes.style.color='#fff'; yes.style.borderColor='var(--green)';
+    no.style.background='var(--bg2)'; no.style.color='var(--ink3)'; no.style.borderColor='var(--line)';
   } else {
-    icon.style.background=''; icon.style.borderColor='var(--ink3)';
-    icon.innerHTML='';
-    lbl.textContent='Payment not yet received';
-    lbl.style.color='var(--ink2)';
-    row.style.borderColor='var(--line)';
+    no.style.background='var(--red)'; no.style.color='#fff'; no.style.borderColor='var(--red)';
+    yes.style.background='var(--bg2)'; yes.style.color='var(--ink3)'; yes.style.borderColor='var(--line)';
   }
 }
-function togglePayDone() { _payDone=!_payDone; renderPayDone(); }
+function setPayDone(val) { _payDone=val; renderPayDone(); }
 function render() {
   const L=document.getElementById('olist');
   const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
@@ -793,9 +792,17 @@ function enterEdit() {
       </div>
       <div class="fblock ffull">
         <label>Payment Received</label>
-        <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1.5px solid ${o.payment_done?'var(--green)':'var(--line)'};border-radius:12px;cursor:pointer" onclick="this.dataset.v=this.dataset.v==='1'?'0':'1';const pd=this.dataset.v==='1';this.style.borderColor=pd?'var(--green)':'var(--line)';this.querySelector('.epd-icon').style.background=pd?'var(--green)':'';this.querySelector('.epd-icon').style.borderColor=pd?'var(--green)':'var(--ink3)';this.querySelector('.epd-icon').innerHTML=pd?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'><polyline points=\'2,6 5,9 10,3\' stroke=\'white\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>':'';this.querySelector('.epd-lbl').textContent=pd?'Payment received':'Payment not yet received';this.querySelector('.epd-lbl').style.color=pd?'var(--green)':'var(--ink2)';document.getElementById('epd').value=pd?'1':'0';" data-v="${o.payment_done?'1':'0'}" id="epdRow">
-          <div class="epd-icon" style="width:22px;height:22px;border-radius:50%;border:2px solid ${o.payment_done?'var(--green)':'var(--ink3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${o.payment_done?'var(--green)':'transparent'}">${o.payment_done?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'><polyline points=\'2,6 5,9 10,3\' stroke=\'white\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>':''}</div>
-          <span class="epd-lbl" style="font-size:14px;color:${o.payment_done?'var(--green)':'var(--ink2)'}">${o.payment_done?'Payment received':'Payment not yet received'}</span>
+        <div style="display:flex;gap:10px;">
+          <button type="button" id="epdNo"
+            onclick="document.getElementById('epd').value='0';document.getElementById('epdNo').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--red);background:var(--red);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';document.getElementById('epdYes').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink3);font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';"
+            style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${o.payment_done?'var(--line)':'var(--red)'};background:${o.payment_done?'var(--bg2)':'var(--red)'};color:${o.payment_done?'var(--ink3)':'#fff'};font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">
+            Unpaid
+          </button>
+          <button type="button" id="epdYes"
+            onclick="document.getElementById('epd').value='1';document.getElementById('epdYes').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--green);background:var(--green);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';document.getElementById('epdNo').style.cssText='flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink3);font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer';"
+            style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${o.payment_done?'var(--green)':'var(--line)'};background:${o.payment_done?'var(--green)':'var(--bg2)'};color:${o.payment_done?'#fff':'var(--ink3)'};font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">
+            Paid
+          </button>
         </div>
         <input type="hidden" id="epd" value="${o.payment_done?'1':'0'}">
       </div>
