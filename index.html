@@ -290,7 +290,7 @@
       <input type="date" id="copyDate" class="copy-date-input">
       <span class="copy-count" id="copyCount"></span>
       <button class="btn-copy" id="copyBtn" onclick="copyOrders()">
-        <span id="copyIcon">📋</span> <span id="copyText">Copy as Text</span>
+<span id="copyText">Copy as Text</span>
       </button>
     </div>
 
@@ -689,9 +689,8 @@
     const date = dateInput.value;
     if (!date) { toast('Select a date first.', true); return; }
 
-    const btn  = document.getElementById('copyBtn');
-    const icon = document.getElementById('copyIcon');
-    const txt  = document.getElementById('copyText');
+    const btn = document.getElementById('copyBtn');
+    const txt = document.getElementById('copyText');
     btn.disabled = true; txt.textContent = 'Loading…';
 
     const { data, error } = await db
@@ -704,66 +703,40 @@
     if (error) { toast('Error: ' + error.message, true); txt.textContent = 'Copy as Text'; return; }
     if (!data || data.length === 0) { toast('No orders found for ' + formatDate(date) + '.', true); txt.textContent = 'Copy as Text'; return; }
 
-    const lines = [];
     const d = formatDate(date);
-    const total    = data.length;
-    const pending  = data.filter(o => o.status === 'pending').length;
-    const delivered= data.filter(o => o.status === 'delivered').length;
-    const cancelled= data.filter(o => o.status === 'cancelled').length;
-    const revenue  = data.filter(o => o.status !== 'cancelled').reduce((s,o) => s + Number(o.price), 0);
+    const lines = [];
 
-    lines.push('🛍 LA ROBE MALDIVES — ORDERS');
-    lines.push('📅 ' + d);
-    lines.push('─'.repeat(32));
+    lines.push('LA ROBE MALDIVES — ' + d);
     lines.push('');
 
     data.forEach(o => {
-      const statusEmoji = o.status === 'delivered' ? '✅' : o.status === 'cancelled' ? '❌' : '⏳';
-      lines.push(statusEmoji + ' Order #' + o.num + ' — ' + o.customer_name);
-      if (o.contact)  lines.push('   📞 ' + o.contact);
-      lines.push('   🛍 ' + o.product);
-      lines.push('   💰 MVR ' + Number(o.price).toLocaleString() + ' · ' + o.payment);
-      lines.push('   🚚 ' + o.delivery);
-      if (o.notes)    lines.push('   📝 ' + o.notes);
-      lines.push('   🕐 ' + (o.order_time || ''));
+      const status = o.status === 'delivered' ? 'Delivered' : o.status === 'cancelled' ? 'Cancelled' : 'Pending';
+      lines.push('Order #' + o.num + ' — ' + o.customer_name);
+      if (o.contact)  lines.push('Contact: ' + o.contact);
+      lines.push('Product: ' + o.product);
+      lines.push('Price: MVR ' + Number(o.price).toLocaleString() + ' (' + o.payment + ')');
+      lines.push('Delivery: ' + o.delivery);
+      if (o.notes)    lines.push('Notes: ' + o.notes);
+      lines.push('Status: ' + status);
       lines.push('');
     });
 
-    lines.push('─'.repeat(32));
-    lines.push('📊 SUMMARY');
-    lines.push('Total orders : ' + total);
-    if (pending)   lines.push('⏳ Pending   : ' + pending);
-    if (delivered) lines.push('✅ Delivered : ' + delivered);
-    if (cancelled) lines.push('❌ Cancelled : ' + cancelled);
-    lines.push('💰 Revenue   : MVR ' + revenue.toLocaleString());
-    lines.push('─'.repeat(32));
-    lines.push('La Robe Maldives · ' + d);
-
-    const text = lines.join('\n');
+    const text = lines.join('\n').trimEnd();
 
     try {
       await navigator.clipboard.writeText(text);
-      icon.textContent = '✅'; txt.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => {
-        icon.textContent = '📋'; txt.textContent = 'Copy as Text';
-        btn.classList.remove('copied');
-      }, 2500);
-      toast('Orders for ' + d + ' copied to clipboard ✓');
+      btn.classList.add('copied'); txt.textContent = 'Copied!';
+      setTimeout(() => { btn.classList.remove('copied'); txt.textContent = 'Copy as Text'; }, 2500);
+      toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
     } catch(e) {
-      // Fallback for older Android
       const el = document.createElement('textarea');
       el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
       document.body.appendChild(el); el.focus(); el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
-      icon.textContent = '✅'; txt.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => {
-        icon.textContent = '📋'; txt.textContent = 'Copy as Text';
-        btn.classList.remove('copied');
-      }, 2500);
-      toast('Orders for ' + d + ' copied ✓');
+      btn.classList.add('copied'); txt.textContent = 'Copied!';
+      setTimeout(() => { btn.classList.remove('copied'); txt.textContent = 'Copy as Text'; }, 2500);
+      toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
     }
   }
 
