@@ -901,42 +901,86 @@ async function updCopyCount() {
   document.getElementById('copyCount').textContent=count?count+' '+label+(count!==1?'s':''):'No orders found';
 }
 async function doCopy() {
-  const date=document.getElementById('copyDate').value; if(!date){toast('Select a date',true);return;}
-  const btn=document.getElementById('copyBtn'); btn.disabled=true; btn.textContent='Loading…';
-  let q=db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
-  if(copyFlt==='pending') q=q.eq('status','pending');
-  const {data,error}=await q;
-  btn.disabled=false;
-  if(error||!data||!data.length){toast('No orders on this date',true);btn.textContent='Copy as Text';return;}
-  const d=new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const filterLabel = copyFlt==='pending' ? ' — PENDING ONLY' : '';
-  const lines = [];
-  lines.push('LA ROBE MALDIVES — '+d+filterLabel);
-  lines.push('');
-  const sep = '─'.repeat(36);
-  lines.push(sep);
-  data.forEach(o=>{
-    lines.push('ORDER #'+o.num);
-    lines.push('Customer  : '+o.customer_name);
-    if(o.contact) lines.push('Contact   : '+o.contact);
-    lines.push('Product   : '+o.product);
-    lines.push('Price     : MVR '+Number(o.price).toLocaleString());
+  try {
+    const dateEl = document.getElementById('copyDate');
+    const date = dateEl ? dateEl.value : '';
+    if (!date) { toast('Select a date first', true); return; }
+
+    const btn = document.getElementById('copyBtn');
+    btn.disabled = true; btn.textContent = 'Loading…';
+
+    let q = db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true});
+    if (copyFlt === 'pending') q = q.eq('status', 'pending');
+
+    const { data, error } = await q;
+    btn.disabled = false;
+
+    if (error) { toast('Error: ' + error.message, true); btn.textContent = 'Copy as Text'; return; }
+    if (!data || data.length === 0) {
+      toast(copyFlt === 'pending' ? 'No pending orders on this date' : 'No orders on this date', true);
+      btn.textContent = 'Copy as Text'; return;
+    }
+
+    const d = new Date(date + 'T00:00:00').toLocaleDateString('en-MV', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const filterLabel = copyFlt === 'pending' ? ' — PENDING ONLY' : '';
+    const sep = '─'.repeat(36);
+    const lines = [];
+
+    lines.push('LA ROBE MALDIVES — ' + d + filterLabel);
     lines.push('');
-    lines.push('Delivery Status  : '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
-    lines.push('Delivery Method  : '+o.delivery);
-    lines.push('');
-    lines.push('Payment Method   : '+o.payment);
-    lines.push('Payment Status   : '+(o.payment_done?'Received ✓':'Not Received ✗'));
-    if(o.notes) { lines.push(''); lines.push('Notes     : '+o.notes); }
     lines.push(sep);
-    lines.push('');
-  });
-  const text=lines.join('\n').trimEnd();
-  const pre=document.getElementById('copyPre'); pre.textContent=text; pre.style.display='block';
-  try{await navigator.clipboard.writeText(text);}catch(e){const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;opacity:0';document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);}
-  btn.textContent='Copied!'; btn.classList.add('done');
-  setTimeout(()=>{btn.textContent='Copy as Text';btn.classList.remove('done');},2500);
-  toast('Copied '+data.length+' order'+(data.length!==1?'s':'')+' ✓');
+
+    data.forEach(function(o) {
+      lines.push('ORDER #' + o.num);
+      lines.push('Customer         : ' + o.customer_name);
+      if (o.contact) lines.push('Contact          : ' + o.contact);
+      lines.push('Product          : ' + o.product);
+      lines.push('Price            : MVR ' + Number(o.price).toLocaleString());
+      lines.push('');
+      lines.push('Delivery Status  : ' + (o.status === 'delivered' ? 'Delivered' : o.status === 'cancelled' ? 'Cancelled' : 'Pending'));
+      lines.push('Delivery Method  : ' + o.delivery);
+      lines.push('');
+      lines.push('Payment Method   : ' + o.payment);
+      lines.push('Payment Status   : ' + (o.payment_done ? 'Received ✓' : 'Not Received ✗'));
+      if (o.notes) { lines.push(''); lines.push('Notes            : ' + o.notes); }
+      lines.push(sep);
+      lines.push('');
+    });
+
+    const text = lines.join('
+').trimEnd();
+
+    const pre = document.getElementById('copyPre');
+    if (pre) { pre.textContent = text; pre.style.display = 'block'; }
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch(e) {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+
+    btn.textContent = 'Copied!';
+    btn.style.background = '#2A7A50';
+    setTimeout(function() {
+      btn.textContent = 'Copy as Text';
+      btn.style.background = '';
+    }, 2500);
+
+    toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
+
+  } catch(err) {
+    toast('Error: ' + err.message, true);
+    const btn = document.getElementById('copyBtn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Copy as Text'; }
+  }
 }
 
 /* INIT */
