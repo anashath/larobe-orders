@@ -839,16 +839,22 @@ async function doCopy() {
   btn.disabled=false;
   if(error||!data||!data.length){toast('No orders on this date',true);btn.textContent='Copy as Text';return;}
   const d=new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const lines=['LA ROBE MALDIVES — '+d,''];
+  const sep = '─'.repeat(36);
+  lines.push(sep);
   data.forEach(o=>{
-    lines.push('Order #'+o.num+' — '+o.customer_name);
-    if(o.contact) lines.push('Contact: '+o.contact);
-    lines.push('Product: '+o.product);
-    lines.push('Price: MVR '+Number(o.price).toLocaleString()+' ('+o.payment+')');
-    lines.push('Delivery: '+o.delivery);
-    if(o.notes) lines.push('Notes: '+o.notes);
-    lines.push('Status: '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
-    lines.push('Payment: '+(o.payment_done?'Received':'Pending'));
+    lines.push('ORDER #'+o.num);
+    lines.push('Customer  : '+o.customer_name);
+    if(o.contact) lines.push('Contact   : '+o.contact);
+    lines.push('Product   : '+o.product);
+    lines.push('Price     : MVR '+Number(o.price).toLocaleString());
+    lines.push('');
+    lines.push('Delivery Status  : '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
+    lines.push('Delivery Method  : '+o.delivery);
+    lines.push('');
+    lines.push('Payment Method   : '+o.payment);
+    lines.push('Payment Status   : '+(o.payment_done?'Received ✓':'Not Received ✗'));
+    if(o.notes) { lines.push(''); lines.push('Notes     : '+o.notes); }
+    lines.push(sep);
     lines.push('');
   });
   const text=lines.join('\n').trimEnd();
