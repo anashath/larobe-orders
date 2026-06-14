@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Robe — Daily Orders</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #F5EFE6;
+    --sand-dark: #EDE3D6;
+    --blush: #D4A5A5;
+    --blush-deep: #B87E7E;
+    --ink: #2C2218;
+    --ink-light: #6B5B4E;
+    --cream: #FAF7F2;
+    --white: #FFFFFF;
+    --border: #E2D5C8;
+    --success: #7A9E7E;
+    --pending: #C4956A;
+    --delivered: #7A9E7E;
+    --cancelled: #C0635C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Jost', sans-serif;
+    background: var(--sand);
+    color: var(--ink);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--ink);
+    color: var(--sand);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .brand span {
+    color: var(--blush);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .date-badge {
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    color: #A89880;
+    text-transform: uppercase;
+  }
+
+  /* LAYOUT */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* STATS ROW */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .stat {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--ink-light);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .stat.revenue .stat-value { color: var(--blush-deep); }
+
+  /* FORM PANEL */
+  .panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .panel-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+  }
+
+  input, select, textarea {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-family: 'Jost', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--cream);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--blush-deep);
+    background: var(--white);
+  }
+
+  textarea { resize: vertical; min-height: 60px; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+  }
+
+  .btn {
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--sand);
+  }
+
+  .btn-primary:hover { background: var(--blush-deep); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-light);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover { border-color: var(--ink-light); }
+
+  /* ORDERS TABLE */
+  .orders-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .orders-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-btn {
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    color: var(--ink-light);
+    cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    transition: all 0.12s;
+  }
+
+  .filter-btn.active {
+    background: var(--ink);
+    color: var(--sand);
+    border-color: var(--ink);
+  }
+
+  .orders-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .order-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    transition: box-shadow 0.15s;
+  }
+
+  .order-card:hover { box-shadow: 0 2px 8px rgba(44,34,24,0.07); }
+
+  .order-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--blush);
+    min-width: 38px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  .order-info { display: flex; flex-direction: column; gap: 3px; }
+
+  .order-customer {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .order-product {
+    font-size: 12px;
+    color: var(--ink-light);
+  }
+
+  .order-delivery {
+    font-size: 11px;
+    color: #A89880;
+    margin-top: 1px;
+  }
+
+  .order-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .order-actions { display: flex; gap: 6px; align-items: center; }
+
+  .status-badge {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .status-pending   { background: #FDF3E7; color: var(--pending); border: 1px solid #EDD9B8; }
+  .status-delivered { background: #EBF4EC; color: var(--delivered); border: 1px solid #BAD8BC; }
+  .status-cancelled { background: #FAEAEA; color: var(--cancelled); border: 1px solid #E8C0BF; }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink-light);
+    padding: 4px;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1;
+    transition: color 0.12s;
+  }
+  .icon-btn:hover { color: var(--blush-deep); }
+  .icon-btn.del:hover { color: var(--cancelled); }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--ink-light);
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+  .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic; }
+  .empty-sub { font-size: 12px; margin-top: 5px; color: #A89880; }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: var(--sand);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(44,34,24,0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white);
+    border-radius: 10px;
+    padding: 28px;
+    width: min(440px, 92vw);
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    color: var(--ink);
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .order-card { grid-template-columns: auto 1fr; grid-template-rows: auto auto; }
+    .order-price { grid-column: 2; }
+    .order-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">La <span>Robe</span> Maldives</div>
+  <div class="date-badge" id="headerDate"></div>
+</header>
+
+<div class="container">
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-label">Orders Today</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statPending">0</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statDelivered">0</div>
+      <div class="stat-label">Delivered</div>
+    </div>
+    <div class="stat revenue">
+      <div class="stat-value" id="statRevenue">0</div>
+      <div class="stat-label">MVR Revenue</div>
+    </div>
+  </div>
+
+  <!-- NEW ORDER FORM -->
+  <div class="panel">
+    <div class="panel-title">New Order</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Customer Name</label>
+        <input type="text" id="customerName" placeholder="e.g. Aminath Riyasha">
+      </div>
+      <div class="form-group">
+        <label>Contact (Viber / WhatsApp)</label>
+        <input type="text" id="customerContact" placeholder="+960 7xx xxxx">
+      </div>
+      <div class="form-group">
+        <label>Product</label>
+        <select id="product">
+          <option value="">Select product…</option>
+          <option>Shoulder Bag — Natural</option>
+          <option>Shoulder Bag — Black</option>
+          <option>Crossbody Moon Bag — Beige</option>
+          <option>Crossbody Moon Bag — Brown</option>
+          <option>PU Leather Tote — Cream</option>
+          <option>PU Leather Tote — Tan</option>
+          <option>PU Leather Tote — Black</option>
+          <option>Other / Custom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price (MVR)</label>
+        <input type="number" id="price" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Delivery Method</label>
+        <select id="delivery">
+          <option value="Local Delivery">Local Delivery (Hulhumalé)</option>
+          <option value="Male Delivery">Malé Delivery</option>
+          <option value="Harbour / Ferry">Harbour / Ferry</option>
+          <option value="Pickup">Customer Pickup</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Payment</label>
+        <select id="payment">
+          <option value="BML Transfer">BML Transfer</option>
+          <option value="Cash on Delivery">Cash on Delivery</option>
+          <option value="MIB Transfer">MIB Transfer</option>
+          <option value="Paid via Messenger">Paid via Messenger</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea id="notes" placeholder="Colour preference, address, special instructions…"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      <button class="btn btn-primary" onclick="addOrder()">Record Order</button>
+    </div>
+  </div>
+
+  <!-- ORDER LIST -->
+  <div class="orders-header">
+    <div class="orders-title">Today's Orders</div>
+    <div class="filter-row">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" data-filter="pending" onclick="setFilter('pending', this)">Pending</button>
+      <button class="filter-btn" data-filter="delivered" onclick="setFilter('delivered', this)">Delivered</button>
+    </div>
+  </div>
+
+  <div class="orders-list" id="ordersList"></div>
+
+</div>
+
+<!-- STATUS MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Update Order Status</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Status</label>
+        <select id="modalStatus">
+          <option value="pending">Pending</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Notes (optional)</label>
+        <textarea id="modalNotes" placeholder="Update notes…"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStatus()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ─── STATE ────────────────────────────────────────────────────────────────
+  const STORAGE_KEY = 'larobe_orders';
+  let orders = [];
+  let editingId = null;
+  let activeFilter = 'all';
+  let orderCounter = 1;
+
+  // ─── INIT ─────────────────────────────────────────────────────────────────
+  function init() {
+    const today = todayStr();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      // Only keep today's orders; reset if new day
+      if (data.date === today) {
+        orders = data.orders;
+        orderCounter = data.counter || (orders.length + 1);
+      } else {
+        orders = [];
+        orderCounter = 1;
+        save();
+      }
+    }
+    setHeaderDate();
+    render();
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function setHeaderDate() {
+    const d = new Date();
+    document.getElementById('headerDate').textContent =
+      d.toLocaleDateString('en-MV', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      date: todayStr(),
+      orders,
+      counter: orderCounter
+    }));
+  }
+
+  // ─── ADD ORDER ────────────────────────────────────────────────────────────
+  function addOrder() {
+    const name = document.getElementById('customerName').value.trim();
+    const contact = document.getElementById('customerContact').value.trim();
+    const product = document.getElementById('product').value;
+    const price = parseFloat(document.getElementById('price').value) || 0;
+    const delivery = document.getElementById('delivery').value;
+    const payment = document.getElementById('payment').value;
+    const notes = document.getElementById('notes').value.trim();
+
+    if (!name || !product) {
+      toast('Please fill in customer name and product.');
+      return;
+    }
+
+    const order = {
+      id: Date.now(),
+      num: orderCounter++,
+      name, contact, product, price, delivery, payment, notes,
+      status: 'pending',
+      time: new Date().toLocaleTimeString('en-MV', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    orders.unshift(order);
+    save();
+    clearForm();
+    render();
+    toast(`Order #${order.num} recorded ✓`);
+  }
+
+  function clearForm() {
+    ['customerName','customerContact','notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('price').value = '';
+    document.getElementById('product').value = '';
+  }
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
+  function render() {
+    const filtered = activeFilter === 'all'
+      ? orders
+      : orders.filter(o => o.status === activeFilter);
+
+    const list = document.getElementById('ordersList');
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">🛍</div>
+          <div class="empty-text">${activeFilter === 'all' ? 'No orders yet today' : 'No ' + activeFilter + ' orders'}</div>
+          <div class="empty-sub">${activeFilter === 'all' ? 'Record your first order above' : ''}</div>
+        </div>`;
+    } else {
+      list.innerHTML = filtered.map(o => `
+        <div class="order-card">
+          <div class="order-num">#${o.num}</div>
+          <div class="order-info">
+            <div class="order-customer">${esc(o.name)}${o.contact ? ' · ' + esc(o.contact) : ''}</div>
+            <div class="order-product">${esc(o.product)}</div>
+            <div class="order-delivery">${o.delivery} · ${o.payment} · ${o.time}${o.notes ? ' · ' + esc(o.notes) : ''}</div>
+          </div>
+          <div class="order-price">MVR ${o.price.toLocaleString()}</div>
+          <div class="order-actions">
+            <span class="status-badge status-${o.status}">${o.status}</span>
+            <button class="icon-btn" title="Update status" onclick="openModal(${o.id})">✎</button>
+            <button class="icon-btn del" title="Delete" onclick="deleteOrder(${o.id})">✕</button>
+          </div>
+        </div>`).join('');
+    }
+
+    updateStats();
+  }
+
+  function updateStats() {
+    const todayOrders = orders;
+    const pending = todayOrders.filter(o => o.status === 'pending').length;
+    const delivered = todayOrders.filter(o => o.status === 'delivered').length;
+    const revenue = todayOrders
+      .filter(o => o.status !== 'cancelled')
+      .reduce((s, o) => s + o.price, 0);
+
+    document.getElementById('statTotal').textContent = todayOrders.length;
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statDelivered').textContent = delivered;
+    document.getElementById('statRevenue').textContent = revenue.toLocaleString();
+  }
+
+  // ─── FILTER ───────────────────────────────────────────────────────────────
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  // ─── STATUS MODAL ─────────────────────────────────────────────────────────
+  function openModal(id) {
+    editingId = id;
+    const o = orders.find(x => x.id === id);
+    document.getElementById('modalStatus').value = o.status;
+    document.getElementById('modalNotes').value = o.notes || '';
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveStatus() {
+    const o = orders.find(x => x.id === editingId);
+    if (!o) return;
+    o.status = document.getElementById('modalStatus').value;
+    const n = document.getElementById('modalNotes').value.trim();
+    if (n) o.notes = n;
+    save();
+    closeModal();
+    render();
+    toast('Order updated');
+  }
+
+  // ─── DELETE ───────────────────────────────────────────────────────────────
+  function deleteOrder(id) {
+    if (!confirm('Remove this order?')) return;
+    orders = orders.filter(o => o.id !== id);
+    save();
+    render();
+    toast('Order removed');
+  }
+
+  // ─── UTILS ────────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  init();
+</script>
+</body>
+</html>
