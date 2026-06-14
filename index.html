@@ -64,9 +64,9 @@
   .header-right { display:flex; align-items:center; gap:10px; }
   .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--delivered); flex-shrink:0; }
   .sync-dot.offline { background:var(--cancelled); }
-  .theme-toggle { display:flex; background:rgba(255,255,255,0.1); border-radius:16px; padding:2px; border:1px solid rgba(255,255,255,0.15); }
-  .theme-btn { background:none; border:none; cursor:pointer; padding:3px 8px; border-radius:12px; font-size:12px; color:rgba(255,255,255,0.45); transition:all 0.2s; }
-  .theme-btn.active { background:rgba(255,255,255,0.18); color:#fff; }
+  .theme-toggle { display:flex; background:rgba(255,255,255,0.12); border-radius:16px; padding:2px; border:1px solid rgba(255,255,255,0.2); }
+  .theme-btn { background:none; border:none; cursor:pointer; padding:4px 10px; border-radius:12px; font-size:13px; color:rgba(255,255,255,0.4); transition:all 0.2s; line-height:1; }
+  .theme-btn.active { background:rgba(255,255,255,0.25); color:#fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
 
   /* ── DRAWER OVERLAY ── */
   .drawer-overlay {
@@ -449,9 +449,9 @@
       <div class="panel-title">Settings</div>
       <div class="settings-row">
         <div><div class="settings-label">Theme</div><div class="settings-hint">Choose light or dark appearance</div></div>
-        <div class="theme-toggle" style="background:var(--surface2);border-color:var(--border)">
-          <button class="theme-btn active" id="btnLight2" onclick="setTheme('light')" style="color:var(--ink-muted)">☀️</button>
-          <button class="theme-btn" id="btnDark2" onclick="setTheme('dark')" style="color:var(--ink-muted)">🌙</button>
+        <div style="display:flex;background:var(--surface2);border-radius:16px;padding:2px;border:1px solid var(--border)">
+          <button id="btnLight2" onclick="setTheme('light')" style="background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted)">☀️ Light</button>
+          <button id="btnDark2" onclick="setTheme('dark')" style="background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted)">🌙 Dark</button>
         </div>
       </div>
       <div class="settings-row">
@@ -532,8 +532,20 @@ let orders=[], products=[], activeFilter='all', viewingId=null, editingProductId
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('larobe_theme', t);
-  ['btnLight','btnLight2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', t==='light'); });
-  ['btnDark','btnDark2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', t==='dark'); });
+
+  // Header toggle
+  const btnLight = document.getElementById('btnLight');
+  const btnDark  = document.getElementById('btnDark');
+  if (btnLight) btnLight.classList.toggle('active', t==='light');
+  if (btnDark)  btnDark.classList.toggle('active',  t==='dark');
+
+  // Settings toggle — styled differently (on light bg)
+  const activeStyle  = 'background:var(--ink);color:var(--bg);border-radius:12px;border:none;cursor:pointer;padding:6px 14px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;';
+  const inactiveStyle= 'background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted);';
+  const btnLight2 = document.getElementById('btnLight2');
+  const btnDark2  = document.getElementById('btnDark2');
+  if (btnLight2) btnLight2.style.cssText = t==='light' ? activeStyle : inactiveStyle;
+  if (btnDark2)  btnDark2.style.cssText  = t==='dark'  ? activeStyle : inactiveStyle;
 }
 function loadTheme() {
   const saved = localStorage.getItem('larobe_theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
