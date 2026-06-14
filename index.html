@@ -284,6 +284,8 @@
   .edit-full { grid-column:1/-1; }
   .edit-input { border:1px solid var(--blush-deep) !important; }
 
+
+  .settings-theme-btn { background:none; border:none; cursor:pointer; padding:6px 14px; border-radius:12px; font-size:13px; transition:all 0.2s; color:var(--ink-muted); }
   /* ── TOAST ── */
   #toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--ink); color:var(--bg); padding:10px 20px; border-radius:20px; font-size:13px; opacity:0; transition:all 0.25s; pointer-events:none; z-index:999; white-space:nowrap; }
   #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -450,8 +452,8 @@
       <div class="settings-row">
         <div><div class="settings-label">Theme</div><div class="settings-hint">Choose light or dark appearance</div></div>
         <div style="display:flex;background:var(--surface2);border-radius:16px;padding:2px;border:1px solid var(--border)">
-          <button id="btnLight2" onclick="setTheme('light')" style="background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted)">☀️ Light</button>
-          <button id="btnDark2" onclick="setTheme('dark')" style="background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted)">🌙 Dark</button>
+          <button id="btnLight2" onclick="setTheme('light')" class="settings-theme-btn">☀️ Light</button>
+          <button id="btnDark2" onclick="setTheme('dark')" class="settings-theme-btn">🌙 Dark</button>
         </div>
       </div>
       <div class="settings-row">
@@ -539,13 +541,21 @@ function setTheme(t) {
   if (btnLight) btnLight.classList.toggle('active', t==='light');
   if (btnDark)  btnDark.classList.toggle('active',  t==='dark');
 
-  // Settings toggle — styled differently (on light bg)
-  const activeStyle  = 'background:var(--ink);color:var(--bg);border-radius:12px;border:none;cursor:pointer;padding:6px 14px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;';
-  const inactiveStyle= 'background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:12px;font-size:13px;font-family:'Jost',sans-serif;transition:all 0.2s;color:var(--ink-muted);';
+  // Settings toggle
   const btnLight2 = document.getElementById('btnLight2');
   const btnDark2  = document.getElementById('btnDark2');
-  if (btnLight2) btnLight2.style.cssText = t==='light' ? activeStyle : inactiveStyle;
-  if (btnDark2)  btnDark2.style.cssText  = t==='dark'  ? activeStyle : inactiveStyle;
+  if (btnLight2) {
+    btnLight2.style.background    = t==='light' ? 'var(--ink)' : 'none';
+    btnLight2.style.color         = t==='light' ? 'var(--bg)'  : 'var(--ink-muted)';
+    btnLight2.style.borderRadius  = '12px';
+    btnLight2.style.fontWeight    = t==='light' ? '500' : '400';
+  }
+  if (btnDark2) {
+    btnDark2.style.background   = t==='dark' ? 'var(--ink)' : 'none';
+    btnDark2.style.color        = t==='dark' ? 'var(--bg)'  : 'var(--ink-muted)';
+    btnDark2.style.borderRadius = '12px';
+    btnDark2.style.fontWeight   = t==='dark' ? '500' : '400';
+  }
 }
 function loadTheme() {
   const saved = localStorage.getItem('larobe_theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
