@@ -947,8 +947,7 @@ async function doCopy() {
       lines.push('');
     });
 
-    const text = lines.join('
-').trimEnd();
+    const text = lines.join('\n').trimEnd();
 
     const pre = document.getElementById('copyPre');
     if (pre) { pre.textContent = text; pre.style.display = 'block'; }
@@ -974,7 +973,7 @@ async function doCopy() {
       btn.style.background = '';
     }, 2500);
 
-    toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
+    toast('Copied ' + data.length + (data.length !== 1 ? ' orders' : ' order') + ' copied!');
 
   } catch(err) {
     toast('Error: ' + err.message, true);
