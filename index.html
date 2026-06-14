@@ -2,316 +2,352 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>La Robe — Daily Orders</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2C2218">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="La Robe">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
-  /* ── LIGHT THEME ── */
+  /* ── THEMES ── */
   :root, [data-theme="light"] {
-    --bg:        #F5EFE6;
-    --surface:   #FFFFFF;
-    --surface2:  #FAF7F2;
-    --border:    #E2D5C8;
-    --ink:       #2C2218;
-    --ink-light: #6B5B4E;
-    --ink-muted: #A89880;
-    --blush:     #D4A5A5;
-    --blush-deep:#B87E7E;
-    --header-bg: #2C2218;
-    --header-fg: #F5EFE6;
-    --pending:   #C4956A;
-    --delivered: #7A9E7E;
-    --cancelled: #C0635C;
-    --tab-hover: #EDE3D6;
-    --shadow:    rgba(44,34,24,0.08);
+    --bg:#F5EFE6; --surface:#FFFFFF; --surface2:#FAF7F2;
+    --border:#E2D5C8; --ink:#2C2218; --ink-light:#6B5B4E; --ink-muted:#A89880;
+    --blush:#D4A5A5; --blush-deep:#B87E7E;
+    --nav-bg:#2C2218; --nav-fg:#F5EFE6; --nav-active:#D4A5A5;
+    --header-bg:#2C2218; --header-fg:#F5EFE6;
+    --pending:#C4956A; --delivered:#7A9E7E; --cancelled:#C0635C;
+    --shadow:rgba(44,34,24,0.10);
+    --drawer-bg:#FFFFFF; --overlay:rgba(44,34,24,0.5);
   }
-
-  /* ── DARK THEME ── */
   [data-theme="dark"] {
-    --bg:        #1A1410;
-    --surface:   #241D17;
-    --surface2:  #1F1812;
-    --border:    #3D3028;
-    --ink:       #F0E8DF;
-    --ink-light: #B8A898;
-    --ink-muted: #7A6A5A;
-    --blush:     #C4908F;
-    --blush-deep:#D4A5A5;
-    --header-bg: #120E0A;
-    --header-fg: #F0E8DF;
-    --pending:   #C4956A;
-    --delivered: #7A9E7E;
-    --cancelled: #C0635C;
-    --tab-hover: #2E2318;
-    --shadow:    rgba(0,0,0,0.3);
+    --bg:#1A1410; --surface:#241D17; --surface2:#1F1812;
+    --border:#3D3028; --ink:#F0E8DF; --ink-light:#B8A898; --ink-muted:#7A6A5A;
+    --blush:#C4908F; --blush-deep:#D4A5A5;
+    --nav-bg:#120E0A; --nav-fg:#B8A898; --nav-active:#D4A5A5;
+    --header-bg:#120E0A; --header-fg:#F0E8DF;
+    --pending:#C4956A; --delivered:#7A9E7E; --cancelled:#C0635C;
+    --shadow:rgba(0,0,0,0.35);
+    --drawer-bg:#241D17; --overlay:rgba(0,0,0,0.65);
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Jost', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 14px; transition: background 0.25s, color 0.25s; }
+  * { box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+  html, body { height:100%; overflow:hidden; }
+  body { font-family:'Jost',sans-serif; background:var(--bg); color:var(--ink); font-size:14px; display:flex; flex-direction:column; transition:background 0.25s,color 0.25s; }
 
-  /* ── HEADER ── */
-  header { background: var(--header-bg); color: var(--header-fg); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .brand { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
-  .brand span { color: var(--blush); font-style: italic; font-weight: 400; }
-  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-  .date-badge { font-size: 11px; font-weight: 300; letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
-  .header-meta { display: flex; align-items: center; gap: 12px; }
-  .sync-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-muted); }
-  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--delivered); }
-  .sync-dot.offline { background: var(--cancelled); }
+  /* ── FIXED HEADER ── */
+  .app-header {
+    position: fixed; top:0; left:0; right:0; z-index:50;
+    background: var(--header-bg); color: var(--header-fg);
+    padding: 14px 16px 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top));
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  .hamburger {
+    background: none; border: none; cursor: pointer;
+    color: var(--header-fg); padding: 4px; display: flex;
+    flex-direction: column; gap: 4px; flex-shrink:0;
+  }
+  .hamburger span { display:block; width:20px; height:2px; background:currentColor; border-radius:2px; transition: all 0.2s; }
+  .brand { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; flex:1; }
+  .brand em { color:var(--blush); font-style:italic; font-weight:400; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--delivered); flex-shrink:0; }
+  .sync-dot.offline { background:var(--cancelled); }
+  .theme-toggle { display:flex; background:rgba(255,255,255,0.1); border-radius:16px; padding:2px; border:1px solid rgba(255,255,255,0.15); }
+  .theme-btn { background:none; border:none; cursor:pointer; padding:3px 8px; border-radius:12px; font-size:12px; color:rgba(255,255,255,0.45); transition:all 0.2s; }
+  .theme-btn.active { background:rgba(255,255,255,0.18); color:#fff; }
 
-  /* ── THEME TOGGLE ── */
-  .theme-toggle { display: flex; align-items: center; gap: 0; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 3px; border: 1px solid rgba(255,255,255,0.15); }
-  .theme-btn { background: none; border: none; cursor: pointer; padding: 4px 10px; border-radius: 16px; font-size: 13px; line-height: 1; transition: all 0.2s; color: rgba(255,255,255,0.5); }
-  .theme-btn.active { background: rgba(255,255,255,0.18); color: #fff; }
-  [data-theme="dark"] .theme-btn.active { background: rgba(255,255,255,0.15); }
+  /* ── DRAWER OVERLAY ── */
+  .drawer-overlay {
+    position:fixed; inset:0; z-index:80;
+    background:var(--overlay); opacity:0; pointer-events:none;
+    transition: opacity 0.25s;
+  }
+  .drawer-overlay.open { opacity:1; pointer-events:all; }
 
-  /* ── LAYOUT ── */
-  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  /* ── SIDE DRAWER ── */
+  .drawer {
+    position:fixed; top:0; left:0; bottom:0; z-index:90;
+    width:260px; background:var(--drawer-bg);
+    transform:translateX(-100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1);
+    display:flex; flex-direction:column;
+    box-shadow:4px 0 20px rgba(0,0,0,0.2);
+    padding-top: env(safe-area-inset-top);
+  }
+  .drawer.open { transform:translateX(0); }
 
-  /* ── TABS ── */
-  .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 24px; background: var(--surface); border-radius: 8px 8px 0 0; overflow: hidden; }
-  .tab { flex: 1; padding: 13px 16px; font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; text-align: center; cursor: pointer; border: none; background: none; color: var(--ink-light); border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
-  .tab.active { color: var(--ink); border-bottom-color: var(--blush-deep); }
-  .tab:hover { background: var(--tab-hover); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
+  .drawer-header {
+    background:var(--header-bg); padding:20px 20px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .drawer-brand { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--header-fg); }
+  .drawer-brand em { color:var(--blush); font-style:italic; }
+  .drawer-close { background:none; border:none; color:rgba(255,255,255,0.6); font-size:18px; cursor:pointer; padding:2px; }
+
+  .drawer-date { font-size:11px; color:var(--ink-muted); letter-spacing:0.06em; padding:12px 20px; border-bottom:1px solid var(--border); }
+
+  .drawer-nav { flex:1; padding:8px 0; overflow-y:auto; }
+  .drawer-item {
+    display:flex; align-items:center; gap:14px;
+    padding:13px 20px; cursor:pointer; border:none; background:none;
+    width:100%; text-align:left; color:var(--ink-light);
+    font-family:'Jost',sans-serif; font-size:13px; font-weight:400;
+    letter-spacing:0.04em; transition:background 0.12s,color 0.12s;
+    border-left:3px solid transparent;
+  }
+  .drawer-item:hover { background:var(--surface2); }
+  .drawer-item.active { color:var(--ink); border-left-color:var(--blush-deep); background:var(--surface2); font-weight:500; }
+  .drawer-item-icon { font-size:18px; width:24px; text-align:center; flex-shrink:0; }
+  .drawer-section-label { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); padding:14px 20px 6px; }
+
+  .drawer-footer { padding:16px 20px; border-top:1px solid var(--border); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .drawer-sync { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-muted); }
+
+  /* ── SCROLLABLE CONTENT ── */
+  .app-content {
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding-top:56px; /* header height */
+    padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 70px)); /* bottom nav */
+  }
+  .screen { display:none; padding:16px; max-width:700px; margin:0 auto; }
+  .screen.active { display:block; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:var(--nav-bg);
+    display:flex; align-items:stretch;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+  }
+  .nav-item {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:8px 4px; gap:3px; cursor:pointer; border:none; background:none;
+    color:var(--nav-fg); opacity:0.45; transition:all 0.15s;
+    font-family:'Jost',sans-serif;
+  }
+  .nav-item.active { color:var(--nav-active); opacity:1; }
+  .nav-item-icon { font-size:20px; line-height:1; }
+  .nav-item-label { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; }
 
   /* ── STATS ── */
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
-  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; text-align: center; transition: background 0.25s, border-color 0.25s; }
-  .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; color: var(--ink); line-height: 1; }
-  .stat-label { font-size: 10px; color: var(--ink-light); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
-  .stat.revenue .stat-value { color: var(--blush-deep); }
+  .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px; }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .stat-value { font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:600; color:var(--ink); line-height:1; }
+  .stat-label { font-size:10px; color:var(--ink-muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:4px; }
+  .stat.revenue .stat-value { color:var(--blush-deep); }
 
   /* ── PANEL ── */
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; transition: background 0.25s, border-color 0.25s; }
-  .panel-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.06em; margin-bottom: 16px; color: var(--ink); border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .form-group { display: flex; flex-direction: column; gap: 5px; }
-  .form-group.full { grid-column: 1 / -1; }
-  label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); }
-  input, select, textarea {
-    border: 1px solid var(--border); border-radius: 4px; padding: 9px 12px;
-    font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink);
-    background: var(--surface2); transition: border-color 0.15s, background 0.25s, color 0.25s;
-    outline: none; width: 100%;
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:14px; }
+  .panel-title { font-family:'Cormorant Garamond',serif; font-size:15px; font-weight:500; letter-spacing:0.06em; margin-bottom:14px; color:var(--ink); border-bottom:1px solid var(--border); padding-bottom:10px; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-group { display:flex; flex-direction:column; gap:4px; }
+  .form-group.full { grid-column:1/-1; }
+  label { font-size:10px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-muted); }
+  input,select,textarea {
+    border:1px solid var(--border); border-radius:6px; padding:10px 12px;
+    font-family:'Jost',sans-serif; font-size:14px; color:var(--ink);
+    background:var(--surface2); outline:none; width:100%;
+    transition:border-color 0.15s;
+    -webkit-appearance:none; appearance:none;
   }
-  input:focus, select:focus, textarea:focus { border-color: var(--blush-deep); background: var(--surface); }
-  textarea { resize: vertical; min-height: 60px; }
+  input:focus,select:focus,textarea:focus { border-color:var(--blush-deep); background:var(--surface); }
+  textarea { resize:none; min-height:70px; }
+  select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23A89880' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px; }
 
   /* ── BUTTONS ── */
-  .btn-row { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
-  .btn { font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-  .btn-primary { background: var(--ink); color: var(--bg); }
-  .btn-primary:hover { background: var(--blush-deep); color: #fff; }
-  .btn-primary:disabled { background: var(--border); color: var(--ink-muted); cursor: not-allowed; }
-  .btn-ghost { background: transparent; color: var(--ink-light); border: 1px solid var(--border); }
-  .btn-ghost:hover { border-color: var(--ink-light); }
-  .btn-danger { background: transparent; color: var(--cancelled); border: 1px solid #E8C0BF; }
-  .btn-danger:hover { background: rgba(192,99,92,0.1); }
-  .btn-sm { padding: 6px 14px; font-size: 11px; }
+  .btn-row { display:flex; gap:10px; margin-top:14px; }
+  .btn { font-family:'Jost',sans-serif; font-size:12px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; transition:all 0.15s; flex:1; }
+  .btn-primary { background:var(--ink); color:var(--bg); }
+  .btn-primary:hover,.btn-primary:active { background:var(--blush-deep); color:#fff; }
+  .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn-ghost { background:transparent; color:var(--ink-light); border:1px solid var(--border); flex:0 0 auto; }
+  .btn-danger { background:transparent; color:var(--cancelled); border:1px solid rgba(192,99,92,0.4); flex:0 0 auto; }
+  .btn-edit-inline { background:transparent; color:var(--blush-deep); border:1px solid rgba(180,126,126,0.4); flex:0 0 auto; }
+  .btn-sm { padding:8px 14px; font-size:11px; flex:0 0 auto; }
 
-  /* ── ORDERS ── */
-  .orders-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .orders-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 500; }
-  .filter-row { display: flex; gap: 8px; }
-  .filter-btn { font-size: 11px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-light); cursor: pointer; font-family: 'Jost', sans-serif; transition: all 0.12s; }
-  .filter-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  /* ── FILTER ROW ── */
+  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .section-title { font-family:'Cormorant Garamond',serif; font-size:17px; font-weight:500; }
+  .filter-row { display:flex; gap:6px; }
+  .filter-btn { font-size:11px; padding:5px 12px; border-radius:16px; border:1px solid var(--border); background:var(--surface); color:var(--ink-muted); cursor:pointer; font-family:'Jost',sans-serif; transition:all 0.12s; }
+  .filter-btn.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
 
-  .orders-list { display: flex; flex-direction: column; gap: 8px; }
-  .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s, background 0.25s; }
-  .order-card:hover { box-shadow: 0 2px 10px var(--shadow); border-color: var(--blush); }
-  .order-num { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: var(--blush); min-width: 38px; text-align: center; }
-  .order-info { display: flex; flex-direction: column; gap: 3px; }
-  .order-customer { font-weight: 500; font-size: 14px; }
-  .order-product { font-size: 12px; color: var(--ink-light); }
-  .order-delivery { font-size: 11px; color: var(--ink-muted); margin-top: 1px; }
-  .order-price { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; text-align: right; white-space: nowrap; }
-  .order-actions { display: flex; gap: 6px; align-items: center; }
-  .view-hint { font-size: 10px; color: var(--ink-muted); opacity: 0.7; letter-spacing: 0.05em; margin-top: 2px; }
-
-  /* ── STATUS BADGES ── */
-  .status-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-  .status-pending   { background: rgba(196,149,106,0.15); color: var(--pending);   border: 1px solid rgba(196,149,106,0.35); }
-  .status-delivered { background: rgba(122,158,126,0.15); color: var(--delivered); border: 1px solid rgba(122,158,126,0.35); }
-  .status-cancelled { background: rgba(192,99,92,0.15);  color: var(--cancelled); border: 1px solid rgba(192,99,92,0.35); }
-
-  /* ── PRODUCTS TAB ── */
-  .product-add-row { display: flex; gap: 10px; margin-bottom: 20px; }
-  .product-add-row input { flex: 1; }
-  .product-list { display: flex; flex-direction: column; gap: 8px; }
-  .product-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; transition: background 0.25s; }
-  .product-item.inactive { opacity: 0.45; }
-  .product-name { flex: 1; font-size: 14px; color: var(--ink); }
-  .product-name-input { flex: 1; border: 1px solid var(--blush-deep); border-radius: 4px; padding: 6px 10px; font-family: 'Jost', sans-serif; font-size: 13px; background: var(--surface); color: var(--ink); outline: none; }
-  .product-actions { display: flex; gap: 6px; align-items: center; }
-  .toggle-badge { font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: none; font-family: 'Jost', sans-serif; }
-  .toggle-badge.active-p  { background: rgba(122,158,126,0.15); color: var(--delivered); border: 1px solid rgba(122,158,126,0.35); }
-  .toggle-badge.inactive-p { background: var(--surface); color: var(--ink-muted); border: 1px solid var(--border); }
-  .icon-btn { background: none; border: none; cursor: pointer; color: var(--ink-light); padding: 4px 6px; border-radius: 3px; font-size: 14px; line-height: 1; transition: color 0.12s; }
-  .icon-btn:hover { color: var(--blush-deep); }
-  .icon-btn.del:hover { color: var(--cancelled); }
-
-  /* ── EMPTY ── */
-  .empty { text-align: center; padding: 50px 20px; color: var(--ink-light); }
-  .empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
-  .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-style: italic; }
-  .empty-sub { font-size: 12px; margin-top: 5px; color: var(--ink-muted); }
-
-
-
-  /* ── EDIT MODE ── */
-  .edit-warning { background: rgba(196,149,106,0.12); border: 1px solid rgba(196,149,106,0.4); border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; display: flex; gap: 10px; align-items: flex-start; }
-  .edit-warning-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-  .edit-warning-text { font-size: 12px; color: var(--pending); line-height: 1.5; }
-  .edit-warning-text strong { display: block; margin-bottom: 2px; font-weight: 500; font-size: 13px; }
-  .edit-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-  .edit-label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
-  .edit-input { border: 1px solid var(--blush-deep); border-radius: 4px; padding: 9px 12px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink); background: var(--surface); outline: none; width: 100%; transition: border-color 0.15s; }
-  .edit-input:focus { border-color: var(--ink); }
-  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .edit-grid .edit-field { margin-bottom: 0; }
-  .edit-full { grid-column: 1 / -1; }
-  .btn-edit { font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s; background: transparent; color: var(--ink-light); border: 1px solid var(--border); }
-  .btn-edit:hover { border-color: var(--blush-deep); color: var(--blush-deep); }
+  /* ── ORDER CARDS ── */
+  .orders-list { display:flex; flex-direction:column; gap:8px; }
+  .order-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; display:flex; gap:12px; align-items:center; cursor:pointer; transition:box-shadow 0.15s,border-color 0.15s; active:scale(0.98); }
+  .order-card:active { transform:scale(0.985); }
+  .order-card:hover { box-shadow:0 2px 10px var(--shadow); border-color:var(--blush); }
+  .order-num { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:600; color:var(--blush); min-width:34px; text-align:center; flex-shrink:0; }
+  .order-info { flex:1; min-width:0; }
+  .order-customer { font-weight:500; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .order-product { font-size:12px; color:var(--ink-light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .order-meta { font-size:11px; color:var(--ink-muted); margin-top:2px; }
+  .order-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .order-price { font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:600; }
+  .status-badge { font-size:9px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; padding:3px 8px; border-radius:12px; white-space:nowrap; }
+  .status-pending   { background:rgba(196,149,106,0.15); color:var(--pending);   border:1px solid rgba(196,149,106,0.35); }
+  .status-delivered { background:rgba(122,158,126,0.15); color:var(--delivered); border:1px solid rgba(122,158,126,0.35); }
+  .status-cancelled { background:rgba(192,99,92,0.15);  color:var(--cancelled); border:1px solid rgba(192,99,92,0.35); }
 
   /* ── COPY BAR ── */
-  .copy-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .copy-bar-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
-  .copy-date-input { border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink); background: var(--surface2); outline: none; flex: 1; min-width: 140px; }
-  .copy-date-input:focus { border-color: var(--blush-deep); }
-  .btn-copy { font-family: 'Jost', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap; background: var(--ink); color: var(--bg); display: flex; align-items: center; gap: 6px; }
-  .btn-copy:hover { background: var(--blush-deep); color: #fff; }
-  .btn-copy.copied { background: var(--delivered); color: #fff; }
-  .copy-count { font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
+  .copy-bar { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .copy-bar-label { font-size:10px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-muted); white-space:nowrap; }
+  .copy-date-input { border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-family:'Jost',sans-serif; font-size:13px; color:var(--ink); background:var(--surface2); outline:none; flex:1; min-width:130px; -webkit-appearance:none; }
+  .copy-count { font-size:11px; color:var(--ink-muted); white-space:nowrap; }
+  .btn-copy { font-family:'Jost',sans-serif; font-size:11px; font-weight:500; letter-spacing:0.1em; text-transform:uppercase; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; background:var(--ink); color:var(--bg); transition:all 0.15s; white-space:nowrap; }
+  .btn-copy:active { background:var(--blush-deep); color:#fff; }
+  .btn-copy.copied { background:var(--delivered); color:#fff; }
+
+  /* ── PRODUCTS ── */
+  .product-add-row { display:flex; gap:8px; margin-bottom:14px; }
+  .product-add-row input { flex:1; }
+  .product-list { display:flex; flex-direction:column; gap:8px; }
+  .product-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
+  .product-item.inactive { opacity:0.45; }
+  .product-name { flex:1; font-size:14px; }
+  .product-name-input { flex:1; border:1px solid var(--blush-deep); border-radius:6px; padding:7px 10px; font-family:'Jost',sans-serif; font-size:13px; background:var(--surface); color:var(--ink); outline:none; width:100%; }
+  .product-actions { display:flex; gap:6px; align-items:center; }
+  .toggle-badge { font-size:10px; padding:3px 9px; border-radius:12px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; border:none; font-family:'Jost',sans-serif; }
+  .toggle-badge.active-p  { background:rgba(122,158,126,0.15); color:var(--delivered); border:1px solid rgba(122,158,126,0.35); }
+  .toggle-badge.inactive-p { background:var(--surface); color:var(--ink-muted); border:1px solid var(--border); }
+  .icon-btn { background:none; border:none; cursor:pointer; color:var(--ink-light); padding:4px 6px; border-radius:4px; font-size:15px; line-height:1; transition:color 0.12s; }
+  .icon-btn:hover { color:var(--blush-deep); }
+  .icon-btn.del:hover { color:var(--cancelled); }
+
+  /* ── SETTINGS SCREEN ── */
+  .settings-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); }
+  .settings-row:last-child { border-bottom:none; }
+  .settings-label { font-size:13px; color:var(--ink); }
+  .settings-hint { font-size:11px; color:var(--ink-muted); margin-top:2px; }
+  .switch { position:relative; width:44px; height:24px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:var(--border); border-radius:24px; cursor:pointer; transition:0.2s; }
+  .slider:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:white; border-radius:50%; transition:0.2s; }
+  input:checked + .slider { background:var(--ink); }
+  input:checked + .slider:before { transform:translateX(20px); }
+
+  /* ── EMPTY ── */
+  .empty { text-align:center; padding:48px 20px; color:var(--ink-light); }
+  .empty-icon { font-size:36px; margin-bottom:10px; opacity:0.35; }
+  .empty-text { font-family:'Cormorant Garamond',serif; font-size:18px; font-style:italic; }
+  .empty-sub { font-size:12px; color:var(--ink-muted); margin-top:6px; }
 
   /* ── MODALS ── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); border-radius: 10px; width: min(480px, 100%); max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
-  .modal-header { padding: 22px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.2; }
-  .modal-close { background: none; border: none; cursor: pointer; color: var(--ink-light); font-size: 20px; line-height: 1; padding: 2px; }
-  .modal-close:hover { color: var(--ink); }
-  .modal-body { padding: 20px 24px; }
-  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:var(--overlay); z-index:100; align-items:flex-end; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border-radius:18px 18px 0 0; width:100%; max-height:90vh; overflow-y:auto; border-top:1px solid var(--border); animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform:translateY(60px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:12px auto 0; }
+  .modal-header { padding:16px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .modal-title { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:500; color:var(--ink); }
+  .modal-subtitle { font-size:11px; color:var(--ink-muted); margin-top:2px; }
+  .modal-close { background:none; border:none; cursor:pointer; color:var(--ink-muted); font-size:18px; padding:2px; }
+  .modal-body { padding:18px 20px; }
+  .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:8px; padding-bottom:max(14px,env(safe-area-inset-bottom)); }
 
-  .detail-badge-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .detail-order-num { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; color: var(--blush); line-height: 1; }
-  .detail-time { font-size: 12px; color: var(--ink-muted); }
-  .detail-section { margin-bottom: 20px; }
-  .detail-section-title { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .detail-field { display: flex; flex-direction: column; gap: 3px; }
-  .detail-field.full { grid-column: 1 / -1; }
-  .detail-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-  .detail-value { font-size: 14px; color: var(--ink); }
-  .detail-value.price { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--blush-deep); }
-  .detail-value.empty-val { color: var(--ink-muted); font-style: italic; }
-  .detail-notes-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.5; }
-  .status-select-row select { width: 100%; }
+  .detail-badge-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .detail-order-num { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:600; color:var(--blush); line-height:1; }
+  .detail-section { margin-bottom:16px; }
+  .detail-section-title { font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .detail-field { display:flex; flex-direction:column; gap:3px; }
+  .detail-field.full { grid-column:1/-1; }
+  .detail-label { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-muted); }
+  .detail-value { font-size:14px; color:var(--ink); }
+  .detail-value.price { font-family:'Cormorant Garamond',serif; font-size:22px; font-weight:600; color:var(--blush-deep); }
+  .detail-value.empty-val { color:var(--ink-muted); font-style:italic; }
+  .detail-notes-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:13px; color:var(--ink); line-height:1.5; }
+
+  /* ── EDIT MODE ── */
+  .edit-warning { background:rgba(196,149,106,0.12); border:1px solid rgba(196,149,106,0.4); border-radius:8px; padding:12px 14px; margin-bottom:16px; display:flex; gap:10px; }
+  .edit-warning-text { font-size:12px; color:var(--pending); line-height:1.5; }
+  .edit-warning-text strong { display:block; margin-bottom:2px; font-size:13px; }
+  .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .edit-grid .form-group { margin:0; }
+  .edit-full { grid-column:1/-1; }
+  .edit-input { border:1px solid var(--blush-deep) !important; }
 
   /* ── TOAST ── */
-  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 6px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 999; }
-  #toast.show { opacity: 1; transform: translateY(0); }
-  #toast.error { background: var(--cancelled); color: #fff; }
-
-  @media (max-width: 600px) {
-    .stats { grid-template-columns: 1fr 1fr; }
-    .form-grid { grid-template-columns: 1fr; }
-    .order-card { grid-template-columns: auto 1fr; grid-template-rows: auto auto; }
-    .order-price { grid-column: 2; }
-    .order-actions { grid-column: 1 / -1; justify-content: flex-end; }
-    .detail-grid { grid-template-columns: 1fr; }
-    .tab { font-size: 10px; padding: 11px 8px; }
-  }
+  #toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--ink); color:var(--bg); padding:10px 20px; border-radius:20px; font-size:13px; opacity:0; transition:all 0.25s; pointer-events:none; z-index:999; white-space:nowrap; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.error { background:var(--cancelled); color:#fff; }
 </style>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#2C2218">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="La Robe">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body>
 
-<header>
-  <div class="brand">La <span>Robe</span> Maldives</div>
+<!-- ── FIXED HEADER ── -->
+<header class="app-header">
+  <button class="hamburger" onclick="openDrawer()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="brand">La <em>Robe</em></div>
   <div class="header-right">
-    <div class="date-badge" id="headerDate"></div>
-    <div class="header-meta">
-      <div class="sync-indicator"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">Connecting…</span></div>
-      <div class="theme-toggle">
-        <button class="theme-btn active" id="btnLight" onclick="setTheme('light')" title="Light">☀️</button>
-        <button class="theme-btn" id="btnDark" onclick="setTheme('dark')" title="Dark">🌙</button>
-      </div>
+    <div class="sync-dot" id="syncDot"></div>
+    <div class="theme-toggle">
+      <button class="theme-btn active" id="btnLight" onclick="setTheme('light')">☀️</button>
+      <button class="theme-btn" id="btnDark" onclick="setTheme('dark')">🌙</button>
     </div>
   </div>
 </header>
 
-<div class="container">
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('orders', this)">Orders</button>
-    <button class="tab" onclick="switchTab('products', this)">Manage Products</button>
-  </div>
+<!-- ── DRAWER OVERLAY ── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 
-  <!-- ── ORDERS TAB ── -->
-  <div id="tab-orders" class="tab-content active">
+<!-- ── SIDE DRAWER ── -->
+<nav class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-brand">La <em>Robe</em> Maldives</div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-date" id="drawerDate"></div>
+  <div class="drawer-nav">
+    <div class="drawer-section-label">Main</div>
+    <button class="drawer-item active" id="dnav-orders" onclick="navTo('orders')">
+      <span class="drawer-item-icon">📋</span> Orders
+    </button>
+    <button class="drawer-item" id="dnav-new" onclick="navTo('new')">
+      <span class="drawer-item-icon">➕</span> New Order
+    </button>
+    <button class="drawer-item" id="dnav-copy" onclick="navTo('copy')">
+      <span class="drawer-item-icon">📄</span> Copy Day
+    </button>
+    <div class="drawer-section-label">Manage</div>
+    <button class="drawer-item" id="dnav-products" onclick="navTo('products')">
+      <span class="drawer-item-icon">🏷</span> Products
+    </button>
+    <button class="drawer-item" id="dnav-settings" onclick="navTo('settings')">
+      <span class="drawer-item-icon">⚙️</span> Settings
+    </button>
+  </div>
+  <div class="drawer-footer">
+    <div class="drawer-sync">
+      <div class="sync-dot" id="drawerSyncDot"></div>
+      <span id="drawerSyncLabel">Connecting…</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ── SCROLLABLE CONTENT ── -->
+<div class="app-content">
+
+  <!-- ORDERS SCREEN -->
+  <div class="screen active" id="screen-orders">
     <div class="stats">
-      <div class="stat"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Orders Today</div></div>
+      <div class="stat"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Today</div></div>
       <div class="stat"><div class="stat-value" id="statPending">0</div><div class="stat-label">Pending</div></div>
       <div class="stat"><div class="stat-value" id="statDelivered">0</div><div class="stat-label">Delivered</div></div>
-      <div class="stat revenue"><div class="stat-value" id="statRevenue">0</div><div class="stat-label">MVR Revenue</div></div>
+      <div class="stat revenue"><div class="stat-value" id="statRevenue">0</div><div class="stat-label">MVR</div></div>
     </div>
-
-    <div class="panel">
-      <div class="panel-title">New Order</div>
-      <div class="form-grid">
-        <div class="form-group"><label>Customer Name</label><input type="text" id="customerName" placeholder="e.g. Aminath Riyasha"></div>
-        <div class="form-group"><label>Contact (Viber / WhatsApp)</label><input type="text" id="customerContact" placeholder="+960 7xx xxxx"></div>
-        <div class="form-group"><label>Product</label><select id="product"><option value="">Select product…</option></select></div>
-        <div class="form-group"><label>Price (MVR)</label><input type="number" id="price" placeholder="0" min="0"></div>
-        <div class="form-group">
-          <label>Delivery Method</label>
-          <select id="delivery">
-            <option value="Local Delivery">Local Delivery (Hulhumalé)</option>
-            <option value="Male Delivery">Malé Delivery</option>
-            <option value="Harbour / Ferry">Harbour / Ferry</option>
-            <option value="Pickup">Customer Pickup</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Payment</label>
-          <select id="payment">
-            <option value="BML Transfer">BML Transfer</option>
-            <option value="Cash on Delivery">Cash on Delivery</option>
-            <option value="MIB Transfer">MIB Transfer</option>
-            <option value="Paid via Messenger">Paid via Messenger</option>
-          </select>
-        </div>
-        <div class="form-group full"><label>Notes</label><textarea id="notes" placeholder="Colour preference, address, special instructions…"></textarea></div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
-        <button class="btn btn-primary" id="submitBtn" onclick="addOrder()">Record Order</button>
-      </div>
-    </div>
-
-    <!-- ── COPY BAR ── -->
-    <div class="copy-bar">
-      <div class="copy-bar-label">Copy day</div>
-      <input type="date" id="copyDate" class="copy-date-input">
-      <span class="copy-count" id="copyCount"></span>
-      <button class="btn-copy" id="copyBtn" onclick="copyOrders()">
-<span id="copyText">Copy as Text</span>
-      </button>
-    </div>
-
-    <div class="orders-header">
-      <div class="orders-title">Today's Orders</div>
+    <div class="section-header">
+      <div class="section-title">Today's Orders</div>
       <div class="filter-row">
         <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
         <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
@@ -319,44 +355,157 @@
       </div>
     </div>
     <div class="orders-list" id="ordersList">
-      <div class="empty"><div class="empty-icon">🛍</div><div class="empty-text">Loading orders…</div></div>
+      <div class="empty"><div class="empty-icon">🛍</div><div class="empty-text">Loading…</div></div>
     </div>
   </div>
 
-  <!-- ── PRODUCTS TAB ── -->
-  <div id="tab-products" class="tab-content">
+  <!-- NEW ORDER SCREEN -->
+  <div class="screen" id="screen-new">
     <div class="panel">
-      <div class="panel-title">
-        Products
-        <span style="font-family:'Jost',sans-serif;font-size:11px;color:var(--ink-muted);font-weight:400">Active products appear in the order dropdown</span>
+      <div class="panel-title">New Order</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Customer Name</label><input type="text" id="customerName" placeholder="Aminath Riyasha"></div>
+        <div class="form-group"><label>Contact</label><input type="text" id="customerContact" placeholder="+960 7xx xxxx"></div>
+        <div class="form-group full"><label>Product</label><select id="product"><option value="">Select product…</option></select></div>
+        <div class="form-group"><label>Price (MVR)</label><input type="number" id="price" placeholder="0" min="0" inputmode="numeric"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="newStatus">
+            <option value="pending">Pending</option>
+            <option value="delivered">Delivered</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Delivery</label>
+          <select id="delivery">
+            <option value="Local Delivery">Local (Hulhumalé)</option>
+            <option value="Male Delivery">Malé</option>
+            <option value="Harbour / Ferry">Harbour / Ferry</option>
+            <option value="Pickup">Pickup</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Payment</label>
+          <select id="payment">
+            <option value="BML Transfer">BML Transfer</option>
+            <option value="Cash on Delivery">Cash on Delivery</option>
+            <option value="MIB Transfer">MIB Transfer</option>
+            <option value="Paid via Messenger">Messenger</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Notes</label><textarea id="notes" placeholder="Colour, address, instructions…"></textarea></div>
       </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" onclick="clearForm()">Clear</button>
+        <button class="btn btn-primary" id="submitBtn" onclick="addOrder()">Record Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COPY SCREEN -->
+  <div class="screen" id="screen-copy">
+    <div class="panel">
+      <div class="panel-title">Copy Day's Orders</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label>Select Date</label>
+          <input type="date" id="copyDate" class="copy-date-input" style="width:100%">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span class="copy-count" id="copyCount" style="font-size:13px;color:var(--ink-muted)"></span>
+          <button class="btn-copy" id="copyBtn" onclick="copyOrders()"><span id="copyText">Copy as Text</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="copyPreviewPanel" style="display:none">
+      <div class="panel-title">Preview</div>
+      <pre id="copyPreview" style="font-size:12px;color:var(--ink-light);line-height:1.6;white-space:pre-wrap;word-break:break-word"></pre>
+    </div>
+  </div>
+
+  <!-- PRODUCTS SCREEN -->
+  <div class="screen" id="screen-products">
+    <div class="panel">
+      <div class="panel-title">Manage Products</div>
       <div class="product-add-row">
         <input type="text" id="newProductName" placeholder="e.g. Clutch Bag — Gold">
-        <button class="btn btn-primary btn-sm" onclick="addProduct()">+ Add Product</button>
+        <button class="btn btn-primary btn-sm" onclick="addProduct()">+ Add</button>
       </div>
       <div class="product-list" id="productList">
         <div class="empty"><div class="empty-text">Loading…</div></div>
       </div>
     </div>
   </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div class="screen" id="screen-settings">
+    <div class="panel">
+      <div class="panel-title">Settings</div>
+      <div class="settings-row">
+        <div><div class="settings-label">Theme</div><div class="settings-hint">Choose light or dark appearance</div></div>
+        <div class="theme-toggle" style="background:var(--surface2);border-color:var(--border)">
+          <button class="theme-btn active" id="btnLight2" onclick="setTheme('light')" style="color:var(--ink-muted)">☀️</button>
+          <button class="theme-btn" id="btnDark2" onclick="setTheme('dark')" style="color:var(--ink-muted)">🌙</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Sync status</div><div class="settings-hint" id="settingsSyncLabel">Checking…</div></div>
+        <div class="sync-dot" id="settingsSyncDot"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">App version</div><div class="settings-hint">La Robe Orders v2.0</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">About</div>
+      <div style="font-size:13px;color:var(--ink-light);line-height:1.7">
+        La Robe Maldives daily order manager.<br>
+        Data synced to Supabase in real time.<br>
+        <span style="color:var(--ink-muted);font-size:12px">anashath.github.io/larobe-orders</span>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<!-- ── BOTTOM NAV ── -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="bnav-orders" onclick="navTo('orders')">
+    <span class="nav-item-icon">📋</span>
+    <span class="nav-item-label">Orders</span>
+  </button>
+  <button class="nav-item" id="bnav-new" onclick="navTo('new')">
+    <span class="nav-item-icon">➕</span>
+    <span class="nav-item-label">New</span>
+  </button>
+  <button class="nav-item" id="bnav-copy" onclick="navTo('copy')">
+    <span class="nav-item-icon">📄</span>
+    <span class="nav-item-label">Copy</span>
+  </button>
+  <button class="nav-item" id="bnav-products" onclick="navTo('products')">
+    <span class="nav-item-icon">🏷</span>
+    <span class="nav-item-label">Products</span>
+  </button>
+  <button class="nav-item" id="bnav-settings" onclick="navTo('settings')">
+    <span class="nav-item-icon">⚙️</span>
+    <span class="nav-item-label">Settings</span>
+  </button>
+</nav>
 
 <!-- ── ORDER DETAIL MODAL ── -->
 <div class="modal-overlay" id="detailOverlay">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
       <div>
         <div class="modal-title" id="detailTitle">Order Detail</div>
-        <div class="detail-time" id="detailTime"></div>
+        <div class="modal-subtitle" id="detailTime"></div>
       </div>
       <button class="modal-close" onclick="closeDetail()">✕</button>
     </div>
     <div class="modal-body" id="detailBody"></div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="detailDeleteBtn">Delete</button>
-      <button class="btn btn-edit" id="detailEditBtn" onclick="enterEditMode()">Edit Order</button>
-      <button class="btn btn-ghost" onclick="closeDetail()">Close</button>
-      <button class="btn btn-primary" id="detailSaveBtn" style="display:none">Save Changes</button>
+      <button class="btn btn-danger btn-sm" id="detailDeleteBtn">Delete</button>
+      <button class="btn btn-edit-inline btn-sm" id="detailEditBtn" onclick="enterEditMode()">Edit</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close</button>
+      <button class="btn btn-primary" id="detailSaveBtn" style="display:none">Save</button>
     </div>
   </div>
 </div>
@@ -364,523 +513,440 @@
 <div id="toast"></div>
 
 <script>
-  const SUPABASE_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
-  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let orders = [], products = [], activeFilter = 'all', viewingId = null, editingProductId = null;
+let orders=[], products=[], activeFilter='all', viewingId=null, editingProductId=null, currentScreen='orders';
 
-  // ── THEME ─────────────────────────────────────────────────────────────────
-  function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('larobe_theme', theme);
-    document.getElementById('btnLight').classList.toggle('active', theme === 'light');
-    document.getElementById('btnDark').classList.toggle('active',  theme === 'dark');
+// ── THEME ────────────────────────────────────────────────────────────────────
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('larobe_theme', t);
+  ['btnLight','btnLight2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', t==='light'); });
+  ['btnDark','btnDark2'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.toggle('active', t==='dark'); });
+}
+function loadTheme() {
+  const saved = localStorage.getItem('larobe_theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+  setTheme(saved);
+}
+
+// ── DRAWER ───────────────────────────────────────────────────────────────────
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────────────────────
+function navTo(screen) {
+  closeDrawer();
+  currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.drawer-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  const bn = document.getElementById('bnav-' + screen);
+  const dn = document.getElementById('dnav-' + screen);
+  if (bn) bn.classList.add('active');
+  if (dn) dn.classList.add('active');
+  if (screen === 'products') renderProducts();
+  if (screen === 'copy') initCopy();
+  if (screen === 'settings') updateSettingsSync();
+  // Scroll to top
+  document.querySelector('.app-content').scrollTo(0, 0);
+}
+
+// ── DATE / SYNC ──────────────────────────────────────────────────────────────
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function setHeaderDate() {
+  const d = new Date().toLocaleDateString('en-MV', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('drawerDate').textContent = d;
+}
+
+function setSyncStatus(online) {
+  ['syncDot','drawerSyncDot','settingsSyncDot'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.className = 'sync-dot' + (online ? '' : ' offline'); }
+  });
+  const lbl = document.getElementById('drawerSyncLabel');
+  if (lbl) lbl.textContent = online ? 'Live sync' : 'Offline';
+}
+
+function updateSettingsSync() {
+  const dot = document.getElementById('settingsSyncDot');
+  const lbl = document.getElementById('settingsSyncLabel');
+  if (!dot || !lbl) return;
+  const isLive = !dot.classList.contains('offline');
+  lbl.textContent = isLive ? 'Connected to Supabase' : 'Not connected';
+}
+
+// ── PRODUCTS ─────────────────────────────────────────────────────────────────
+async function loadProducts() {
+  const {data,error} = await db.from('products').select('*').order('created_at');
+  if (error) { toast('Could not load products','error'); return; }
+  products = data || [];
+  populateProductDropdown();
+}
+
+function populateProductDropdown() {
+  const sel = document.getElementById('product');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select product…</option>';
+  products.filter(p=>p.active).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name; opt.textContent = p.name;
+    if (p.name === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function renderProducts() {
+  const list = document.getElementById('productList');
+  if (!products.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-text">No products yet</div><div class="empty-sub">Add your first product above</div></div>`;
+    return;
   }
+  list.innerHTML = products.map(p => `
+    <div class="product-item ${p.active?'':'inactive'}" id="pitem-${p.id}">
+      ${editingProductId===p.id
+        ? `<input class="product-name-input" id="pedit-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProductName(${p.id})">`
+        : `<div class="product-name">${esc(p.name)}</div>`}
+      <div class="product-actions">
+        <button class="toggle-badge ${p.active?'active-p':'inactive-p'}" onclick="toggleProduct(${p.id},${p.active})">${p.active?'Active':'Hidden'}</button>
+        ${editingProductId===p.id
+          ? `<button class="icon-btn" onclick="saveProductName(${p.id})">✓</button><button class="icon-btn" onclick="cancelEdit()">✕</button>`
+          : `<button class="icon-btn" onclick="startEditProduct(${p.id})">✎</button>`}
+        <button class="icon-btn del" onclick="deleteProduct(${p.id})">🗑</button>
+      </div>
+    </div>`).join('');
+  if (editingProductId) { const i=document.getElementById('pedit-'+editingProductId); if(i){i.focus();i.select();} }
+}
 
-  function loadTheme() {
-    const saved = localStorage.getItem('larobe_theme') ||
-      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    setTheme(saved);
-  }
+async function addProduct() {
+  const name = document.getElementById('newProductName').value.trim();
+  if (!name) { toast('Enter a product name', true); return; }
+  if (products.find(p=>p.name.toLowerCase()===name.toLowerCase())) { toast('Already exists', true); return; }
+  const {data,error} = await db.from('products').insert({name,active:true}).select();
+  if (error) { toast('Error: '+error.message, true); return; }
+  products.push(data[0]);
+  document.getElementById('newProductName').value='';
+  populateProductDropdown(); renderProducts();
+  toast('Product added ✓');
+}
 
-  // ── TABS ──────────────────────────────────────────────────────────────────
-  function switchTab(name, btn) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    btn.classList.add('active');
-    if (name === 'products') renderProducts();
-  }
+function startEditProduct(id) { editingProductId=id; renderProducts(); }
+function cancelEdit() { editingProductId=null; renderProducts(); }
 
-  // ── HEADER ────────────────────────────────────────────────────────────────
-  function setHeaderDate() {
-    document.getElementById('headerDate').textContent =
-      new Date().toLocaleDateString('en-MV', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-  }
+async function saveProductName(id) {
+  const input = document.getElementById('pedit-'+id);
+  const name = input ? input.value.trim() : '';
+  if (!name) { toast('Name cannot be empty', true); return; }
+  const {error} = await db.from('products').update({name}).eq('id',id);
+  if (error) { toast('Error: '+error.message, true); return; }
+  const p = products.find(x=>x.id===id); if(p) p.name=name;
+  editingProductId=null; populateProductDropdown(); renderProducts();
+  toast('Renamed ✓');
+}
 
-  function setSyncStatus(online) {
-    document.getElementById('syncDot').className = 'sync-dot' + (online ? '' : ' offline');
-    document.getElementById('syncLabel').textContent = online ? 'Live' : 'Offline';
-  }
+async function toggleProduct(id, cur) {
+  const {error} = await db.from('products').update({active:!cur}).eq('id',id);
+  if (error) { toast('Error: '+error.message, true); return; }
+  const p=products.find(x=>x.id===id); if(p) p.active=!cur;
+  populateProductDropdown(); renderProducts();
+  toast(p.active?'Shown in dropdown':'Hidden from dropdown');
+}
 
-  function todayStr() { return new Date().toISOString().slice(0, 10); }
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  const {error} = await db.from('products').delete().eq('id',id);
+  if (error) { toast('Error: '+error.message, true); return; }
+  products=products.filter(p=>p.id!==id);
+  populateProductDropdown(); renderProducts(); toast('Deleted');
+}
 
-  // ── PRODUCTS ──────────────────────────────────────────────────────────────
-  async function loadProducts() {
-    const { data, error } = await db.from('products').select('*').order('created_at');
-    if (error) { toast('Could not load products: ' + error.message, true); return; }
-    products = data || [];
-    populateProductDropdown();
-  }
+// ── ORDERS ───────────────────────────────────────────────────────────────────
+async function loadOrders() {
+  const {data,error} = await db.from('orders').select('*').eq('order_date',todayStr()).order('created_at',{ascending:false});
+  if (error) { setSyncStatus(false); toast('Load error: '+error.message, true); return; }
+  setSyncStatus(true); orders=data||[]; render();
+}
 
-  function populateProductDropdown() {
-    const sel = document.getElementById('product');
-    const current = sel.value;
-    sel.innerHTML = '<option value="">Select product…</option>';
-    products.filter(p => p.active).forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name; opt.textContent = p.name;
-      if (p.name === current) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  }
+async function addOrder() {
+  const name    = document.getElementById('customerName').value.trim();
+  const contact = document.getElementById('customerContact').value.trim();
+  const product = document.getElementById('product').value;
+  const price   = parseFloat(document.getElementById('price').value)||0;
+  const status  = document.getElementById('newStatus').value;
+  const delivery= document.getElementById('delivery').value;
+  const payment = document.getElementById('payment').value;
+  const notes   = document.getElementById('notes').value.trim();
 
-  function renderProducts() {
-    const list = document.getElementById('productList');
-    if (products.length === 0) {
-      list.innerHTML = `<div class="empty"><div class="empty-text">No products yet</div><div class="empty-sub">Add your first product above</div></div>`;
-      return;
-    }
-    list.innerHTML = products.map(p => `
-      <div class="product-item ${p.active ? '' : 'inactive'}" id="pitem-${p.id}">
-        ${editingProductId === p.id
-          ? `<input class="product-name-input" id="pedit-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProductName(${p.id})">`
-          : `<div class="product-name">${esc(p.name)}</div>`}
-        <div class="product-actions">
-          <button class="toggle-badge ${p.active ? 'active-p' : 'inactive-p'}" onclick="toggleProduct(${p.id}, ${p.active})">${p.active ? 'Active' : 'Hidden'}</button>
-          ${editingProductId === p.id
-            ? `<button class="icon-btn" onclick="saveProductName(${p.id})" title="Save">✓</button>
-               <button class="icon-btn" onclick="cancelEdit()" title="Cancel">✕</button>`
-            : `<button class="icon-btn" onclick="startEditProduct(${p.id})" title="Rename">✎</button>`}
-          <button class="icon-btn del" onclick="deleteProduct(${p.id})" title="Delete">🗑</button>
+  if (!name||!product) { toast('Fill in name and product', true); return; }
+
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  const nextNum = orders.length>0 ? Math.max(...orders.map(o=>o.num||0))+1 : 1;
+  const {data,error} = await db.from('orders').insert({
+    num:nextNum, customer_name:name, contact, product, price,
+    delivery, payment, notes, status,
+    order_date:todayStr(),
+    order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'})
+  }).select();
+
+  btn.disabled=false; btn.textContent='Record Order';
+  if (error) { toast('Error: '+error.message, true); return; }
+  if (data&&data.length>0) orders.unshift(data[0]);
+  render(); clearForm();
+  toast('Order #'+nextNum+' recorded ✓');
+  navTo('orders');
+}
+
+function clearForm() {
+  ['customerName','customerContact','notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('price').value='';
+  document.getElementById('product').value='';
+}
+
+function render() {
+  const filtered = activeFilter==='all' ? orders : orders.filter(o=>o.status===activeFilter);
+  const list = document.getElementById('ordersList');
+  if (!filtered.length) {
+    list.innerHTML=`<div class="empty"><div class="empty-icon">🛍</div><div class="empty-text">${activeFilter==='all'?'No orders yet today':'No '+activeFilter+' orders'}</div><div class="empty-sub">${activeFilter==='all'?'Tap + New to record your first order':''}</div></div>`;
+  } else {
+    list.innerHTML = filtered.map(o=>`
+      <div class="order-card" onclick="openDetail(${o.id})">
+        <div class="order-num">#${o.num}</div>
+        <div class="order-info">
+          <div class="order-customer">${esc(o.customer_name)}</div>
+          <div class="order-product">${esc(o.product)}</div>
+          <div class="order-meta">${esc(o.delivery)} · ${o.order_time||''}</div>
+        </div>
+        <div class="order-right">
+          <div class="order-price">MVR ${Number(o.price).toLocaleString()}</div>
+          <span class="status-badge status-${o.status}">${o.status}</span>
         </div>
       </div>`).join('');
-    if (editingProductId) {
-      const input = document.getElementById('pedit-' + editingProductId);
-      if (input) { input.focus(); input.select(); }
-    }
   }
+  updateStats();
+}
 
-  async function addProduct() {
-    const name = document.getElementById('newProductName').value.trim();
-    if (!name) { toast('Enter a product name.', true); return; }
-    if (products.find(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Product already exists.', true); return; }
-    const { data, error } = await db.from('products').insert({ name, active: true }).select();
-    if (error) { toast('Error: ' + error.message, true); return; }
-    products.push(data[0]);
-    document.getElementById('newProductName').value = '';
-    populateProductDropdown();
-    renderProducts();
-    toast('Product added ✓');
-  }
+function updateStats() {
+  const pending  = orders.filter(o=>o.status==='pending').length;
+  const delivered= orders.filter(o=>o.status==='delivered').length;
+  const revenue  = orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+Number(o.price),0);
+  document.getElementById('statTotal').textContent    = orders.length;
+  document.getElementById('statPending').textContent  = pending;
+  document.getElementById('statDelivered').textContent= delivered;
+  document.getElementById('statRevenue').textContent  = revenue.toLocaleString();
+}
 
-  function startEditProduct(id) { editingProductId = id; renderProducts(); }
-  function cancelEdit() { editingProductId = null; renderProducts(); }
+function setFilter(f,btn) {
+  activeFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); render();
+}
 
-  async function saveProductName(id) {
-    const input = document.getElementById('pedit-' + id);
-    const name = input ? input.value.trim() : '';
-    if (!name) { toast('Name cannot be empty.', true); return; }
-    const { error } = await db.from('products').update({ name }).eq('id', id);
-    if (error) { toast('Error: ' + error.message, true); return; }
-    const p = products.find(x => x.id === id);
-    if (p) p.name = name;
-    editingProductId = null;
-    populateProductDropdown();
-    renderProducts();
-    toast('Product renamed ✓');
-  }
-
-  async function toggleProduct(id, currentActive) {
-    const { error } = await db.from('products').update({ active: !currentActive }).eq('id', id);
-    if (error) { toast('Error: ' + error.message, true); return; }
-    const p = products.find(x => x.id === id);
-    if (p) p.active = !currentActive;
-    populateProductDropdown();
-    renderProducts();
-    toast(p.active ? 'Product shown in dropdown' : 'Product hidden from dropdown');
-  }
-
-  async function deleteProduct(id) {
-    if (!confirm('Delete this product?')) return;
-    const { error } = await db.from('products').delete().eq('id', id);
-    if (error) { toast('Error: ' + error.message, true); return; }
-    products = products.filter(p => p.id !== id);
-    populateProductDropdown();
-    renderProducts();
-    toast('Product deleted');
-  }
-
-  // ── ORDERS ────────────────────────────────────────────────────────────────
-  async function loadOrders() {
-    const { data, error } = await db.from('orders').select('*')
-      .eq('order_date', todayStr()).order('created_at', { ascending: false });
-    if (error) { setSyncStatus(false); toast('Could not load orders: ' + error.message, true); return; }
-    setSyncStatus(true);
-    orders = data || [];
-    render();
-  }
-
-  async function addOrder() {
-    const name     = document.getElementById('customerName').value.trim();
-    const contact  = document.getElementById('customerContact').value.trim();
-    const product  = document.getElementById('product').value;
-    const price    = parseFloat(document.getElementById('price').value) || 0;
-    const delivery = document.getElementById('delivery').value;
-    const payment  = document.getElementById('payment').value;
-    const notes    = document.getElementById('notes').value.trim();
-
-    if (!name || !product) { toast('Please fill in customer name and product.', true); return; }
-
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true; btn.textContent = 'Saving…';
-
-    const nextNum = orders.length > 0 ? Math.max(...orders.map(o => o.num || 0)) + 1 : 1;
-    const { data, error } = await db.from('orders').insert({
-      num: nextNum, customer_name: name, contact, product, price,
-      delivery, payment, notes, status: 'pending',
-      order_date: todayStr(),
-      order_time: new Date().toLocaleTimeString('en-MV', { hour:'2-digit', minute:'2-digit' })
-    }).select();
-
-    btn.disabled = false; btn.textContent = 'Record Order';
-    if (error) { toast('Error: ' + error.message, true); return; }
-    if (data && data.length > 0) orders.unshift(data[0]);
-    render(); clearForm();
-    toast('Order #' + nextNum + ' recorded ✓');
-  }
-
-  function clearForm() {
-    ['customerName','customerContact','notes'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('price').value = '';
-    document.getElementById('product').value = '';
-  }
-
-  function render() {
-    const filtered = activeFilter === 'all' ? orders : orders.filter(o => o.status === activeFilter);
-    const list = document.getElementById('ordersList');
-    if (filtered.length === 0) {
-      list.innerHTML = `<div class="empty">
-        <div class="empty-icon">🛍</div>
-        <div class="empty-text">${activeFilter === 'all' ? 'No orders yet today' : 'No ' + activeFilter + ' orders'}</div>
-        <div class="empty-sub">${activeFilter === 'all' ? 'Record your first order above' : ''}</div>
-      </div>`;
-    } else {
-      list.innerHTML = filtered.map(o => `
-        <div class="order-card" onclick="openDetail(${o.id})">
-          <div class="order-num">#${o.num}</div>
-          <div class="order-info">
-            <div class="order-customer">${esc(o.customer_name)}${o.contact ? ' · ' + esc(o.contact) : ''}</div>
-            <div class="order-product">${esc(o.product)}</div>
-            <div class="order-delivery">${esc(o.delivery)} · ${esc(o.payment)}</div>
-            <div class="view-hint">Tap to view details</div>
-          </div>
-          <div class="order-price">MVR ${Number(o.price).toLocaleString()}</div>
-          <div class="order-actions" onclick="event.stopPropagation()">
-            <span class="status-badge status-${o.status}">${o.status}</span>
-          </div>
-        </div>`).join('');
-    }
-    updateStats();
-  }
-
-  function updateStats() {
-    const pending   = orders.filter(o => o.status === 'pending').length;
-    const delivered = orders.filter(o => o.status === 'delivered').length;
-    const revenue   = orders.filter(o => o.status !== 'cancelled').reduce((s,o) => s + Number(o.price), 0);
-    document.getElementById('statTotal').textContent     = orders.length;
-    document.getElementById('statPending').textContent   = pending;
-    document.getElementById('statDelivered').textContent = delivered;
-    document.getElementById('statRevenue').textContent   = revenue.toLocaleString();
-  }
-
-  function setFilter(f, btn) {
-    activeFilter = f;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    render();
-  }
-
-  // ── DETAIL MODAL ──────────────────────────────────────────────────────────
-  function openDetail(id) {
-    viewingId = id;
-    const o = orders.find(x => x.id === id);
-    if (!o) return;
-    document.getElementById('detailTitle').textContent = 'Order #' + o.num;
-    document.getElementById('detailTime').textContent  = (o.order_time || '') + ' · ' + (o.order_date || '');
-    document.getElementById('detailBody').innerHTML = `
-      <div class="detail-badge-row">
-        <div class="detail-order-num">#${o.num}</div>
-        <span class="status-badge status-${o.status}">${o.status}</span>
+// ── DETAIL MODAL ─────────────────────────────────────────────────────────────
+function openDetail(id) {
+  viewingId=id;
+  const o=orders.find(x=>x.id===id); if(!o) return;
+  document.getElementById('detailTitle').textContent='Order #'+o.num;
+  document.getElementById('detailTime').textContent=(o.order_time||'')+' · '+(o.order_date||'');
+  document.getElementById('detailBody').innerHTML=`
+    <div class="detail-badge-row">
+      <div class="detail-order-num">#${o.num}</div>
+      <span class="status-badge status-${o.status}">${o.status}</span>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Customer</div>
+      <div class="detail-grid">
+        <div class="detail-field"><div class="detail-label">Name</div><div class="detail-value">${esc(o.customer_name)}</div></div>
+        <div class="detail-field"><div class="detail-label">Contact</div><div class="detail-value ${o.contact?'':'empty-val'}">${o.contact?esc(o.contact):'—'}</div></div>
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Customer</div>
-        <div class="detail-grid">
-          <div class="detail-field"><div class="detail-label">Name</div><div class="detail-value">${esc(o.customer_name)}</div></div>
-          <div class="detail-field"><div class="detail-label">Contact</div><div class="detail-value ${o.contact ? '' : 'empty-val'}">${o.contact ? esc(o.contact) : 'Not provided'}</div></div>
-        </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Order</div>
+      <div class="detail-grid">
+        <div class="detail-field full"><div class="detail-label">Product</div><div class="detail-value">${esc(o.product)}</div></div>
+        <div class="detail-field"><div class="detail-label">Price</div><div class="detail-value price">MVR ${Number(o.price).toLocaleString()}</div></div>
+        <div class="detail-field"><div class="detail-label">Payment</div><div class="detail-value">${esc(o.payment)}</div></div>
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Order</div>
-        <div class="detail-grid">
-          <div class="detail-field full"><div class="detail-label">Product</div><div class="detail-value">${esc(o.product)}</div></div>
-          <div class="detail-field"><div class="detail-label">Price</div><div class="detail-value price">MVR ${Number(o.price).toLocaleString()}</div></div>
-          <div class="detail-field"><div class="detail-label">Payment</div><div class="detail-value">${esc(o.payment)}</div></div>
-        </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Delivery</div>
+      <div class="detail-value">${esc(o.delivery)}</div>
+    </div>
+    ${o.notes?`<div class="detail-section"><div class="detail-section-title">Notes</div><div class="detail-notes-box">${esc(o.notes)}</div></div>`:''}`;
+  document.getElementById('detailSaveBtn').style.display='none';
+  document.getElementById('detailEditBtn').style.display='';
+  document.getElementById('detailSaveBtn').onclick=saveDetail;
+  document.getElementById('detailDeleteBtn').onclick=()=>deleteOrder(id);
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  viewingId=null;
+}
+
+function enterEditMode() {
+  const o=orders.find(x=>x.id===viewingId); if(!o) return;
+  const productOptions=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
+  document.getElementById('detailBody').innerHTML=`
+    <div class="edit-warning">
+      <div class="edit-warning-text">
+        <strong>⚠️ Editing Order #${o.num}</strong>
+        Changes are saved permanently. Confirm all details before saving.
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Delivery</div>
-        <div class="detail-value">${esc(o.delivery)}</div>
+    </div>
+    <div class="edit-grid">
+      <div class="form-group"><label>Customer Name</label><input class="edit-input" id="editName" type="text" value="${esc(o.customer_name)}"></div>
+      <div class="form-group"><label>Contact</label><input class="edit-input" id="editContact" type="text" value="${esc(o.contact||'')}"></div>
+      <div class="form-group edit-full"><label>Product</label><select class="edit-input" id="editProduct">${productOptions}</select></div>
+      <div class="form-group"><label>Price (MVR)</label><input class="edit-input" id="editPrice" type="number" value="${o.price}" inputmode="numeric"></div>
+      <div class="form-group"><label>Status</label>
+        <select class="edit-input" id="editStatus">
+          <option value="pending"   ${o.status==='pending'  ?'selected':''}>Pending</option>
+          <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
+          <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
+        </select>
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Notes</div>
-        ${o.notes ? `<div class="detail-notes-box">${esc(o.notes)}</div>` : `<div class="detail-value empty-val">No notes added</div>`}
+      <div class="form-group"><label>Delivery</label>
+        <select class="edit-input" id="editDelivery">
+          <option value="Local Delivery"  ${o.delivery==='Local Delivery' ?'selected':''}>Local (Hulhumalé)</option>
+          <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé</option>
+          <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry'?'selected':''}>Harbour / Ferry</option>
+          <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Pickup</option>
+        </select>
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Update Status</div>
-        <div class="status-select-row">
-          <select id="detailStatus">
-            <option value="pending"   ${o.status==='pending'   ? 'selected':''}>Pending</option>
-            <option value="delivered" ${o.status==='delivered' ? 'selected':''}>Delivered</option>
-            <option value="cancelled" ${o.status==='cancelled' ? 'selected':''}>Cancelled</option>
-          </select>
-        </div>
+      <div class="form-group"><label>Payment</label>
+        <select class="edit-input" id="editPayment">
+          <option value="BML Transfer"       ${o.payment==='BML Transfer'      ?'selected':''}>BML Transfer</option>
+          <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'  ?'selected':''}>Cash on Delivery</option>
+          <option value="MIB Transfer"       ${o.payment==='MIB Transfer'      ?'selected':''}>MIB Transfer</option>
+          <option value="Paid via Messenger" ${o.payment==='Paid via Messenger'?'selected':''}>Messenger</option>
+        </select>
       </div>
-      <div class="detail-section">
-        <div class="detail-section-title">Update Notes</div>
-        <textarea id="detailNotes" placeholder="Add or update notes…">${esc(o.notes || '')}</textarea>
-      </div>`;
-    document.getElementById('detailSaveBtn').onclick   = saveDetail;
-    document.getElementById('detailSaveBtn').style.display = 'none';
-    document.getElementById('detailEditBtn').style.display = '';
-    document.getElementById('detailDeleteBtn').onclick = () => deleteOrder(id);
-    document.getElementById('detailOverlay').classList.add('open');
-  }
+      <div class="form-group edit-full"><label>Notes</label><textarea class="edit-input" id="editNotes" rows="3">${esc(o.notes||'')}</textarea></div>
+    </div>`;
+  document.getElementById('detailSaveBtn').style.display='';
+  document.getElementById('detailEditBtn').style.display='none';
+}
 
-  function closeDetail() {
-    document.getElementById('detailOverlay').classList.remove('open');
-    viewingId = null;
-  }
+async function saveDetail() {
+  const get = id => { const el=document.getElementById(id); return el?el.value:null; };
+  const updates = {
+    customer_name: get('editName')||undefined,
+    contact:       get('editContact'),
+    product:       get('editProduct')||undefined,
+    price:         get('editPrice')!==null ? parseFloat(get('editPrice'))||0 : undefined,
+    delivery:      get('editDelivery')||undefined,
+    payment:       get('editPayment')||undefined,
+    notes:         get('editNotes'),
+    status:        get('editStatus')||undefined,
+  };
+  Object.keys(updates).forEach(k => updates[k]===undefined && delete updates[k]);
+  const {error} = await db.from('orders').update(updates).eq('id',viewingId);
+  if (error) { toast('Error: '+error.message, true); return; }
+  const o=orders.find(x=>x.id===viewingId); if(o) Object.assign(o,updates);
+  render(); openDetail(viewingId);
+  toast('Order saved ✓');
+}
 
-  async function saveDetail() {
-    const name     = document.getElementById('editName')     ? document.getElementById('editName').value.trim()     : null;
-    const contact  = document.getElementById('editContact')  ? document.getElementById('editContact').value.trim()  : null;
-    const product  = document.getElementById('editProduct')  ? document.getElementById('editProduct').value          : null;
-    const price    = document.getElementById('editPrice')    ? parseFloat(document.getElementById('editPrice').value) || 0 : null;
-    const delivery = document.getElementById('editDelivery') ? document.getElementById('editDelivery').value          : null;
-    const payment  = document.getElementById('editPayment')  ? document.getElementById('editPayment').value           : null;
-    const notes    = document.getElementById('editNotes')    ? document.getElementById('editNotes').value.trim()      : null;
-    const status   = document.getElementById('editStatus')   ? document.getElementById('editStatus').value            : null;
+async function deleteOrder(id) {
+  if (!confirm('Delete this order?')) return;
+  const {error} = await db.from('orders').delete().eq('id',id);
+  if (error) { toast('Error: '+error.message, true); return; }
+  orders=orders.filter(o=>o.id!==id);
+  closeDetail(); render(); toast('Order deleted');
+}
 
-    const updates = {};
-    if (name     !== null) updates.customer_name = name;
-    if (contact  !== null) updates.contact  = contact;
-    if (product  !== null) updates.product  = product;
-    if (price    !== null) updates.price    = price;
-    if (delivery !== null) updates.delivery = delivery;
-    if (payment  !== null) updates.payment  = payment;
-    if (notes    !== null) updates.notes    = notes;
-    if (status   !== null) updates.status   = status;
+// ── COPY ─────────────────────────────────────────────────────────────────────
+function initCopy() {
+  const dateInput = document.getElementById('copyDate');
+  if (!dateInput.value) dateInput.value = todayStr();
+  updateCopyCount();
+}
 
-    const { error } = await db.from('orders').update(updates).eq('id', viewingId);
-    if (error) { toast('Error: ' + error.message, true); return; }
+async function updateCopyCount() {
+  const date = document.getElementById('copyDate').value;
+  if (!date) return;
+  const {count} = await db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
+  document.getElementById('copyCount').textContent = count ? count+' order'+(count!==1?'s':'') : 'No orders';
+}
 
-    const o = orders.find(x => x.id === viewingId);
-    if (o) Object.assign(o, updates);
-    render();
-    openDetail(viewingId); // refresh detail view in read mode
-    toast('Order saved ✓');
-  }
+async function copyOrders() {
+  const date = document.getElementById('copyDate').value;
+  if (!date) { toast('Select a date', true); return; }
+  const btn=document.getElementById('copyBtn'), txt=document.getElementById('copyText');
+  btn.disabled=true; txt.textContent='Loading…';
+  const {data,error} = await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  btn.disabled=false;
+  if (error) { toast('Error: '+error.message, true); txt.textContent='Copy as Text'; return; }
+  if (!data||!data.length) { toast('No orders on this date', true); txt.textContent='Copy as Text'; return; }
 
-  function enterEditMode() {
-    const o = orders.find(x => x.id === viewingId);
-    if (!o) return;
-
-    // Show warning + full edit form
-    const productOptions = products.map(p =>
-      `<option value="${esc(p.name)}" ${p.name === o.product ? 'selected' : ''}>${esc(p.name)}</option>`
-    ).join('');
-
-    document.getElementById('detailBody').innerHTML = `
-      <div class="edit-warning">
-        <div class="edit-warning-icon">⚠️</div>
-        <div class="edit-warning-text">
-          <strong>You are editing Order #${o.num}</strong>
-          Changes will be saved permanently. Make sure all details are correct before saving.
-        </div>
-      </div>
-
-      <div class="edit-grid">
-        <div class="edit-field">
-          <div class="edit-label">Customer Name</div>
-          <input class="edit-input" id="editName" type="text" value="${esc(o.customer_name)}">
-        </div>
-        <div class="edit-field">
-          <div class="edit-label">Contact</div>
-          <input class="edit-input" id="editContact" type="text" value="${esc(o.contact || '')}">
-        </div>
-        <div class="edit-field edit-full">
-          <div class="edit-label">Product</div>
-          <select class="edit-input" id="editProduct">
-            ${productOptions}
-          </select>
-        </div>
-        <div class="edit-field">
-          <div class="edit-label">Price (MVR)</div>
-          <input class="edit-input" id="editPrice" type="number" value="${o.price}">
-        </div>
-        <div class="edit-field">
-          <div class="edit-label">Status</div>
-          <select class="edit-input" id="editStatus">
-            <option value="pending"   ${o.status==='pending'   ? 'selected':''}>Pending</option>
-            <option value="delivered" ${o.status==='delivered' ? 'selected':''}>Delivered</option>
-            <option value="cancelled" ${o.status==='cancelled' ? 'selected':''}>Cancelled</option>
-          </select>
-        </div>
-        <div class="edit-field">
-          <div class="edit-label">Delivery Method</div>
-          <select class="edit-input" id="editDelivery">
-            <option value="Local Delivery"  ${o.delivery==='Local Delivery'  ? 'selected':''}>Local Delivery (Hulhumalé)</option>
-            <option value="Male Delivery"   ${o.delivery==='Male Delivery'   ? 'selected':''}>Malé Delivery</option>
-            <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry' ? 'selected':''}>Harbour / Ferry</option>
-            <option value="Pickup"          ${o.delivery==='Pickup'          ? 'selected':''}>Customer Pickup</option>
-          </select>
-        </div>
-        <div class="edit-field">
-          <div class="edit-label">Payment</div>
-          <select class="edit-input" id="editPayment">
-            <option value="BML Transfer"       ${o.payment==='BML Transfer'       ? 'selected':''}>BML Transfer</option>
-            <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'   ? 'selected':''}>Cash on Delivery</option>
-            <option value="MIB Transfer"       ${o.payment==='MIB Transfer'       ? 'selected':''}>MIB Transfer</option>
-            <option value="Paid via Messenger" ${o.payment==='Paid via Messenger' ? 'selected':''}>Paid via Messenger</option>
-          </select>
-        </div>
-        <div class="edit-field edit-full">
-          <div class="edit-label">Notes</div>
-          <textarea class="edit-input" id="editNotes" rows="3">${esc(o.notes || '')}</textarea>
-        </div>
-      </div>`;
-
-    document.getElementById('detailSaveBtn').style.display = '';
-    document.getElementById('detailEditBtn').style.display = 'none';
-  }
-
-  async function deleteOrder(id) {
-    if (!confirm('Delete this order? This cannot be undone.')) return;
-    const { error } = await db.from('orders').delete().eq('id', id);
-    if (error) { toast('Error: ' + error.message, true); return; }
-    orders = orders.filter(o => o.id !== id);
-    closeDetail(); render();
-    toast('Order deleted');
-  }
-
-  // ── UTILS ─────────────────────────────────────────────────────────────────
-  function esc(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  let toastTimer;
-  function toast(msg, isError) {
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.className = isError ? 'show error' : 'show';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.className = '', 2800);
-  }
-
-  document.getElementById('detailOverlay').addEventListener('click', function(e) {
-    if (e.target === this) closeDetail();
-  });
-  document.getElementById('newProductName').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') addProduct();
-  });
-
-  db.channel('orders-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadOrders())
-    .subscribe();
-
-  loadTheme();
-  setHeaderDate();
-  loadProducts();
-  loadOrders();
-  // ── COPY ORDERS ───────────────────────────────────────────────────────────
-  async function copyOrders() {
-    const dateInput = document.getElementById('copyDate');
-    const date = dateInput.value;
-    if (!date) { toast('Select a date first.', true); return; }
-
-    const btn = document.getElementById('copyBtn');
-    const txt = document.getElementById('copyText');
-    btn.disabled = true; txt.textContent = 'Loading…';
-
-    const { data, error } = await db
-      .from('orders').select('*')
-      .eq('order_date', date)
-      .order('num', { ascending: true });
-
-    btn.disabled = false;
-
-    if (error) { toast('Error: ' + error.message, true); txt.textContent = 'Copy as Text'; return; }
-    if (!data || data.length === 0) { toast('No orders found for ' + formatDate(date) + '.', true); txt.textContent = 'Copy as Text'; return; }
-
-    const d = formatDate(date);
-    const lines = [];
-
-    lines.push('LA ROBE MALDIVES — ' + d);
+  const d = new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const lines=['LA ROBE MALDIVES — '+d,''];
+  data.forEach(o=>{
+    lines.push('Order #'+o.num+' — '+o.customer_name);
+    if (o.contact) lines.push('Contact: '+o.contact);
+    lines.push('Product: '+o.product);
+    lines.push('Price: MVR '+Number(o.price).toLocaleString()+' ('+o.payment+')');
+    lines.push('Delivery: '+o.delivery);
+    if (o.notes) lines.push('Notes: '+o.notes);
+    lines.push('Status: '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
     lines.push('');
-
-    data.forEach(o => {
-      const status = o.status === 'delivered' ? 'Delivered' : o.status === 'cancelled' ? 'Cancelled' : 'Pending';
-      lines.push('Order #' + o.num + ' — ' + o.customer_name);
-      if (o.contact)  lines.push('Contact: ' + o.contact);
-      lines.push('Product: ' + o.product);
-      lines.push('Price: MVR ' + Number(o.price).toLocaleString() + ' (' + o.payment + ')');
-      lines.push('Delivery: ' + o.delivery);
-      if (o.notes)    lines.push('Notes: ' + o.notes);
-      lines.push('Status: ' + status);
-      lines.push('');
-    });
-
-    const text = lines.join('\n').trimEnd();
-
-    try {
-      await navigator.clipboard.writeText(text);
-      btn.classList.add('copied'); txt.textContent = 'Copied!';
-      setTimeout(() => { btn.classList.remove('copied'); txt.textContent = 'Copy as Text'; }, 2500);
-      toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
-    } catch(e) {
-      const el = document.createElement('textarea');
-      el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
-      document.body.appendChild(el); el.focus(); el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      btn.classList.add('copied'); txt.textContent = 'Copied!';
-      setTimeout(() => { btn.classList.remove('copied'); txt.textContent = 'Copy as Text'; }, 2500);
-      toast('Copied ' + data.length + ' order' + (data.length !== 1 ? 's' : '') + ' ✓');
-    }
-  }
-
-  function formatDate(str) {
-    const d = new Date(str + 'T00:00:00');
-    return d.toLocaleDateString('en-MV', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-  }
-
-  // Set copy date picker to today by default
-  document.addEventListener('DOMContentLoaded', () => {
-    const dateInput = document.getElementById('copyDate');
-    dateInput.value = new Date().toISOString().slice(0, 10);
-    updateCopyCount();
-    dateInput.addEventListener('change', updateCopyCount);
   });
+  const text = lines.join('\n').trimEnd();
 
-  async function updateCopyCount() {
-    const date = document.getElementById('copyDate').value;
-    if (!date) return;
-    const { count } = await db.from('orders').select('*', { count: 'exact', head: true }).eq('order_date', date);
-    const el = document.getElementById('copyCount');
-    el.textContent = count ? count + ' order' + (count !== 1 ? 's' : '') : 'No orders';
+  // Show preview
+  document.getElementById('copyPreview').textContent = text;
+  document.getElementById('copyPreviewPanel').style.display = '';
+
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch(e) {
+    const el=document.createElement('textarea');
+    el.value=text; el.style.position='fixed'; el.style.opacity='0';
+    document.body.appendChild(el); el.focus(); el.select();
+    document.execCommand('copy'); document.body.removeChild(el);
   }
+  btn.classList.add('copied'); txt.textContent='Copied!';
+  setTimeout(()=>{ btn.classList.remove('copied'); txt.textContent='Copy as Text'; }, 2500);
+  toast('Copied '+data.length+' order'+(data.length!==1?'s':'')+' ✓');
+}
 
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let toastTimer;
+function toast(msg, isError) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=isError?'show error':'show';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='',2800);
+}
+
+document.getElementById('detailOverlay').addEventListener('click',function(e){ if(e.target===this) closeDetail(); });
+document.getElementById('newProductName').addEventListener('keydown',function(e){ if(e.key==='Enter') addProduct(); });
+document.getElementById('copyDate').addEventListener('change', updateCopyCount);
+
+// ── REALTIME ─────────────────────────────────────────────────────────────────
+db.channel('orders-rt').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+loadTheme();
+setHeaderDate();
+loadProducts();
+loadOrders();
 </script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js")
-          .then(r => console.log("SW registered"))
-          .catch(e => console.log("SW error", e));
-      });
-    }
-  </script>
 </body>
 </html>
