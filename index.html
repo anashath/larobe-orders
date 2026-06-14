@@ -161,6 +161,22 @@
   .empty-sub { font-size: 12px; margin-top: 5px; color: var(--ink-muted); }
 
 
+
+  /* ── EDIT MODE ── */
+  .edit-warning { background: rgba(196,149,106,0.12); border: 1px solid rgba(196,149,106,0.4); border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; display: flex; gap: 10px; align-items: flex-start; }
+  .edit-warning-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .edit-warning-text { font-size: 12px; color: var(--pending); line-height: 1.5; }
+  .edit-warning-text strong { display: block; margin-bottom: 2px; font-weight: 500; font-size: 13px; }
+  .edit-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .edit-label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+  .edit-input { border: 1px solid var(--blush-deep); border-radius: 4px; padding: 9px 12px; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--ink); background: var(--surface); outline: none; width: 100%; transition: border-color 0.15s; }
+  .edit-input:focus { border-color: var(--ink); }
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .edit-grid .edit-field { margin-bottom: 0; }
+  .edit-full { grid-column: 1 / -1; }
+  .btn-edit { font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s; background: transparent; color: var(--ink-light); border: 1px solid var(--border); }
+  .btn-edit:hover { border-color: var(--blush-deep); color: var(--blush-deep); }
+
   /* ── COPY BAR ── */
   .copy-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .copy-bar-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
@@ -338,8 +354,9 @@
     <div class="modal-body" id="detailBody"></div>
     <div class="modal-footer">
       <button class="btn btn-danger" id="detailDeleteBtn">Delete</button>
+      <button class="btn btn-edit" id="detailEditBtn" onclick="enterEditMode()">Edit Order</button>
       <button class="btn btn-ghost" onclick="closeDetail()">Close</button>
-      <button class="btn btn-primary" id="detailSaveBtn">Save Changes</button>
+      <button class="btn btn-primary" id="detailSaveBtn" style="display:none">Save Changes</button>
     </div>
   </div>
 </div>
@@ -625,6 +642,8 @@
         <textarea id="detailNotes" placeholder="Add or update notes…">${esc(o.notes || '')}</textarea>
       </div>`;
     document.getElementById('detailSaveBtn').onclick   = saveDetail;
+    document.getElementById('detailSaveBtn').style.display = 'none';
+    document.getElementById('detailEditBtn').style.display = '';
     document.getElementById('detailDeleteBtn').onclick = () => deleteOrder(id);
     document.getElementById('detailOverlay').classList.add('open');
   }
@@ -635,14 +654,106 @@
   }
 
   async function saveDetail() {
-    const newStatus = document.getElementById('detailStatus').value;
-    const newNotes  = document.getElementById('detailNotes').value.trim();
-    const { error } = await db.from('orders').update({ status: newStatus, notes: newNotes }).eq('id', viewingId);
+    const name     = document.getElementById('editName')     ? document.getElementById('editName').value.trim()     : null;
+    const contact  = document.getElementById('editContact')  ? document.getElementById('editContact').value.trim()  : null;
+    const product  = document.getElementById('editProduct')  ? document.getElementById('editProduct').value          : null;
+    const price    = document.getElementById('editPrice')    ? parseFloat(document.getElementById('editPrice').value) || 0 : null;
+    const delivery = document.getElementById('editDelivery') ? document.getElementById('editDelivery').value          : null;
+    const payment  = document.getElementById('editPayment')  ? document.getElementById('editPayment').value           : null;
+    const notes    = document.getElementById('editNotes')    ? document.getElementById('editNotes').value.trim()      : null;
+    const status   = document.getElementById('editStatus')   ? document.getElementById('editStatus').value            : null;
+
+    const updates = {};
+    if (name     !== null) updates.customer_name = name;
+    if (contact  !== null) updates.contact  = contact;
+    if (product  !== null) updates.product  = product;
+    if (price    !== null) updates.price    = price;
+    if (delivery !== null) updates.delivery = delivery;
+    if (payment  !== null) updates.payment  = payment;
+    if (notes    !== null) updates.notes    = notes;
+    if (status   !== null) updates.status   = status;
+
+    const { error } = await db.from('orders').update(updates).eq('id', viewingId);
     if (error) { toast('Error: ' + error.message, true); return; }
+
     const o = orders.find(x => x.id === viewingId);
-    if (o) { o.status = newStatus; o.notes = newNotes; }
-    closeDetail(); render();
-    toast('Order updated ✓');
+    if (o) Object.assign(o, updates);
+    render();
+    openDetail(viewingId); // refresh detail view in read mode
+    toast('Order saved ✓');
+  }
+
+  function enterEditMode() {
+    const o = orders.find(x => x.id === viewingId);
+    if (!o) return;
+
+    // Show warning + full edit form
+    const productOptions = products.map(p =>
+      `<option value="${esc(p.name)}" ${p.name === o.product ? 'selected' : ''}>${esc(p.name)}</option>`
+    ).join('');
+
+    document.getElementById('detailBody').innerHTML = `
+      <div class="edit-warning">
+        <div class="edit-warning-icon">⚠️</div>
+        <div class="edit-warning-text">
+          <strong>You are editing Order #${o.num}</strong>
+          Changes will be saved permanently. Make sure all details are correct before saving.
+        </div>
+      </div>
+
+      <div class="edit-grid">
+        <div class="edit-field">
+          <div class="edit-label">Customer Name</div>
+          <input class="edit-input" id="editName" type="text" value="${esc(o.customer_name)}">
+        </div>
+        <div class="edit-field">
+          <div class="edit-label">Contact</div>
+          <input class="edit-input" id="editContact" type="text" value="${esc(o.contact || '')}">
+        </div>
+        <div class="edit-field edit-full">
+          <div class="edit-label">Product</div>
+          <select class="edit-input" id="editProduct">
+            ${productOptions}
+          </select>
+        </div>
+        <div class="edit-field">
+          <div class="edit-label">Price (MVR)</div>
+          <input class="edit-input" id="editPrice" type="number" value="${o.price}">
+        </div>
+        <div class="edit-field">
+          <div class="edit-label">Status</div>
+          <select class="edit-input" id="editStatus">
+            <option value="pending"   ${o.status==='pending'   ? 'selected':''}>Pending</option>
+            <option value="delivered" ${o.status==='delivered' ? 'selected':''}>Delivered</option>
+            <option value="cancelled" ${o.status==='cancelled' ? 'selected':''}>Cancelled</option>
+          </select>
+        </div>
+        <div class="edit-field">
+          <div class="edit-label">Delivery Method</div>
+          <select class="edit-input" id="editDelivery">
+            <option value="Local Delivery"  ${o.delivery==='Local Delivery'  ? 'selected':''}>Local Delivery (Hulhumalé)</option>
+            <option value="Male Delivery"   ${o.delivery==='Male Delivery'   ? 'selected':''}>Malé Delivery</option>
+            <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry' ? 'selected':''}>Harbour / Ferry</option>
+            <option value="Pickup"          ${o.delivery==='Pickup'          ? 'selected':''}>Customer Pickup</option>
+          </select>
+        </div>
+        <div class="edit-field">
+          <div class="edit-label">Payment</div>
+          <select class="edit-input" id="editPayment">
+            <option value="BML Transfer"       ${o.payment==='BML Transfer'       ? 'selected':''}>BML Transfer</option>
+            <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'   ? 'selected':''}>Cash on Delivery</option>
+            <option value="MIB Transfer"       ${o.payment==='MIB Transfer'       ? 'selected':''}>MIB Transfer</option>
+            <option value="Paid via Messenger" ${o.payment==='Paid via Messenger' ? 'selected':''}>Paid via Messenger</option>
+          </select>
+        </div>
+        <div class="edit-field edit-full">
+          <div class="edit-label">Notes</div>
+          <textarea class="edit-input" id="editNotes" rows="3">${esc(o.notes || '')}</textarea>
+        </div>
+      </div>`;
+
+    document.getElementById('detailSaveBtn').style.display = '';
+    document.getElementById('detailEditBtn').style.display = 'none';
   }
 
   async function deleteOrder(id) {
