@@ -201,6 +201,13 @@
     .tab { font-size: 10px; padding: 11px 8px; }
   }
 </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2C2218">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="La Robe">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body>
 
@@ -656,5 +663,14 @@
   loadProducts();
   loadOrders();
 </script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js")
+          .then(r => console.log("SW registered"))
+          .catch(e => console.log("SW error", e));
+      });
+    }
+  </script>
 </body>
 </html>
