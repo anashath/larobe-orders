@@ -278,6 +278,10 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 .ewarn p { font-size:12px; color:var(--amber); opacity:.8; line-height:1.5; }
 [data-theme="dark"] .ewarn { background:rgba(212,160,96,0.08); border-color:rgba(212,160,96,0.2); }
 
+/* ── PAYMENT BADGE ── */
+.pay-done { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:rgba(58,138,80,0.1); color:var(--green); }
+.pay-pend { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:rgba(176,112,48,0.1); color:var(--amber); }
+
 /* ── TOAST ── */
 #toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--ink); color:var(--bg); padding:10px 20px; border-radius:24px; font-size:13px; font-weight:500; opacity:0; transition:all .2s; pointer-events:none; z-index:999; white-space:nowrap; }
 #toast.on   { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -388,6 +392,13 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
             <option value="MIB Transfer">MIB Transfer</option>
             <option value="Paid via Messenger">Messenger</option>
           </select>
+        </div>
+        <div class="fblock ffull">
+          <label>Payment Received</label>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1.5px solid var(--line);border-radius:12px;cursor:pointer" onclick="togglePayDone()" id="payDoneRow">
+            <div id="payDoneIcon" style="width:22px;height:22px;border-radius:50%;border:2px solid var(--ink3);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"></div>
+            <span id="payDoneLabel" style="font-size:14px;color:var(--ink2)">Payment not yet received</span>
+          </div>
         </div>
         <div class="fblock ffull"><label>Notes</label><textarea id="fNotes" placeholder="Colour, address, special instructions…"></textarea></div>
       </div>
@@ -532,7 +543,7 @@ const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
 const db = supabase.createClient(SB_URL, SB_KEY);
 
-let orders=[], products=[], flt='all', viewId=null, editProdId=null;
+let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
 
 /* THEME */
 function setTheme(t) {
@@ -657,7 +668,8 @@ async function addOrder() {
     payment:document.getElementById('fPayment').value,
     notes:document.getElementById('fNotes').value.trim(),
     order_date:today(),
-    order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'})
+    order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'}),
+    payment_done:_payDone
   }).select();
   btn.disabled=false; btn.textContent='Record Order';
   if(error){toast('Error: '+error.message,true);return;}
@@ -667,7 +679,28 @@ async function addOrder() {
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fPrice').value=''; document.getElementById('fProduct').value='';
+  _payDone=false; renderPayDone();
 }
+function renderPayDone() {
+  const icon=document.getElementById('payDoneIcon');
+  const lbl=document.getElementById('payDoneLabel');
+  const row=document.getElementById('payDoneRow');
+  if(!icon) return;
+  if(_payDone) {
+    icon.style.background='var(--green)'; icon.style.borderColor='var(--green)';
+    icon.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    lbl.textContent='Payment received';
+    lbl.style.color='var(--green)';
+    row.style.borderColor='var(--green)';
+  } else {
+    icon.style.background=''; icon.style.borderColor='var(--ink3)';
+    icon.innerHTML='';
+    lbl.textContent='Payment not yet received';
+    lbl.style.color='var(--ink2)';
+    row.style.borderColor='var(--line)';
+  }
+}
+function togglePayDone() { _payDone=!_payDone; renderPayDone(); }
 function render() {
   const L=document.getElementById('olist');
   const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
@@ -685,6 +718,7 @@ function render() {
         <div class="oright">
           <div class="oprice">MVR ${Number(o.price).toLocaleString()}</div>
           <span class="obadge ${o.status==='pending'?'bp':o.status==='delivered'?'bd':'bc'}">${o.status}</span>
+          <span class="${o.payment_done?'pay-done':'pay-pend'}">${o.payment_done?'Paid':'Unpaid'}</span>
         </div>
         <div class="oarrow">›</div>
       </div>`).join('');
@@ -757,6 +791,14 @@ function enterEdit() {
           <option value="Paid via Messenger" ${o.payment==='Paid via Messenger'?'selected':''}>Messenger</option>
         </select>
       </div>
+      <div class="fblock ffull">
+        <label>Payment Received</label>
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1.5px solid ${o.payment_done?'var(--green)':'var(--line)'};border-radius:12px;cursor:pointer" onclick="this.dataset.v=this.dataset.v==='1'?'0':'1';const pd=this.dataset.v==='1';this.style.borderColor=pd?'var(--green)':'var(--line)';this.querySelector('.epd-icon').style.background=pd?'var(--green)':'';this.querySelector('.epd-icon').style.borderColor=pd?'var(--green)':'var(--ink3)';this.querySelector('.epd-icon').innerHTML=pd?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'><polyline points=\'2,6 5,9 10,3\' stroke=\'white\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>':'';this.querySelector('.epd-lbl').textContent=pd?'Payment received':'Payment not yet received';this.querySelector('.epd-lbl').style.color=pd?'var(--green)':'var(--ink2)';document.getElementById('epd').value=pd?'1':'0';" data-v="${o.payment_done?'1':'0'}" id="epdRow">
+          <div class="epd-icon" style="width:22px;height:22px;border-radius:50%;border:2px solid ${o.payment_done?'var(--green)':'var(--ink3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${o.payment_done?'var(--green)':'transparent'}">${o.payment_done?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'><polyline points=\'2,6 5,9 10,3\' stroke=\'white\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>':''}</div>
+          <span class="epd-lbl" style="font-size:14px;color:${o.payment_done?'var(--green)':'var(--ink2)'}">${o.payment_done?'Payment received':'Payment not yet received'}</span>
+        </div>
+        <input type="hidden" id="epd" value="${o.payment_done?'1':'0'}">
+      </div>
       <div class="fblock ffull"><label>Notes</label><textarea id="eno" rows="3">${esc(o.notes||'')}</textarea></div>
     </div>`;
   document.getElementById('ssave').style.display='';
@@ -764,7 +806,7 @@ function enterEdit() {
 }
 async function saveEdit() {
   const g=id=>{ const e=document.getElementById(id); return e?e.value:null; };
-  const u={customer_name:g('en'),contact:g('ec'),product:g('ep'),price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno')};
+  const epdEl=document.getElementById('epd'); const u={customer_name:g('en'),contact:g('ec'),product:g('ep'),price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno'),payment_done:epdEl?epdEl.value==='1':false};
   Object.keys(u).forEach(k=>u[k]===null&&delete u[k]);
   const {error}=await db.from('orders').update(u).eq('id',viewId);
   if(error){toast('Error: '+error.message,true);return;}
@@ -803,6 +845,7 @@ async function doCopy() {
     lines.push('Delivery: '+o.delivery);
     if(o.notes) lines.push('Notes: '+o.notes);
     lines.push('Status: '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
+    lines.push('Payment: '+(o.payment_done?'Received':'Pending'));
     lines.push('');
   });
   const text=lines.join('\n').trimEnd();
