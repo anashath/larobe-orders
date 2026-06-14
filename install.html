@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Install La Robe Orders</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #F5EFE6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    width: min(380px, 100%);
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(44,34,24,0.15);
+  }
+
+  .card-top {
+    background: #2C2218;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .app-icon {
+    width: 80px; height: 80px;
+    background: #3D2E20;
+    border-radius: 20px;
+    margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    border: 2px solid rgba(212,165,165,0.3);
+  }
+
+  .app-name {
+    font-size: 22px;
+    font-weight: 600;
+    color: #F5EFE6;
+    letter-spacing: 0.05em;
+  }
+
+  .app-tagline {
+    font-size: 13px;
+    color: #A89880;
+    margin-top: 4px;
+  }
+
+  .card-body { padding: 24px; }
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #F0E8DF;
+    font-size: 13px;
+    color: #5C4A3A;
+  }
+  .info-row:last-of-type { border-bottom: none; }
+  .info-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+  .info-label { color: #A89880; font-size: 11px; display: block; }
+
+  .divider { height: 1px; background: #F0E8DF; margin: 20px 0; }
+
+  .step-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #A89880;
+    margin-bottom: 14px;
+  }
+
+  .step {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    background: #2C2218;
+    color: #F5EFE6;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-text { font-size: 13px; color: #5C4A3A; line-height: 1.5; padding-top: 3px; }
+  .step-text strong { color: #2C2218; }
+
+  .btn-install {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: #2C2218;
+    color: #F5EFE6;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    margin-top: 20px;
+    transition: background 0.15s;
+  }
+  .btn-install:hover, .btn-install:active { background: #B87E7E; }
+
+  .btn-secondary {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: #6B5B4E;
+    border: 1px solid #DDD0C0;
+    border-radius: 12px;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #EBF4EC;
+    color: #4A8A50;
+    border: 1px solid #BAD8BC;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    margin-left: 6px;
+  }
+
+  .note {
+    font-size: 12px;
+    color: #A89880;
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-top">
+    <div class="app-icon">🛍</div>
+    <div class="app-name">La Robe Orders</div>
+    <div class="app-tagline">La Robe Maldives · Daily Order Manager</div>
+  </div>
+
+  <div class="card-body">
+
+    <div class="info-row">
+      <div class="info-icon">🌐</div>
+      <div>
+        <span class="info-label">Source</span>
+        anashath.github.io/larobe-orders
+      </div>
+    </div>
+    <div class="info-row">
+      <div class="info-icon">☁️</div>
+      <div>
+        <span class="info-label">Data</span>
+        Supabase real-time sync <span class="badge">Live</span>
+      </div>
+    </div>
+    <div class="info-row">
+      <div class="info-icon">📱</div>
+      <div>
+        <span class="info-label">Type</span>
+        Progressive Web App (PWA)
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="step-title">How to install on Android</div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Tap <strong>Open App</strong> below — it will open in Chrome</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Tap the <strong>three-dot menu ⋮</strong> at the top right of Chrome</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">Tap <strong>Install</strong> on the confirmation prompt</div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">The <strong>La Robe Orders</strong> icon will appear on your home screen</div>
+    </div>
+
+    <a class="btn-install" href="https://anashath.github.io/larobe-orders/" target="_blank">
+      Open App in Chrome →
+    </a>
+
+    <a class="btn-secondary" href="https://anashath.github.io/larobe-orders/installer.html" target="_blank">
+      ⚙️ Set Preferences First
+    </a>
+
+    <div class="note">
+      Once installed, the app opens full-screen<br>without browser bars — just like a native app.
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
