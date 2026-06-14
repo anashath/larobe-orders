@@ -910,6 +910,7 @@ async function doCopy() {
   if(error||!data||!data.length){toast('No orders on this date',true);btn.textContent='Copy as Text';return;}
   const d=new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const filterLabel = copyFlt==='pending' ? ' — PENDING ONLY' : '';
+  const lines = [];
   lines.push('LA ROBE MALDIVES — '+d+filterLabel);
   lines.push('');
   const sep = '─'.repeat(36);
