@@ -290,6 +290,24 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 .pay-done { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:#D4F0E8; color:#1A7A50; }
 .pay-pend { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; background:#FDDCDC; color:#C03030; }
 
+/* ── THEME TOGGLE SWITCH ── */
+.tog-wrap { display:flex; align-items:center; flex-shrink:0; }
+.tog-track {
+  width:56px; height:30px; border-radius:15px;
+  background:#b0e0e6; border:2px solid #a8dadc;
+  position:relative; transition:background .25s, border-color .25s;
+  cursor:pointer;
+}
+.tog-track.dark { background:#0e3840; border-color:#1a5060; }
+.tog-knob {
+  position:absolute; top:3px; left:3px;
+  width:22px; height:22px; border-radius:50%;
+  background:#419ab5; display:flex; align-items:center; justify-content:center;
+  transition:transform .25s, background .25s;
+  color:#e9eded; box-shadow:0 1px 4px rgba(0,0,0,0.18);
+}
+.tog-knob.dark { transform:translateX(26px); background:#4db6c7; }
+
 /* ── TOAST ── */
 #toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%) translateY(10px); background:#0d3b47; color:#e9eded; padding:10px 20px; border-radius:24px; font-size:13px; font-weight:500; opacity:0; transition:all .2s; pointer-events:none; z-index:999; white-space:nowrap; }
 #toast.on   { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -450,11 +468,27 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
       <div class="pg-title">Settings</div>
     </div>
     <div class="sblock">
-      <div class="srow">
-        <div><div class="slbl">Appearance</div><div class="shint">Light or dark display</div></div>
-        <div class="theme-sw" style="background:var(--bg2)">
-          <button id="tl2" class="on" onclick="setTheme('light')">☀️</button>
-          <button id="td2" onclick="setTheme('dark')">🌙</button>
+      <div class="srow" onclick="toggleTheme()" style="cursor:pointer">
+        <div>
+          <div class="slbl">Appearance</div>
+          <div class="shint" id="themeHint">Light blue</div>
+        </div>
+        <div class="tog-wrap" id="togWrap">
+          <div class="tog-track" id="togTrack">
+            <div class="tog-knob" id="togKnob">
+              <svg id="togIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
       <div class="srow">
@@ -553,8 +587,27 @@ let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=fa
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('lr_t', t);
-  const tl2=document.getElementById('tl2'); if(tl2) tl2.className=t==='light'?'on':'';
-  const td2=document.getElementById('td2'); if(td2) td2.className=t==='dark'?'on':'';
+  updateToggleUI(t);
+}
+function updateToggleUI(t) {
+  const track = document.getElementById('togTrack');
+  const knob  = document.getElementById('togKnob');
+  const icon  = document.getElementById('togIcon');
+  const hint  = document.getElementById('themeHint');
+  if (!track) return;
+  if (t === 'dark') {
+    track.classList.add('dark'); knob.classList.add('dark');
+    if (hint) hint.textContent = 'Dark blue';
+    if (icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" stroke="none"/>';
+  } else {
+    track.classList.remove('dark'); knob.classList.remove('dark');
+    if (hint) hint.textContent = 'Light blue';
+    if (icon) icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  }
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  setTheme(current === 'light' ? 'dark' : 'light');
 }
 (function() {
   const t = localStorage.getItem('lr_t') || (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
