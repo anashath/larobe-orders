@@ -202,6 +202,8 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 /* ── COPY SCREEN ── */
 .copy-body { padding:0 20px 20px; display:flex; flex-direction:column; gap:14px; }
 .copy-preview { background:var(--bg2); border-radius:14px; padding:16px; font-size:12px; line-height:1.8; color:var(--ink2); white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; display:none; }
+.copy-flt-btn { flex:1; padding:11px 10px; border-radius:10px; border:1.5px solid var(--line); background:none; color:var(--ink3); font-family:'Inter',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; letter-spacing:0.02em; }
+.copy-flt-btn.on { background:#419ab5; color:#e9eded; border-color:#419ab5; }
 .copy-actions { display:flex; align-items:center; justify-content:space-between; }
 .copy-count { font-size:13px; color:var(--ink3); }
 .btn-copy { padding:13px 20px; background:#419ab5; color:#e9eded; border:none; border-radius:12px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .15s; }
@@ -439,6 +441,13 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </div>
     <div class="copy-body">
       <div class="fblock"><label>Select Date</label><input type="date" id="copyDate"></div>
+      <div class="fblock">
+        <label>Filter Orders</label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="copy-flt-btn on" id="cflt-all"     onclick="setCopyFlt('all',this)">All Orders</button>
+          <button type="button" class="copy-flt-btn"   id="cflt-pending"  onclick="setCopyFlt('pending',this)">Pending Only</button>
+        </div>
+      </div>
       <div class="copy-actions">
         <span class="copy-count" id="copyCount"></span>
         <button class="btn-copy" id="copyBtn" onclick="doCopy()">Copy as Text</button>
@@ -581,7 +590,7 @@ const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
 const db = supabase.createClient(SB_URL, SB_KEY);
 
-let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
+let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false, copyFlt='all';
 
 /* THEME */
 function setTheme(t) {
@@ -877,18 +886,32 @@ function initCopy() {
   const d=document.getElementById('copyDate'); if(!d.value) d.value=today();
   updCopyCount();
 }
+function setCopyFlt(f, btn) {
+  copyFlt = f;
+  document.querySelectorAll('.copy-flt-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  updCopyCount();
+}
 async function updCopyCount() {
   const date=document.getElementById('copyDate').value; if(!date)return;
-  const {count}=await db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
-  document.getElementById('copyCount').textContent=count?count+' order'+(count!==1?'s':''):'No orders on this date';
+  let q=db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',date);
+  if(copyFlt==='pending') q=q.eq('status','pending');
+  const {count}=await q;
+  const label = copyFlt==='pending' ? 'pending order' : 'order';
+  document.getElementById('copyCount').textContent=count?count+' '+label+(count!==1?'s':''):'No orders found';
 }
 async function doCopy() {
   const date=document.getElementById('copyDate').value; if(!date){toast('Select a date',true);return;}
   const btn=document.getElementById('copyBtn'); btn.disabled=true; btn.textContent='Loading…';
-  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  let q=db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  if(copyFlt==='pending') q=q.eq('status','pending');
+  const {data,error}=await q;
   btn.disabled=false;
   if(error||!data||!data.length){toast('No orders on this date',true);btn.textContent='Copy as Text';return;}
   const d=new Date(date+'T00:00:00').toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const filterLabel = copyFlt==='pending' ? ' — PENDING ONLY' : '';
+  lines.push('LA ROBE MALDIVES — '+d+filterLabel);
+  lines.push('');
   const sep = '─'.repeat(36);
   lines.push(sep);
   data.forEach(o=>{
