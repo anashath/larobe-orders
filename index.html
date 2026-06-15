@@ -389,9 +389,12 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 
   <!-- ORDERS -->
   <div class="screen on" id="sc-orders">
-    <div class="pg-head">
-      <div class="pg-title">Today's Orders</div>
-      <div class="pg-sub" id="pg-date"></div>
+    <div class="pg-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div class="pg-title" id="ordersTitle">Today's Orders</div>
+        <div class="pg-sub" id="pg-date"></div>
+      </div>
+      <input type="date" id="ordersDate" style="border:1.5px solid var(--line);border-radius:10px;padding:7px 12px;font-family:Inter,sans-serif;font-size:13px;color:var(--ink);background:var(--bg2);outline:none;-webkit-appearance:none;" onchange="changeOrdersDate()">
     </div>
     <div class="stat-strip">
       <div class="stat-cell"><div class="stat-n" id="stTotal">0</div><div class="stat-l">Total</div></div>
@@ -775,10 +778,22 @@ async function delProd(id) {
 
 /* ORDERS */
 async function loadOrders() {
-  const {data,error}=await db.from('orders').select('*').eq('order_date',today()).order('created_at',{ascending:false});
+  var dateEl = document.getElementById('ordersDate');
+  var date = (dateEl && dateEl.value) ? dateEl.value : today();
+  var isToday = date === today();
+  var titleEl = document.getElementById('ordersTitle');
+  if (titleEl) titleEl.textContent = isToday ? "Today's Orders" : "Orders";
+  var subEl = document.getElementById('pg-date');
+  if (subEl) {
+    var parts = date.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    subEl.textContent = dt.toLocaleDateString('en-US', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  }
+  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('created_at',{ascending:false});
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
 }
+function changeOrdersDate() { loadOrders(); }
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
   const prod=document.getElementById('fProduct').value;
@@ -1182,11 +1197,13 @@ document.getElementById('copyDate').addEventListener('change', updateCopyCount);
 document.getElementById('histDate').addEventListener('change', loadHistory);
 document.getElementById('newProd').addEventListener('keydown',e=>{if(e.key==='Enter')addProd();});
 document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-document.getElementById('pg-date').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
 
 db.channel('lr').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
+var _od = document.getElementById('ordersDate');
+if (_od) _od.value = today();
 loadProds();
 loadOrders();
 </script>
