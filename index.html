@@ -1317,18 +1317,25 @@ function createUser() {
   if (pass.length < 6) { toast('Password must be at least 6 characters', true); return; }
   var btn = document.getElementById('createUserBtn');
   btn.disabled = true; btn.textContent = 'Creating...';
-  db.auth.admin.createUser({
-    email: email, password: pass, email_confirm: true,
-    user_metadata: { full_name: name, role: role }
+
+  // Use signUp — works with anon key, no admin privileges needed
+  db.auth.signUp({
+    email: email,
+    password: pass,
+    options: { data: { full_name: name, role: role } }
   }).then(function(res) {
     btn.disabled = false; btn.textContent = 'Create User';
     if (res.error) { toast('Error: ' + res.error.message, true); return; }
-    // Update profile role (trigger creates with default, override with correct role)
-    db.from('profiles').update({ role: role, full_name: name }).eq('id', res.data.user.id).then(function() {
+    if (!res.data || !res.data.user) { toast('User may already exist', true); return; }
+
+    var uid = res.data.user.id;
+    // Update profile with correct role and name
+    db.from('profiles').upsert({ id: uid, full_name: name, role: role, is_active: true }).then(function(upRes) {
+      if (upRes.error) { toast('User created but profile update failed: ' + upRes.error.message, true); return; }
       document.getElementById('nuName').value = '';
       document.getElementById('nuEmail').value = '';
       document.getElementById('nuPass').value = '';
-      toast('User created ✓');
+      toast('User created successfully ✓');
       loadUsers();
     });
   });
@@ -1561,18 +1568,25 @@ function createUser() {
   if (pass.length < 6) { toast('Password must be at least 6 characters', true); return; }
   var btn = document.getElementById('createUserBtn');
   btn.disabled = true; btn.textContent = 'Creating...';
-  db.auth.admin.createUser({
-    email: email, password: pass, email_confirm: true,
-    user_metadata: { full_name: name, role: role }
+
+  // Use signUp — works with anon key, no admin privileges needed
+  db.auth.signUp({
+    email: email,
+    password: pass,
+    options: { data: { full_name: name, role: role } }
   }).then(function(res) {
     btn.disabled = false; btn.textContent = 'Create User';
     if (res.error) { toast('Error: ' + res.error.message, true); return; }
-    // Update profile role (trigger creates with default, override with correct role)
-    db.from('profiles').update({ role: role, full_name: name }).eq('id', res.data.user.id).then(function() {
+    if (!res.data || !res.data.user) { toast('User may already exist', true); return; }
+
+    var uid = res.data.user.id;
+    // Update profile with correct role and name
+    db.from('profiles').upsert({ id: uid, full_name: name, role: role, is_active: true }).then(function(upRes) {
+      if (upRes.error) { toast('User created but profile update failed: ' + upRes.error.message, true); return; }
       document.getElementById('nuName').value = '';
       document.getElementById('nuEmail').value = '';
       document.getElementById('nuPass').value = '';
-      toast('User created ✓');
+      toast('User created successfully ✓');
       loadUsers();
     });
   });
