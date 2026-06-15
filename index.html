@@ -835,18 +835,18 @@ function render() {
   } else {
     L.innerHTML=arr.map(o=>`
       <div class="orow" onclick="openSheet(${o.id})">
-        <div class="onum-box"><div class="onum-txt">${o.num}</div></div>
-        <div class="oinfo">
-          <div class="ocust">${esc(o.customer_name)}</div>
-          <div class="oprod">${esc(o.product)}</div>
-          <div class="ometa">${esc(o.delivery)} · ${o.order_time||''}</div>
+        <div class="o-num"><div class="o-num-t">${o.num}</div></div>
+        <div class="o-info">
+          <div class="o-name">${esc(o.customer_name)}</div>
+          <div class="o-prod">${esc(o.product)}</div>
+          <div class="o-meta">${esc(o.delivery)} · ${o.order_time||''}</div>
         </div>
-        <div class="oright">
-          <div class="oprice">MVR ${Number(o.price).toLocaleString()}</div>
+        <div class="o-right">
+          <div class="o-price">MVR ${Number(o.price).toLocaleString()}</div>
           <span class="obadge ${o.status==='pending'?'bp':o.status==='delivered'?'bd':'bc'}">${o.status}</span>
           <span class="${o.payment_done?'pay-done':'pay-pend'}">${o.payment_done?'Paid':'Unpaid'}</span>
         </div>
-        <div class="oarrow">›</div>
+        <div class="o-arr">›</div>
       </div>`).join('');
   }
   const pend=orders.filter(o=>o.status==='pending').length;
@@ -1015,7 +1015,7 @@ async function delOrder(id) {
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   var dui = document.getElementById('drawerUserInfo');
-  if (dui) { dui.style.display = 'none'; }
+  if (dui) dui.style.display = 'none';
 }
 
 function hideLogin() {
@@ -1099,8 +1099,7 @@ function applyRole(profile) {
   // Drawer user info
   var dui = document.getElementById('drawerUserInfo');
   var dun = document.getElementById('drawerUserName');
-  var dur = document.getElementById('drawerUserRole');
-  if (dui) { dui.style.display = 'flex'; }
+  if (dui) { dui.style.display = 'flex'; dui.style.alignItems = 'center'; dui.style.justifyContent = 'space-between'; }
   if (dun) dun.textContent = name;
 
 
