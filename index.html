@@ -346,6 +346,9 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     <button class="ditem" id="dn-new" onclick="go('new')">
       <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>New Order
     </button>
+    <button class="ditem" id="dn-history" onclick="go('history')">
+      <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>History
+    </button>
     <button class="ditem" id="dn-copy" onclick="go('copy')">
       <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>Copy Day
     </button>
@@ -460,6 +463,33 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </div>
   </div>
 
+  <!-- HISTORY -->
+  <div class="screen" id="sc-history">
+    <div class="pg-head">
+      <div class="pg-title">History</div>
+      <div class="pg-sub">Browse past orders by date</div>
+    </div>
+    <div style="padding:0 20px 20px;">
+      <div class="fblock" style="margin-bottom:14px;">
+        <label>Select Date</label>
+        <input type="date" id="histDate">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <span id="histSummary" style="font-size:13px;color:var(--ink3);"></span>
+        <span id="histRevenue" style="font-size:14px;font-weight:700;color:var(--rose);"></span>
+      </div>
+      <div id="histList">
+        <div class="empty">
+          <div class="empty-ico">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+          </div>
+          <div class="empty-ttl">Select a date</div>
+          <div class="empty-sub">Choose any past date to view its orders</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRODUCTS -->
   <div class="screen" id="sc-products">
     <div class="pg-head">
@@ -539,14 +569,14 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </span>
     <span class="nlbl">New</span><span class="npill"></span>
   </button>
-  <button class="nbtn" id="bn-copy" onclick="go('copy')">
+  <button class="nbtn" id="bn-history" onclick="go('history')">
     <span class="nic">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2"/>
-        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12 7 12 12 15 15"/>
       </svg>
     </span>
-    <span class="nlbl">Copy</span><span class="npill"></span>
+    <span class="nlbl">History</span><span class="npill"></span>
   </button>
   <button class="nbtn" id="bn-products" onclick="go('products')">
     <span class="nic">
@@ -642,6 +672,7 @@ function go(s) {
   document.querySelector('.scroll').scrollTo(0,0);
   if(s==='products') renderProds();
   if(s==='copy')     { initCopy(); }
+  if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
 }
 
@@ -885,8 +916,130 @@ async function delOrder(id) {
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
 }
 
+
+/* HISTORY */
+function initHistory() {
+  var d = document.getElementById('histDate');
+  if (!d.value) {
+    var yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    d.value = yesterday.toISOString().slice(0,10);
+  }
+  loadHistory();
+}
+
+function loadHistory() {
+  var dateEl = document.getElementById('histDate');
+  if (!dateEl || !dateEl.value) return;
+  var date = dateEl.value;
+  var list = document.getElementById('histList');
+  var summary = document.getElementById('histSummary');
+  var rev = document.getElementById('histRevenue');
+  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
+
+  db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true})
+    .then(function(res) {
+      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error loading</div></div>'; return; }
+      var data = res.data || [];
+      if (!data.length) {
+        list.innerHTML = '<div class="empty"><div class="empty-ico" style="font-size:32px;opacity:0.2">📋</div><div class="empty-ttl">No orders on this date</div></div>';
+        if (summary) summary.textContent = '';
+        if (rev) rev.textContent = '';
+        return;
+      }
+      var pending   = data.filter(function(o){ return o.status==='pending'; }).length;
+      var delivered = data.filter(function(o){ return o.status==='delivered'; }).length;
+      var revenue   = data.filter(function(o){ return o.status!=='cancelled'; }).reduce(function(s,o){ return s+Number(o.price); }, 0);
+      if (summary) summary.textContent = data.length + ' orders · ' + pending + ' pending · ' + delivered + ' delivered';
+      if (rev) rev.textContent = 'MVR ' + revenue.toLocaleString();
+
+      list.innerHTML = data.map(function(o) {
+        var sc = o.status==='pending' ? 'bp' : o.status==='delivered' ? 'bd' : 'bc';
+        var pc = o.payment_done ? 'pay-done' : 'pay-pend';
+        return '<div class="orow" onclick="openSheet(' + o.id + ')">' +
+          '<div class="onum-box"><div class="onum-txt">' + o.num + '</div></div>' +
+          '<div class="oinfo">' +
+            '<div class="ocust">' + esc(o.customer_name) + '</div>' +
+            '<div class="oprod">' + esc(o.product) + '</div>' +
+            '<div class="ometa">' + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>' +
+          '</div>' +
+          '<div class="oright">' +
+            '<div class="oprice">MVR ' + Number(o.price).toLocaleString() + '</div>' +
+            '<span class="obadge ' + sc + '">' + o.status + '</span>' +
+            '<span class="' + pc + '">' + (o.payment_done ? 'Paid' : 'Unpaid') + '</span>' +
+          '</div>' +
+          '<div class="oarrow">&#8250;</div>' +
+        '</div>';
+      }).join('');
+
+      // make orders available in global for openSheet
+      orders = data;
+    });
+}
+
 /* COPY */
 
+
+
+/* HISTORY */
+function initHistory() {
+  var d = document.getElementById('histDate');
+  if (!d.value) {
+    var yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    d.value = yesterday.toISOString().slice(0,10);
+  }
+  loadHistory();
+}
+
+function loadHistory() {
+  var dateEl = document.getElementById('histDate');
+  if (!dateEl || !dateEl.value) return;
+  var date = dateEl.value;
+  var list = document.getElementById('histList');
+  var summary = document.getElementById('histSummary');
+  var rev = document.getElementById('histRevenue');
+  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
+
+  db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true})
+    .then(function(res) {
+      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error loading</div></div>'; return; }
+      var data = res.data || [];
+      if (!data.length) {
+        list.innerHTML = '<div class="empty"><div class="empty-ico" style="font-size:32px;opacity:0.2">📋</div><div class="empty-ttl">No orders on this date</div></div>';
+        if (summary) summary.textContent = '';
+        if (rev) rev.textContent = '';
+        return;
+      }
+      var pending   = data.filter(function(o){ return o.status==='pending'; }).length;
+      var delivered = data.filter(function(o){ return o.status==='delivered'; }).length;
+      var revenue   = data.filter(function(o){ return o.status!=='cancelled'; }).reduce(function(s,o){ return s+Number(o.price); }, 0);
+      if (summary) summary.textContent = data.length + ' orders · ' + pending + ' pending · ' + delivered + ' delivered';
+      if (rev) rev.textContent = 'MVR ' + revenue.toLocaleString();
+
+      list.innerHTML = data.map(function(o) {
+        var sc = o.status==='pending' ? 'bp' : o.status==='delivered' ? 'bd' : 'bc';
+        var pc = o.payment_done ? 'pay-done' : 'pay-pend';
+        return '<div class="orow" onclick="openSheet(' + o.id + ')">' +
+          '<div class="onum-box"><div class="onum-txt">' + o.num + '</div></div>' +
+          '<div class="oinfo">' +
+            '<div class="ocust">' + esc(o.customer_name) + '</div>' +
+            '<div class="oprod">' + esc(o.product) + '</div>' +
+            '<div class="ometa">' + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>' +
+          '</div>' +
+          '<div class="oright">' +
+            '<div class="oprice">MVR ' + Number(o.price).toLocaleString() + '</div>' +
+            '<span class="obadge ' + sc + '">' + o.status + '</span>' +
+            '<span class="' + pc + '">' + (o.payment_done ? 'Paid' : 'Unpaid') + '</span>' +
+          '</div>' +
+          '<div class="oarrow">&#8250;</div>' +
+        '</div>';
+      }).join('');
+
+      // make orders available in global for openSheet
+      orders = data;
+    });
+}
 
 /* COPY */
 var _copyFlt = 'all';
@@ -1000,6 +1153,7 @@ function fallbackCopy(text, btn, count) {
 /* INIT */
 document.getElementById('smask').addEventListener('click',function(e){if(e.target===this)closeSheet();});
 document.getElementById('copyDate').addEventListener('change', updateCopyCount);
+document.getElementById('histDate').addEventListener('change', loadHistory);
 document.getElementById('newProd').addEventListener('keydown',e=>{if(e.key==='Enter')addProd();});
 document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 document.getElementById('pg-date').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
