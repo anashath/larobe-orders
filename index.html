@@ -356,7 +356,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="l-err" id="loginErr"></div>
-    <div id="loginDebug" style="font-size:10px;color:#94A3B8;text-align:center;margin-top:8px;word-break:break-all;display:none"></div>
+
   </div>
 </div>
 
@@ -665,7 +665,7 @@ function go(s) {
   document.getElementById('sc-'+s).classList.add('on');
   const b=document.getElementById('bn-'+s); if(b) b.classList.add('on');
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
-  document.querySelector('.scroll').scrollTo(0,0);
+  var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);
   if(s==='products') renderProds();
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
