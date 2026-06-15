@@ -311,6 +311,27 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 }
 .tog-knob.dark { transform:translateX(26px); background:#4db6c7; }
 
+/* ── FAB CENTER BUTTON ── */
+.nbtn-fab { position:relative; }
+.nic-fab {
+  width:52px; height:52px; border-radius:50%;
+  background:#4db6c7;
+  display:flex; align-items:center; justify-content:center;
+  color:#e9eded;
+  box-shadow: 0 4px 14px rgba(77,182,199,0.5);
+  margin-top:-18px;
+  transition: transform .15s, box-shadow .15s;
+  flex-shrink: 0;
+}
+.nbtn-fab:active .nic-fab {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(77,182,199,0.4);
+}
+.nbtn-fab.on .nic-fab {
+  background: #419ab5;
+  box-shadow: 0 4px 16px rgba(65,154,181,0.6);
+}
+
 /* ── TOAST ── */
 #toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%) translateY(10px); background:#0d3b47; color:#e9eded; padding:10px 20px; border-radius:24px; font-size:13px; font-weight:500; opacity:0; transition:all .2s; pointer-events:none; z-index:999; white-space:nowrap; }
 #toast.on   { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -551,6 +572,7 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 
 <!-- BOTTOM NAV -->
 <nav class="bnav">
+  <!-- Orders -->
   <button class="nbtn on" id="bn-orders" onclick="go('orders')">
     <span class="nic">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -561,14 +583,7 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </span>
     <span class="nlbl">Orders</span><span class="npill"></span>
   </button>
-  <button class="nbtn" id="bn-new" onclick="go('new')">
-    <span class="nic">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-    </span>
-    <span class="nlbl">New</span><span class="npill"></span>
-  </button>
+  <!-- History -->
   <button class="nbtn" id="bn-history" onclick="go('history')">
     <span class="nic">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -578,6 +593,16 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </span>
     <span class="nlbl">History</span><span class="npill"></span>
   </button>
+  <!-- New Order — center FAB -->
+  <button class="nbtn nbtn-fab" id="bn-new" onclick="go('new')">
+    <span class="nic-fab">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </span>
+    <span class="nlbl" style="color:rgba(233,237,237,0.7);font-size:9px;">New</span>
+  </button>
+  <!-- Products -->
   <button class="nbtn" id="bn-products" onclick="go('products')">
     <span class="nic">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -588,6 +613,7 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </span>
     <span class="nlbl">Products</span><span class="npill"></span>
   </button>
+  <!-- Settings -->
   <button class="nbtn" id="bn-settings" onclick="go('settings')">
     <span class="nic">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
