@@ -405,11 +405,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 <div class="screen on" id="sc-orders">
   <div class="pg">
     <div class="pg-title" id="ordersTitle">Today's Orders</div>
-    <div class="pg-sub" id="pg-date" onclick="openDatePicker()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <span id="pg-date-label">Today</span>
+    <div id="pg-date" onclick="openDatePicker()" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:var(--blue-l);border:1.5px solid var(--blue-m);border-radius:20px;padding:5px 12px;cursor:pointer;user-select:none">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="pg-date-label" style="font-size:12px;font-weight:600;color:var(--blue)">Today</span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
-    <input type="date" id="ordersDate" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="changeOrdersDate()">
+    <input type="date" id="ordersDate" onchange="changeOrdersDate()" style="position:fixed;opacity:0;width:1px;height:1px;top:0;left:0;border:0;padding:0">
   </div>
   <div class="stats">
     <div class="stat"><div class="stat-n" id="stTotal">0</div><div class="stat-l">Total</div></div>
@@ -742,14 +743,14 @@ function dateLabel(date) {
 function openDatePicker() {
   var el = document.getElementById('ordersDate');
   if (!el) return;
-  el.style.position = 'fixed';
-  el.style.top = '60px';
-  el.style.left = '20px';
-  el.style.opacity = '0';
-  el.style.pointerEvents = 'auto';
+  // Temporarily make visible and positioned for mobile browsers
+  el.style.cssText = 'position:fixed;top:54px;left:16px;opacity:0;width:120px;height:40px;z-index:999';
   el.focus();
   el.click();
-  el.style.pointerEvents = 'none';
+  el.showPicker && el.showPicker();
+  setTimeout(function() {
+    el.style.cssText = 'position:fixed;opacity:0;width:1px;height:1px;top:0;left:0;border:0;padding:0';
+  }, 500);
 }
 
 async function loadOrders() {
