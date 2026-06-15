@@ -332,6 +332,78 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
   box-shadow: 0 4px 16px rgba(65,154,181,0.6);
 }
 
+/* ── LOGIN SCREEN ── */
+#loginScreen {
+  position:fixed; inset:0; z-index:200;
+  background:#419ab5;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:24px;
+}
+#loginScreen.hidden { display:none; }
+.login-card {
+  background:#fff; border-radius:20px;
+  width:min(380px,100%); padding:32px 28px;
+  box-shadow:0 12px 48px rgba(0,0,0,0.18);
+}
+.login-brand {
+  font-family:'Cormorant Garamond',serif;
+  font-size:28px; font-weight:600;
+  letter-spacing:0.12em; text-transform:uppercase;
+  text-align:center; color:#0d3b47; margin-bottom:4px;
+}
+.login-brand em { color:#419ab5; font-style:italic; font-weight:400; }
+.login-tagline { text-align:center; font-size:12px; color:#5a9aaa; margin-bottom:28px; letter-spacing:0.06em; }
+.login-field { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+.login-field label { font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#5a9aaa; }
+.login-field input {
+  border:1.5px solid #c8d4f8; border-radius:10px;
+  padding:12px 14px; font-family:'Inter',sans-serif;
+  font-size:14px; color:#0d3b47; background:#f0f4ff;
+  outline:none; transition:border-color .15s;
+}
+.login-field input:focus { border-color:#419ab5; background:#fff; }
+.login-btn {
+  width:100%; padding:14px; background:#419ab5; color:#e9eded;
+  border:none; border-radius:12px; font-family:'Inter',sans-serif;
+  font-size:14px; font-weight:600; cursor:pointer;
+  margin-top:6px; transition:opacity .15s; letter-spacing:0.02em;
+}
+.login-btn:active { opacity:0.85; }
+.login-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.login-err { font-size:12px; color:#B04040; text-align:center; margin-top:10px; min-height:18px; }
+
+/* ── ROLE BADGE ── */
+.role-badge {
+  font-size:9px; font-weight:700; letter-spacing:0.1em;
+  text-transform:uppercase; padding:2px 8px; border-radius:10px;
+  background:rgba(255,255,255,0.18); color:#e9eded;
+}
+
+/* ── USER INFO IN HEADER ── */
+.hdr-user { display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+.hdr-uname { font-size:11px; font-weight:600; color:#e9eded; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.logout-btn { background:none; border:none; cursor:pointer; color:rgba(233,237,237,0.6); font-size:10px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; padding:0; }
+.logout-btn:active { color:#e9eded; }
+
+/* ── ADMIN PANEL ── */
+.user-row { display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line); }
+.user-row:first-child { border-top:1px solid var(--line); }
+.user-row:last-child { border-bottom:none; }
+.user-info { flex:1; min-width:0; }
+.user-name { font-size:14px; font-weight:600; color:var(--ink); }
+.user-email { font-size:11px; color:var(--ink3); margin-top:1px; }
+.urole-badge { font-size:9px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
+.r-admin     { background:rgba(65,154,181,0.15); color:#419ab5; }
+.r-order_collection { background:rgba(77,182,199,0.15); color:#4db6c7; }
+.r-packing   { background:rgba(176,224,230,0.3); color:#2a7080; }
+.r-delivery  { background:rgba(58,138,80,0.12); color:#3A8A50; }
+.r-inactive  { background:rgba(176,64,64,0.1); color:#B04040; }
+.user-actions { display:flex; gap:6px; }
+.uact-btn { font-size:10px; font-weight:600; padding:4px 10px; border-radius:8px; cursor:pointer; border:none; font-family:'Inter',sans-serif; letter-spacing:0.04em; }
+.uact-deact { background:rgba(176,64,64,0.1); color:#B04040; }
+.uact-act   { background:rgba(58,138,80,0.1); color:#3A8A50; }
+
 /* ── TOAST ── */
 #toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%) translateY(10px); background:#0d3b47; color:#e9eded; padding:10px 20px; border-radius:24px; font-size:13px; font-weight:500; opacity:0; transition:all .2s; pointer-events:none; z-index:999; white-space:nowrap; }
 #toast.on   { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -348,6 +420,11 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
   </div>
   <div class="topbar-right">
     <div class="sync-blob"><div class="sdot" id="sdot"></div></div>
+    <div class="hdr-user" id="hdrUser" style="display:none">
+      <div class="hdr-uname" id="hdrName"></div>
+      <span class="role-badge" id="hdrRole"></span>
+    </div>
+    <button class="logout-btn" id="logoutBtn" style="display:none" onclick="doLogout()">Logout</button>
   </div>
 </header>
 
@@ -376,6 +453,9 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     <div class="dsec">Manage</div>
     <button class="ditem" id="dn-products" onclick="go('products')">
       <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>Products
+    </button>
+    <button class="ditem" id="dn-users" onclick="go('users')" style="display:none">
+      <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>Users
     </button>
     <button class="ditem" id="dn-settings" onclick="go('settings')">
       <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>Settings
@@ -530,6 +610,37 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </div>
   </div>
 
+  <!-- ADMIN USERS -->
+  <div class="screen" id="sc-users">
+    <div class="pg-head">
+      <div class="pg-title">Users</div>
+      <div class="pg-sub">Manage team access</div>
+    </div>
+    <div style="padding:0 20px 20px;">
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr">Add New User</div>
+        <div class="fgrid" style="gap:10px;">
+          <div class="fblock"><label>Full Name</label><input type="text" id="nuName" placeholder="Aminath Hassan"></div>
+          <div class="fblock"><label>Email</label><input type="email" id="nuEmail" placeholder="user@email.com"></div>
+          <div class="fblock"><label>Password</label><input type="password" id="nuPass" placeholder="Min 6 characters"></div>
+          <div class="fblock"><label>Role</label>
+            <select id="nuRole">
+              <option value="order_collection">Order Collection</option>
+              <option value="packing">Packing</option>
+              <option value="delivery">Delivery</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="faction" style="padding:0;margin-top:14px;">
+          <button class="btn-primary" onclick="createUser()" id="createUserBtn">Create User</button>
+        </div>
+      </div>
+      <div class="sec-title" style="margin-bottom:12px;">Team Members</div>
+      <div id="userList"><div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div></div>
+    </div>
+  </div>
+
   <!-- SETTINGS -->
   <div class="screen" id="sc-settings">
     <div class="pg-head">
@@ -638,9 +749,11 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
       <button class="sclose" onclick="closeSheet()">×</button>
     </div>
     <div class="sbody" id="sbody"></div>
-    <div class="sfoot">
-      <button class="sfbtn sfbtn-red"   id="sdel">Delete</button>
-      <button class="sfbtn sfbtn-rose"  id="sedit" onclick="enterEdit()">Edit</button>
+    <div class="sfoot" id="sfoot">
+      <button class="sfbtn sfbtn-red"   id="sdel" style="display:none">Delete</button>
+      <button class="sfbtn sfbtn-rose"  id="sedit" style="display:none" onclick="enterEdit()">Edit</button>
+      <button class="sfbtn" id="spack"   style="display:none;background:rgba(77,182,199,0.15);color:#419ab5;" onclick="updateOrderStatus('packed')">Mark Packed</button>
+      <button class="sfbtn" id="sdeliver" style="display:none;background:rgba(58,138,80,0.1);color:#3A8A50;" onclick="updateOrderStatus('delivered')">Mark Delivered</button>
       <button class="sfbtn sfbtn-ghost" onclick="closeSheet()">Close</button>
       <button class="sfbtn sfbtn-dark"  id="ssave" style="display:none" onclick="saveEdit()">Save Changes</button>
     </div>
@@ -648,6 +761,24 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 </div>
 
 <div id="toast"></div>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">La <em>Robe</em></div>
+    <div class="login-tagline">Order Management · Maldives</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
 
 <script>
 const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
@@ -693,6 +824,17 @@ function closeD() { document.getElementById('drawer').classList.remove('open'); 
 
 /* NAV */
 function go(s) {
+  // Role check
+  if (_profile) {
+    var allowed = {
+      admin:            ['orders','new','history','copy','products','settings','users'],
+      order_collection: ['orders','new'],
+      packing:          ['orders'],
+      delivery:         ['orders']
+    };
+    var roleAllowed = allowed[_profile.role] || ['orders'];
+    if (roleAllowed.indexOf(s) < 0) { s = 'orders'; }
+  }
   closeD();
   document.querySelectorAll('.screen').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('.nbtn,.ditem').forEach(e=>e.classList.remove('on'));
@@ -704,6 +846,7 @@ function go(s) {
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
+  if(s==='users') { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
 }
 
 /* UTILS */
@@ -905,8 +1048,29 @@ function openSheet(id) {
     </div>
     ${o.notes?`<div class="det-note">${esc(o.notes)}</div>`:''}`;
   document.getElementById('ssave').style.display='none';
-  document.getElementById('sedit').style.display='';
-  document.getElementById('sdel').onclick=()=>delOrder(id);
+  // Role-based buttons
+  var role = _profile ? _profile.role : '';
+  var sdel = document.getElementById('sdel');
+  var sedit = document.getElementById('sedit');
+  var spack = document.getElementById('spack');
+  var sdelv = document.getElementById('sdeliver');
+  var _o = orders.find(function(x){return x.id===id;});
+  // Admin sees all
+  if (role === 'admin') {
+    sdel.style.display=''; sedit.style.display=''; spack.style.display='none'; sdelv.style.display='none';
+  } else if (role === 'order_collection') {
+    sdel.style.display='none'; sedit.style.display=''; spack.style.display='none'; sdelv.style.display='none';
+  } else if (role === 'packing') {
+    sdel.style.display='none'; sedit.style.display='none';
+    spack.style.display = (_o && _o.status === 'confirmed') ? '' : 'none';
+    sdelv.style.display='none';
+  } else if (role === 'delivery') {
+    sdel.style.display='none'; sedit.style.display='none'; spack.style.display='none';
+    sdelv.style.display = (_o && _o.status === 'packed') ? '' : 'none';
+  } else {
+    sdel.style.display='none'; sedit.style.display='none'; spack.style.display='none'; sdelv.style.display='none';
+  }
+  document.getElementById('sdel').onclick=function(){delOrder(id);};
   document.getElementById('smask').classList.add('open');
 }
 function closeSheet(){document.getElementById('smask').classList.remove('open');viewId=null;}
@@ -973,10 +1137,201 @@ async function saveEdit() {
   const o=orders.find(x=>x.id===viewId); if(o) Object.assign(o,u);
   render(); openSheet(viewId); toast('Saved ✓');
 }
+function updateOrderStatus(newStatus) {
+  if (!viewId) return;
+  db.from('orders').update({ status: newStatus }).eq('id', viewId).then(function(res) {
+    if (res.error) { toast('Error: ' + res.error.message, true); return; }
+    var o = orders.find(function(x){return x.id===viewId;});
+    if (o) o.status = newStatus;
+    closeSheet(); render();
+    toast('Status updated to ' + newStatus);
+  });
+}
+
 async function delOrder(id) {
   if(!confirm('Delete this order?'))return;
   await db.from('orders').delete().eq('id',id);
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
+}
+
+
+
+/* ── AUTH ── */
+function showLogin() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('hdrUser').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+function hideLogin() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('hdrUser').style.display = '';
+  document.getElementById('logoutBtn').style.display = '';
+}
+
+function doLogin() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pass  = document.getElementById('loginPass').value;
+  var btn   = document.getElementById('loginBtn');
+  var err   = document.getElementById('loginErr');
+  if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...'; err.textContent = '';
+  db.auth.signInWithPassword({ email: email, password: pass }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Sign In';
+    if (res.error) { err.textContent = res.error.message; return; }
+    // session handled by onAuthStateChange
+  });
+}
+
+function doLogout() {
+  db.auth.signOut();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden')) {
+    doLogin();
+  }
+});
+
+function loadProfile(uid) {
+  db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
+    if (res.error || !res.data) { doLogout(); return; }
+    _profile = res.data;
+    if (!_profile.is_active) {
+      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
+      doLogout(); return;
+    }
+    applyRole(_profile);
+    hideLogin();
+    var _od = document.getElementById('ordersDate');
+    if (_od) _od.value = today();
+    loadProds();
+    loadOrders();
+  });
+}
+
+function applyRole(profile) {
+  var role = profile.role;
+  var name = profile.full_name || 'User';
+
+  // Header
+  document.getElementById('hdrName').textContent = name;
+  document.getElementById('hdrRole').textContent = roleLabel(role);
+
+  // Show/hide nav items by role
+  var navMap = {
+    admin:            ['orders','new','history','copy','products','settings','users'],
+    order_collection: ['orders','new'],
+    packing:          ['orders'],
+    delivery:         ['orders']
+  };
+  var allowed = navMap[role] || ['orders'];
+
+  // Bottom nav
+  ['orders','new','history','copy','products','settings'].forEach(function(s) {
+    var btn = document.getElementById('bn-'+s);
+    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+  });
+
+  // Drawer nav
+  ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
+    var btn = document.getElementById('dn-'+s);
+    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+  });
+
+  // Go to default screen
+  if (role === 'admin' || role === 'order_collection') go('orders');
+  else go('orders');
+}
+
+function roleLabel(role) {
+  var map = {
+    admin: 'Admin',
+    order_collection: 'Order Collection',
+    packing: 'Packing',
+    delivery: 'Delivery'
+  };
+  return map[role] || role;
+}
+
+/* ── ROLE-AWARE RENDER ── */
+function canEdit() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'order_collection');
+}
+function canPack() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'packing');
+}
+function canDeliver() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'delivery');
+}
+
+/* ── ADMIN: USER MANAGEMENT ── */
+function loadUsers() {
+  var list = document.getElementById('userList');
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
+  db.from('profiles').select('id, full_name, role, is_active, created_at').order('created_at').then(function(res) {
+    if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error</div></div>'; return; }
+    var users = res.data || [];
+    if (!users.length) { list.innerHTML = '<div class="empty"><div class="empty-ttl">No users yet</div></div>'; return; }
+    var html = '';
+    users.forEach(function(u) {
+      var rclass = u.is_active ? 'urole-badge r-' + u.role : 'urole-badge r-inactive';
+      var rlabel = u.is_active ? roleLabel(u.role) : 'Inactive';
+      var isSelf = _session && u.id === _session.user.id;
+      var selfTag = isSelf ? ' <span style="color:var(--ink3);font-size:10px">(you)</span>' : '';
+      var actionHtml = '';
+      if (!isSelf) {
+        if (u.is_active) {
+          actionHtml = '<button class="uact-btn uact-deact" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',false)">Deactivate</button>';
+        } else {
+          actionHtml = '<button class="uact-btn uact-act" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',true)">Activate</button>';
+        }
+      }
+      html += '<div class="user-row">'
+        + '<div class="user-info">'
+          + '<div class="user-name">' + esc(u.full_name || 'Unnamed') + selfTag + '</div>'
+          + '<div class="user-email" style="margin-top:3px"><span class="' + rclass + '">' + rlabel + '</span></div>'
+        + '</div>'
+        + '<div class="user-actions">' + actionHtml + '</div>'
+        + '</div>';
+    });
+    list.innerHTML = html;
+  });
+}
+function setUserActive(btn, uid, active) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  db.from('profiles').update({ is_active: active }).eq('id', uid).then(function(res) {
+    if (res.error) { toast('Error: ' + res.error.message, true); if (btn) { btn.disabled = false; } return; }
+    toast(active ? 'User activated' : 'User deactivated');
+    loadUsers();
+  });
+}
+
+function createUser() {
+  var name  = document.getElementById('nuName').value.trim();
+  var email = document.getElementById('nuEmail').value.trim();
+  var pass  = document.getElementById('nuPass').value;
+  var role  = document.getElementById('nuRole').value;
+  if (!name || !email || !pass) { toast('Fill in all fields', true); return; }
+  if (pass.length < 6) { toast('Password must be at least 6 characters', true); return; }
+  var btn = document.getElementById('createUserBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  db.auth.admin.createUser({
+    email: email, password: pass, email_confirm: true,
+    user_metadata: { full_name: name, role: role }
+  }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Create User';
+    if (res.error) { toast('Error: ' + res.error.message, true); return; }
+    // Update profile role (trigger creates with default, override with correct role)
+    db.from('profiles').update({ role: role, full_name: name }).eq('id', res.data.user.id).then(function() {
+      document.getElementById('nuName').value = '';
+      document.getElementById('nuEmail').value = '';
+      document.getElementById('nuPass').value = '';
+      toast('User created ✓');
+      loadUsers();
+    });
+  });
 }
 
 
@@ -1042,6 +1397,186 @@ function loadHistory() {
 
 /* COPY */
 
+
+
+
+/* ── AUTH ── */
+function showLogin() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('hdrUser').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+function hideLogin() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('hdrUser').style.display = '';
+  document.getElementById('logoutBtn').style.display = '';
+}
+
+function doLogin() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pass  = document.getElementById('loginPass').value;
+  var btn   = document.getElementById('loginBtn');
+  var err   = document.getElementById('loginErr');
+  if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...'; err.textContent = '';
+  db.auth.signInWithPassword({ email: email, password: pass }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Sign In';
+    if (res.error) { err.textContent = res.error.message; return; }
+    // session handled by onAuthStateChange
+  });
+}
+
+function doLogout() {
+  db.auth.signOut();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden')) {
+    doLogin();
+  }
+});
+
+function loadProfile(uid) {
+  db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
+    if (res.error || !res.data) { doLogout(); return; }
+    _profile = res.data;
+    if (!_profile.is_active) {
+      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
+      doLogout(); return;
+    }
+    applyRole(_profile);
+    hideLogin();
+    var _od = document.getElementById('ordersDate');
+    if (_od) _od.value = today();
+    loadProds();
+    loadOrders();
+  });
+}
+
+function applyRole(profile) {
+  var role = profile.role;
+  var name = profile.full_name || 'User';
+
+  // Header
+  document.getElementById('hdrName').textContent = name;
+  document.getElementById('hdrRole').textContent = roleLabel(role);
+
+  // Show/hide nav items by role
+  var navMap = {
+    admin:            ['orders','new','history','copy','products','settings','users'],
+    order_collection: ['orders','new'],
+    packing:          ['orders'],
+    delivery:         ['orders']
+  };
+  var allowed = navMap[role] || ['orders'];
+
+  // Bottom nav
+  ['orders','new','history','copy','products','settings'].forEach(function(s) {
+    var btn = document.getElementById('bn-'+s);
+    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+  });
+
+  // Drawer nav
+  ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
+    var btn = document.getElementById('dn-'+s);
+    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+  });
+
+  // Go to default screen
+  if (role === 'admin' || role === 'order_collection') go('orders');
+  else go('orders');
+}
+
+function roleLabel(role) {
+  var map = {
+    admin: 'Admin',
+    order_collection: 'Order Collection',
+    packing: 'Packing',
+    delivery: 'Delivery'
+  };
+  return map[role] || role;
+}
+
+/* ── ROLE-AWARE RENDER ── */
+function canEdit() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'order_collection');
+}
+function canPack() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'packing');
+}
+function canDeliver() {
+  return _profile && (_profile.role === 'admin' || _profile.role === 'delivery');
+}
+
+/* ── ADMIN: USER MANAGEMENT ── */
+function loadUsers() {
+  var list = document.getElementById('userList');
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
+  db.from('profiles').select('id, full_name, role, is_active, created_at').order('created_at').then(function(res) {
+    if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error</div></div>'; return; }
+    var users = res.data || [];
+    if (!users.length) { list.innerHTML = '<div class="empty"><div class="empty-ttl">No users yet</div></div>'; return; }
+    var html = '';
+    users.forEach(function(u) {
+      var rclass = u.is_active ? 'urole-badge r-' + u.role : 'urole-badge r-inactive';
+      var rlabel = u.is_active ? roleLabel(u.role) : 'Inactive';
+      var isSelf = _session && u.id === _session.user.id;
+      var selfTag = isSelf ? ' <span style="color:var(--ink3);font-size:10px">(you)</span>' : '';
+      var actionHtml = '';
+      if (!isSelf) {
+        if (u.is_active) {
+          actionHtml = '<button class="uact-btn uact-deact" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',false)">Deactivate</button>';
+        } else {
+          actionHtml = '<button class="uact-btn uact-act" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',true)">Activate</button>';
+        }
+      }
+      html += '<div class="user-row">'
+        + '<div class="user-info">'
+          + '<div class="user-name">' + esc(u.full_name || 'Unnamed') + selfTag + '</div>'
+          + '<div class="user-email" style="margin-top:3px"><span class="' + rclass + '">' + rlabel + '</span></div>'
+        + '</div>'
+        + '<div class="user-actions">' + actionHtml + '</div>'
+        + '</div>';
+    });
+    list.innerHTML = html;
+  });
+}
+function setUserActive(btn, uid, active) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  db.from('profiles').update({ is_active: active }).eq('id', uid).then(function(res) {
+    if (res.error) { toast('Error: ' + res.error.message, true); if (btn) { btn.disabled = false; } return; }
+    toast(active ? 'User activated' : 'User deactivated');
+    loadUsers();
+  });
+}
+
+function createUser() {
+  var name  = document.getElementById('nuName').value.trim();
+  var email = document.getElementById('nuEmail').value.trim();
+  var pass  = document.getElementById('nuPass').value;
+  var role  = document.getElementById('nuRole').value;
+  if (!name || !email || !pass) { toast('Fill in all fields', true); return; }
+  if (pass.length < 6) { toast('Password must be at least 6 characters', true); return; }
+  var btn = document.getElementById('createUserBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  db.auth.admin.createUser({
+    email: email, password: pass, email_confirm: true,
+    user_metadata: { full_name: name, role: role }
+  }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Create User';
+    if (res.error) { toast('Error: ' + res.error.message, true); return; }
+    // Update profile role (trigger creates with default, override with correct role)
+    db.from('profiles').update({ role: role, full_name: name }).eq('id', res.data.user.id).then(function() {
+      document.getElementById('nuName').value = '';
+      document.getElementById('nuEmail').value = '';
+      document.getElementById('nuPass').value = '';
+      toast('User created ✓');
+      loadUsers();
+    });
+  });
+}
 
 
 /* HISTORY */
@@ -1222,12 +1757,30 @@ document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-M
 
 
 db.channel('lr').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
-if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
 
-var _od = document.getElementById('ordersDate');
-if (_od) _od.value = today();
-loadProds();
-loadOrders();
+// ── AUTH INIT ──
+var _session = null;
+var _profile = null;
+
+db.auth.getSession().then(function(res) {
+  if (res.data && res.data.session) {
+    _session = res.data.session;
+    loadProfile(_session.user.id);
+  } else {
+    showLogin();
+  }
+});
+
+db.auth.onAuthStateChange(function(event, session) {
+  if (event === 'SIGNED_IN' && session) {
+    _session = session;
+    loadProfile(session.user.id);
+  } else if (event === 'SIGNED_OUT') {
+    _session = null; _profile = null;
+    showLogin();
+  }
+});
 </script>
 </body>
 </html>
