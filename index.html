@@ -967,15 +967,14 @@ async function addOrder() {
   const prod=document.getElementById('fProduct').value;
   if(!name||!prod){toast('Fill in name and product',true);return;}
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
-  // Order number resets daily — get max num for today
-  var todayDate = document.getElementById('ordersDate') && document.getElementById('ordersDate').value
-    ? document.getElementById('ordersDate').value : today();
-  var {data: numData} = await db.from('orders')
+  // Daily order number — resets to 1 each new day
+  var orderDate = today();
+  var numRes = await db.from('orders')
     .select('num')
-    .eq('order_date', todayDate)
-    .order('num', {ascending: false})
+    .eq('order_date', orderDate)
+    .order('num', { ascending: false })
     .limit(1);
-  var num = (numData && numData.length > 0 && numData[0].num) ? numData[0].num + 1 : 1;
+  var num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
   const {data,error}=await db.from('orders').insert({
     num, customer_name:name,
     contact:document.getElementById('fContact').value.trim(),
@@ -985,7 +984,7 @@ async function addOrder() {
     delivery:document.getElementById('fDelivery').value,
     payment:document.getElementById('fPayment').value,
     notes:document.getElementById('fNotes').value.trim(),
-    order_date:today(),
+    order_date:orderDate,
     order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'}),
     payment_done:_payDone
   }).select();
