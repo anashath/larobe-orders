@@ -389,12 +389,13 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
 
   <!-- ORDERS -->
   <div class="screen on" id="sc-orders">
-    <div class="pg-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div>
-        <div class="pg-title" id="ordersTitle">Today's Orders</div>
-        <div class="pg-sub" id="pg-date"></div>
+    <div class="pg-head">
+      <div class="pg-title" id="ordersTitle">Today's Orders</div>
+      <div class="pg-sub" id="pg-date" onclick="openDatePicker()" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--rose);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="pg-date-label">Today</span>
       </div>
-      <input type="date" id="ordersDate" style="border:1.5px solid var(--line);border-radius:10px;padding:7px 12px;font-family:Inter,sans-serif;font-size:13px;color:var(--ink);background:var(--bg2);outline:none;-webkit-appearance:none;" onchange="changeOrdersDate()">
+      <input type="date" id="ordersDate" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" onchange="changeOrdersDate()">
     </div>
     <div class="stat-strip">
       <div class="stat-cell"><div class="stat-n" id="stTotal">0</div><div class="stat-l">Total</div></div>
@@ -777,18 +778,39 @@ async function delProd(id) {
 }
 
 /* ORDERS */
+function dateLabel(date) {
+  var t = today();
+  var yest = new Date(); yest.setDate(yest.getDate()-1);
+  var yesterdayStr = yest.toISOString().slice(0,10);
+  if (date === t) return 'Today';
+  if (date === yesterdayStr) return 'Yesterday';
+  var parts = date.split('-');
+  var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  return dt.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'});
+}
+
+function openDatePicker() {
+  var el = document.getElementById('ordersDate');
+  if (!el) return;
+  el.style.position = 'fixed';
+  el.style.top = '60px';
+  el.style.left = '20px';
+  el.style.opacity = '0';
+  el.style.pointerEvents = 'auto';
+  el.focus();
+  el.click();
+  el.style.pointerEvents = 'none';
+}
+
 async function loadOrders() {
   var dateEl = document.getElementById('ordersDate');
   var date = (dateEl && dateEl.value) ? dateEl.value : today();
+  if (!dateEl.value) dateEl.value = date;
   var isToday = date === today();
   var titleEl = document.getElementById('ordersTitle');
   if (titleEl) titleEl.textContent = isToday ? "Today's Orders" : "Orders";
-  var subEl = document.getElementById('pg-date');
-  if (subEl) {
-    var parts = date.split('-');
-    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    subEl.textContent = dt.toLocaleDateString('en-US', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-  }
+  var lbl = document.getElementById('pg-date-label');
+  if (lbl) lbl.textContent = dateLabel(date);
   const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('created_at',{ascending:false});
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
