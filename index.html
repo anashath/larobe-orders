@@ -967,7 +967,15 @@ async function addOrder() {
   const prod=document.getElementById('fProduct').value;
   if(!name||!prod){toast('Fill in name and product',true);return;}
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
-  const num=orders.length>0?Math.max(...orders.map(o=>o.num||0))+1:1;
+  // Order number resets daily — get max num for today
+  var todayDate = document.getElementById('ordersDate') && document.getElementById('ordersDate').value
+    ? document.getElementById('ordersDate').value : today();
+  var {data: numData} = await db.from('orders')
+    .select('num')
+    .eq('order_date', todayDate)
+    .order('num', {ascending: false})
+    .limit(1);
+  var num = (numData && numData.length > 0 && numData[0].num) ? numData[0].num + 1 : 1;
   const {data,error}=await db.from('orders').insert({
     num, customer_name:name,
     contact:document.getElementById('fContact').value.trim(),
@@ -1732,7 +1740,7 @@ function runCopy() {
     lines.push('');
     lines.push(sep);
     data.forEach(function(o) {
-      lines.push('ORDER #' + o.num);
+      lines.push('ORDER #' + o.num + ' (' + o.order_date + ')');
       lines.push('Customer         : ' + o.customer_name);
       if (o.contact) lines.push('Contact          : ' + o.contact);
       lines.push('Product          : ' + o.product);
