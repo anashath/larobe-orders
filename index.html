@@ -420,11 +420,6 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
   </div>
   <div class="topbar-right">
     <div class="sync-blob"><div class="sdot" id="sdot"></div></div>
-    <div class="hdr-user" id="hdrUser" style="display:none">
-      <div class="hdr-uname" id="hdrName"></div>
-      <span class="role-badge" id="hdrRole"></span>
-    </div>
-    <button class="logout-btn" id="logoutBtn" style="display:none" onclick="doLogout()">Logout</button>
   </div>
 </header>
 
@@ -461,7 +456,19 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
       <span class="ditem-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>Settings
     </button>
   </div>
-  <div class="dfoot"><div class="dver">La Robe Orders · v2.0</div></div>
+  <div class="dfoot">
+    <div id="drawerUserInfo" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line);">
+      <div style="font-size:13px;font-weight:600;color:var(--ink)" id="drawerUserName"></div>
+      <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
+        <span class="urole-badge" id="drawerUserRole" style="font-size:10px;"></span>
+        <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--red);padding:0;display:flex;align-items:center;gap:4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+      </div>
+    </div>
+    <div class="dver">La Robe Orders · v2.0</div>
+  </div>
 </nav>
 
 <!-- SCROLL -->
@@ -1161,14 +1168,12 @@ async function delOrder(id) {
 /* ── AUTH ── */
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('hdrUser').style.display = 'none';
-  document.getElementById('logoutBtn').style.display = 'none';
+  var dui = document.getElementById('drawerUserInfo');
+  if (dui) dui.style.display = 'none';
 }
 
 function hideLogin() {
   document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('hdrUser').style.display = '';
-  document.getElementById('logoutBtn').style.display = '';
 }
 
 function doLogin() {
@@ -1216,9 +1221,16 @@ function applyRole(profile) {
   var role = profile.role;
   var name = profile.full_name || 'User';
 
-  // Header
-  document.getElementById('hdrName').textContent = name;
-  document.getElementById('hdrRole').textContent = roleLabel(role);
+  // Drawer user info
+  var dui = document.getElementById('drawerUserInfo');
+  var dun = document.getElementById('drawerUserName');
+  var dur = document.getElementById('drawerUserRole');
+  if (dui) dui.style.display = '';
+  if (dun) dun.textContent = name;
+  if (dur) {
+    dur.textContent = roleLabel(role);
+    dur.className = 'urole-badge r-' + role;
+  }
 
   // Nav visibility per role
   var navMap = {
@@ -1418,14 +1430,12 @@ function loadHistory() {
 /* ── AUTH ── */
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('hdrUser').style.display = 'none';
-  document.getElementById('logoutBtn').style.display = 'none';
+  var dui = document.getElementById('drawerUserInfo');
+  if (dui) dui.style.display = 'none';
 }
 
 function hideLogin() {
   document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('hdrUser').style.display = '';
-  document.getElementById('logoutBtn').style.display = '';
 }
 
 function doLogin() {
@@ -1473,9 +1483,16 @@ function applyRole(profile) {
   var role = profile.role;
   var name = profile.full_name || 'User';
 
-  // Header
-  document.getElementById('hdrName').textContent = name;
-  document.getElementById('hdrRole').textContent = roleLabel(role);
+  // Drawer user info
+  var dui = document.getElementById('drawerUserInfo');
+  var dun = document.getElementById('drawerUserName');
+  var dur = document.getElementById('drawerUserRole');
+  if (dui) dui.style.display = '';
+  if (dun) dun.textContent = name;
+  if (dur) {
+    dur.textContent = roleLabel(role);
+    dur.className = 'urole-badge r-' + role;
+  }
 
   // Nav visibility per role
   var navMap = {
