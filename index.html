@@ -457,15 +457,9 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); f
     </button>
   </div>
   <div class="dfoot">
-    <div id="drawerUserInfo" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line);">
+    <div id="drawerUserInfo" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line);display:none;align-items:center;justify-content:space-between;">
       <div style="font-size:13px;font-weight:600;color:var(--ink)" id="drawerUserName"></div>
-      <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
-        <span class="urole-badge" id="drawerUserRole" style="font-size:10px;"></span>
-        <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--red);padding:0;display:flex;align-items:center;gap:4px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign Out
-        </button>
-      </div>
+      <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;font-weight:500;color:var(--red);padding:0;">Sign Out</button>
     </div>
     <div class="dver">La Robe Orders · v2.0</div>
   </div>
@@ -1169,7 +1163,7 @@ async function delOrder(id) {
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   var dui = document.getElementById('drawerUserInfo');
-  if (dui) dui.style.display = 'none';
+  if (dui) { dui.style.display = 'none'; }
 }
 
 function hideLogin() {
@@ -1225,12 +1219,9 @@ function applyRole(profile) {
   var dui = document.getElementById('drawerUserInfo');
   var dun = document.getElementById('drawerUserName');
   var dur = document.getElementById('drawerUserRole');
-  if (dui) dui.style.display = '';
+  if (dui) { dui.style.display = 'flex'; }
   if (dun) dun.textContent = name;
-  if (dur) {
-    dur.textContent = roleLabel(role);
-    dur.className = 'urole-badge r-' + role;
-  }
+
 
   // Nav visibility per role
   var navMap = {
@@ -1431,7 +1422,7 @@ function loadHistory() {
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
   var dui = document.getElementById('drawerUserInfo');
-  if (dui) dui.style.display = 'none';
+  if (dui) { dui.style.display = 'none'; }
 }
 
 function hideLogin() {
@@ -1487,12 +1478,9 @@ function applyRole(profile) {
   var dui = document.getElementById('drawerUserInfo');
   var dun = document.getElementById('drawerUserName');
   var dur = document.getElementById('drawerUserRole');
-  if (dui) dui.style.display = '';
+  if (dui) { dui.style.display = 'flex'; }
   if (dun) dun.textContent = name;
-  if (dur) {
-    dur.textContent = roleLabel(role);
-    dur.className = 'urole-badge r-' + role;
-  }
+
 
   // Nav visibility per role
   var navMap = {
