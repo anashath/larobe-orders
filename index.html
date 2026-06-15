@@ -826,14 +826,16 @@ function closeD() { document.getElementById('drawer').classList.remove('open'); 
 function go(s) {
   // Role check
   if (_profile) {
-    var allowed = {
-      admin:            ['orders','new','history','copy','products','settings','users'],
-      order_collection: ['orders','new'],
-      packing:          ['orders'],
-      delivery:         ['orders']
-    };
-    var roleAllowed = allowed[_profile.role] || ['orders'];
-    if (roleAllowed.indexOf(s) < 0) { s = 'orders'; }
+    var role = _profile.role;
+    if (role !== 'admin') {
+      var allowed = {
+        order_collection: ['orders','new','history','copy'],
+        packing:          ['orders','history'],
+        delivery:         ['orders','history']
+      };
+      var roleAllowed = allowed[role] || ['orders'];
+      if (roleAllowed.indexOf(s) < 0) { s = 'orders'; }
+    }
   }
   closeD();
   document.querySelectorAll('.screen').forEach(e=>e.classList.remove('on'));
@@ -1218,30 +1220,36 @@ function applyRole(profile) {
   document.getElementById('hdrName').textContent = name;
   document.getElementById('hdrRole').textContent = roleLabel(role);
 
-  // Show/hide nav items by role
+  // Nav visibility per role
   var navMap = {
     admin:            ['orders','new','history','copy','products','settings','users'],
-    order_collection: ['orders','new'],
-    packing:          ['orders'],
-    delivery:         ['orders']
+    order_collection: ['orders','new','history','copy'],
+    packing:          ['orders','history'],
+    delivery:         ['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
 
-  // Bottom nav
-  ['orders','new','history','copy','products','settings'].forEach(function(s) {
+  // Bottom nav — show all for admin, filter for others
+  ['orders','history','products','copy','settings'].forEach(function(s) {
     var btn = document.getElementById('bn-'+s);
-    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
   });
+
+  // New FAB — always show for admin and order_collection
+  var newBtn = document.getElementById('bn-new');
+  if (newBtn) newBtn.style.display = (role === 'admin' || role === 'order_collection') ? '' : 'none';
 
   // Drawer nav
   ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
-    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
   });
 
-  // Go to default screen
-  if (role === 'admin' || role === 'order_collection') go('orders');
-  else go('orders');
+  // Users drawer item — admin only
+  var usersBtn = document.getElementById('dn-users');
+  if (usersBtn) usersBtn.style.display = role === 'admin' ? '' : 'none';
+
+  go('orders');
 }
 
 function roleLabel(role) {
@@ -1469,30 +1477,36 @@ function applyRole(profile) {
   document.getElementById('hdrName').textContent = name;
   document.getElementById('hdrRole').textContent = roleLabel(role);
 
-  // Show/hide nav items by role
+  // Nav visibility per role
   var navMap = {
     admin:            ['orders','new','history','copy','products','settings','users'],
-    order_collection: ['orders','new'],
-    packing:          ['orders'],
-    delivery:         ['orders']
+    order_collection: ['orders','new','history','copy'],
+    packing:          ['orders','history'],
+    delivery:         ['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
 
-  // Bottom nav
-  ['orders','new','history','copy','products','settings'].forEach(function(s) {
+  // Bottom nav — show all for admin, filter for others
+  ['orders','history','products','copy','settings'].forEach(function(s) {
     var btn = document.getElementById('bn-'+s);
-    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
   });
+
+  // New FAB — always show for admin and order_collection
+  var newBtn = document.getElementById('bn-new');
+  if (newBtn) newBtn.style.display = (role === 'admin' || role === 'order_collection') ? '' : 'none';
 
   // Drawer nav
   ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
-    if (btn) btn.style.display = allowed.indexOf(s) >= 0 ? '' : 'none';
+    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
   });
 
-  // Go to default screen
-  if (role === 'admin' || role === 'order_collection') go('orders');
-  else go('orders');
+  // Users drawer item — admin only
+  var usersBtn = document.getElementById('dn-users');
+  if (usersBtn) usersBtn.style.display = role === 'admin' ? '' : 'none';
+
+  go('orders');
 }
 
 function roleLabel(role) {
