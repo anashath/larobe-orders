@@ -848,18 +848,20 @@ function openSheet(id) {
   document.getElementById('ssub').textContent=(o.order_time||'')+' · '+(o.order_date||'');
   document.getElementById('sbody').innerHTML=`
     <div class="det-hero">
-      <div class="det-big">
-        <div class="det-num">#${o.num}</div>
-        <span class="obadge ${o.status==='pending'?'bp':o.status==='delivered'?'bd':'bc'}">${o.status}</span>
+      <div class="det-num">#${o.num}</div>
+      <div>
+        <span class="badge ${o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed'}">${o.status}</span>
+        <span class="${o.payment_done?'pay-done':'pay-pend'}" style="display:block;margin-top:5px">${o.payment_done?'Received':'Not Received'}</span>
       </div>
     </div>
     <div class="det-rows">
-      <div class="det-row"><span class="det-row-lbl">Customer</span><span class="det-row-val">${esc(o.customer_name)}</span></div>
-      <div class="det-row"><span class="det-row-lbl">Contact</span><span class="det-row-val ${o.contact?'':'muted'}">${o.contact?esc(o.contact):'—'}</span></div>
-      <div class="det-row"><span class="det-row-lbl">Product</span><span class="det-row-val">${esc(o.product)}</span></div>
-      <div class="det-row"><span class="det-row-lbl">Price</span><span class="det-row-val big">MVR ${Number(o.price).toLocaleString()}</span></div>
-      <div class="det-row"><span class="det-row-lbl">Payment</span><span class="det-row-val">${esc(o.payment)}</span></div>
-      <div class="det-row"><span class="det-row-lbl">Delivery</span><span class="det-row-val">${esc(o.delivery)}</span></div>
+      <div class="det-row"><span class="det-lbl">Customer</span><span class="det-val">${esc(o.customer_name)}</span></div>
+      <div class="det-row"><span class="det-lbl">Contact</span><span class="det-val ${o.contact?'':'dim'}">${o.contact?esc(o.contact):'—'}</span></div>
+      <div class="det-row"><span class="det-lbl">Product</span><span class="det-val">${esc(o.product)}</span></div>
+      <div class="det-row"><span class="det-lbl">Price</span><span class="det-val big">MVR ${Number(o.price).toLocaleString()}</span></div>
+      <div class="det-row"><span class="det-lbl">Payment</span><span class="det-val">${esc(o.payment)}</span></div>
+      <div class="det-row"><span class="det-lbl">Delivery</span><span class="det-val">${esc(o.delivery)}</span></div>
+      <div class="det-row"><span class="det-lbl">Date</span><span class="det-val dim">${o.order_date||''} ${o.order_time||''}</span></div>
     </div>
     ${o.notes?`<div class="det-note">${esc(o.notes)}</div>`:''}`;
   document.getElementById('ssave').style.display='none';
@@ -886,27 +888,29 @@ function openSheet(id) {
     sdel.style.display='none'; sedit.style.display='none'; spack.style.display='none'; sdelv.style.display='none';
   }
   document.getElementById('sdel').onclick=function(){delOrder(id);};
-  document.getElementById('smask').classList.add('open');
+  var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.add('open');
 }
-function closeSheet(){document.getElementById('smask').classList.remove('open');viewId=null;}
+function closeSheet(){var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.remove('open');viewId=null;}
 function enterEdit() {
   const o=orders.find(x=>x.id===viewId); if(!o) return;
   const po=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
   document.getElementById('sbody').innerHTML=`
-    <div class="ewarn"><strong>⚠️ Editing Order #${o.num}</strong><p>Changes are permanent. Verify all details before saving.</p></div>
-    <div class="fgrid" style="gap:10px">
-      <div class="fblock"><label>Name</label><input id="en" type="text" value="${esc(o.customer_name)}"></div>
-      <div class="fblock"><label>Contact</label><input id="ec" type="text" value="${esc(o.contact||'')}"></div>
-      <div class="fblock ffull"><label>Product</label><select id="ep">${po}</select></div>
-      <div class="fblock"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
-      <div class="fblock"><label>Status</label>
+    <div class="ewarn"><strong>Editing Order #${o.num}</strong><p>Changes are saved immediately. Verify all details before saving.</p></div>
+    <div class="fgrid">
+      <div class="fg"><label>Customer Name</label><input id="en" type="text" value="${esc(o.customer_name)}"></div>
+      <div class="fg"><label>Contact</label><input id="ec" type="text" value="${esc(o.contact||'')}"></div>
+      <div class="fg ffull"><label>Product</label><select id="ep">${po}</select></div>
+      <div class="fg"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
+      <div class="fg"><label>Status</label>
         <select id="es">
           <option value="pending"   ${o.status==='pending'  ?'selected':''}>Pending</option>
+          <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
+          <option value="packed"    ${o.status==='packed'   ?'selected':''}>Packed</option>
           <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
           <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
         </select>
       </div>
-      <div class="fblock"><label>Delivery</label>
+      <div class="fg"><label>Delivery</label>
         <select id="ed">
           <option value="Local Delivery"  ${o.delivery==='Local Delivery' ?'selected':''}>Local (Hulhumalé)</option>
           <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé Delivery</option>
@@ -914,7 +918,7 @@ function enterEdit() {
           <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Customer Pickup</option>
         </select>
       </div>
-      <div class="fblock"><label>Payment</label>
+      <div class="fg"><label>Payment Method</label>
         <select id="epy">
           <option value="BML Transfer"       ${o.payment==='BML Transfer'      ?'selected':''}>BML Transfer</option>
           <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'  ?'selected':''}>Cash on Delivery</option>
@@ -922,15 +926,15 @@ function enterEdit() {
           <option value="Paid via Messenger" ${o.payment==='Paid via Messenger'?'selected':''}>Messenger</option>
         </select>
       </div>
-      <div class="fblock ffull">
+      <div class="fg ffull">
         <label>Payment Received</label>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:8px;margin-top:2px">
           <button type="button" class="epd-btn ${o.payment_done?'epd-off':'epd-on-red'}" id="epdNo" onclick="editSetPay(false)">Unpaid</button>
           <button type="button" class="epd-btn ${o.payment_done?'epd-on-green':'epd-off'}" id="epdYes" onclick="editSetPay(true)">Paid</button>
         </div>
         <input type="hidden" id="epd" value="${o.payment_done?'1':'0'}">
       </div>
-      <div class="fblock ffull"><label>Notes</label><textarea id="eno" rows="3">${esc(o.notes||'')}</textarea></div>
+      <div class="fg ffull"><label>Notes</label><textarea id="eno" rows="3">${esc(o.notes||'')}</textarea></div>
     </div>`;
   document.getElementById('ssave').style.display='';
   document.getElementById('sedit').style.display='none';
