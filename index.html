@@ -665,7 +665,7 @@ function go(s) {
   document.getElementById('sc-'+s).classList.add('on');
   const b=document.getElementById('bn-'+s); if(b) b.classList.add('on');
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
-  var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);
+  try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
   if(s==='products') renderProds();
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
@@ -1062,16 +1062,13 @@ document.addEventListener('keydown', function(e) {
 function loadProfile(uid) {
   db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
     var errEl = document.getElementById('loginErr');
-    var dbgEl = document.getElementById('loginDebug');
-    if (res.error) {
+      if (res.error) {
       if (errEl) errEl.textContent = 'Profile error: ' + res.error.message;
-      if (dbgEl) { dbgEl.style.display=''; dbgEl.textContent = 'UID: ' + uid + ' | Code: ' + res.error.code; }
       console.error('Profile load error:', res.error, 'UID:', uid);
       return;
     }
     if (!res.data) {
       if (errEl) errEl.textContent = 'Account not set up. Contact admin.';
-      if (dbgEl) { dbgEl.style.display=''; dbgEl.textContent = 'No profile found for UID: ' + uid; }
       return;
     }
     _profile = res.data;
@@ -1079,8 +1076,8 @@ function loadProfile(uid) {
       if (errEl) errEl.textContent = 'Your account has been deactivated.';
       doLogout(); return;
     }
-    applyRole(_profile);
     hideLogin();
+    applyRole(_profile);
     var _od = document.getElementById('ordersDate');
     if (_od) _od.value = today();
     loadProds();
