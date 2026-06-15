@@ -356,6 +356,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="l-err" id="loginErr"></div>
+    <div id="loginDebug" style="font-size:10px;color:#94A3B8;text-align:center;margin-top:8px;word-break:break-all;display:none"></div>
   </div>
 </div>
 
@@ -1031,16 +1032,20 @@ function doLogin() {
   db.auth.signInWithPassword({ email: email, password: pass }).then(function(res) {
     btn.disabled = false; btn.textContent = 'Sign In';
     if (res.error) {
-      err.textContent = res.error.message;
+      err.textContent = res.error.message || 'Login failed. Check email and password.';
+      console.error('Login error:', res.error);
       return;
     }
     if (res.data && res.data.user) {
       _session = res.data.session;
       loadProfile(res.data.user.id);
+    } else {
+      err.textContent = 'No user returned. Check Supabase email confirmation settings.';
     }
   }).catch(function(e) {
     btn.disabled = false; btn.textContent = 'Sign In';
-    err.textContent = 'Error: ' + e.message;
+    err.textContent = 'Connection error: ' + e.message;
+    console.error('Login catch:', e);
   });
 }
 
@@ -1056,10 +1061,22 @@ document.addEventListener('keydown', function(e) {
 
 function loadProfile(uid) {
   db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
-    if (res.error || !res.data) { doLogout(); return; }
+    var errEl = document.getElementById('loginErr');
+    var dbgEl = document.getElementById('loginDebug');
+    if (res.error) {
+      if (errEl) errEl.textContent = 'Profile error: ' + res.error.message;
+      if (dbgEl) { dbgEl.style.display=''; dbgEl.textContent = 'UID: ' + uid + ' | Code: ' + res.error.code; }
+      console.error('Profile load error:', res.error, 'UID:', uid);
+      return;
+    }
+    if (!res.data) {
+      if (errEl) errEl.textContent = 'Account not set up. Contact admin.';
+      if (dbgEl) { dbgEl.style.display=''; dbgEl.textContent = 'No profile found for UID: ' + uid; }
+      return;
+    }
     _profile = res.data;
     if (!_profile.is_active) {
-      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
+      if (errEl) errEl.textContent = 'Your account has been deactivated.';
       doLogout(); return;
     }
     applyRole(_profile);
@@ -1068,6 +1085,10 @@ function loadProfile(uid) {
     if (_od) _od.value = today();
     loadProds();
     loadOrders();
+  }).catch(function(e) {
+    var errEl = document.getElementById('loginErr');
+    if (errEl) errEl.textContent = 'Profile fetch failed: ' + e.message;
+    console.error('Profile catch:', e);
   });
 }
 
