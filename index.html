@@ -593,8 +593,6 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
-    storage: window.localStorage,
-    storageKey: 'lr-auth',
     autoRefreshToken: true,
     detectSessionInUrl: false
   }
@@ -1466,34 +1464,63 @@ if('serviceWorker' in navigator) window.addEventListener('load',function(){navig
 var _session = null;
 var _profile = null;
 
-// Show a brief loading state — don't flash login screen if session exists
-var _authChecked = false;
+// Hide login, show spinner while checking session
 document.getElementById('loginScreen').classList.add('hidden');
-
-// Show loading indicator
 var _loadingDiv = document.createElement('div');
 _loadingDiv.id = 'appLoading';
-_loadingDiv.style.cssText = 'position:fixed;inset:0;z-index:199;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px';
-_loadingDiv.innerHTML = '<div style="width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite"></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+_loadingDiv.style.cssText = 'position:fixed;inset:0;z-index:199;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px';
+_loadingDiv.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></svg><div style="font-family:Cormorant Garamond,serif;font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)">La <em style=\'color:var(--blue)\'>Robe</em></div>';
 document.body.appendChild(_loadingDiv);
 
-db.auth.getSession().then(function(res) {
-  _authChecked = true;
-  // Remove loading
+function _removeLoader() {
   var ld = document.getElementById('appLoading');
   if (ld) ld.remove();
+}
 
-  if (res.data && res.data.session) {
-    _session = res.data.session;
-    loadProfile(_session.user.id);
-  } else {
+// Try to restore session - check localStorage first for speed
+function _initAuth() {
+  // Look for Supabase session in localStorage (key format: sb-<ref>-auth-token)
+  var stored = null;
+  try {
+    var keys = Object.keys(localStorage);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf('sb-') === 0 && keys[i].indexOf('auth-token') > 0) {
+        var raw = localStorage.getItem(keys[i]);
+        if (raw) { stored = JSON.parse(raw); break; }
+      }
+    }
+  } catch(e) {}
+
+  // Always verify with Supabase server (handles token refresh)
+  db.auth.getSession().then(function(res) {
+    _removeLoader();
+    if (res.data && res.data.session) {
+      _session = res.data.session;
+      loadProfile(_session.user.id);
+    } else if (stored && stored.access_token) {
+      // Try to set session from localStorage manually
+      db.auth.setSession({
+        access_token: stored.access_token,
+        refresh_token: stored.refresh_token
+      }).then(function(r2) {
+        if (r2.data && r2.data.session) {
+          _session = r2.data.session;
+          loadProfile(_session.user.id);
+        } else {
+          showLogin();
+        }
+      }).catch(function() { showLogin(); });
+    } else {
+      showLogin();
+    }
+  }).catch(function(e) {
+    _removeLoader();
+    console.error('Session check failed:', e);
     showLogin();
-  }
-}).catch(function() {
-  var ld = document.getElementById('appLoading');
-  if (ld) ld.remove();
-  showLogin();
-});
+  });
+}
+
+_initAuth();
 
 db.auth.onAuthStateChange(function(event, session) {
   if (event === 'SIGNED_IN' && session) {
