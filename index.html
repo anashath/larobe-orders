@@ -1007,9 +1007,13 @@ async function delOrder(id) {
 
 /* ── AUTH ── */
 function showLogin() {
+  var ld = document.getElementById('appLoading');
+  if (ld) ld.remove();
   document.getElementById('loginScreen').classList.remove('hidden');
   var dui = document.getElementById('drawerUserInfo');
   if (dui) dui.style.display = 'none';
+  // Re-push history state after logout so back button works
+  history.pushState({ page: 'app' }, '', '');
 }
 
 function hideLogin() {
@@ -1438,17 +1442,57 @@ document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-M
 db.channel('lr').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
 if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
 
+// Intercept Android back button — prevent app close/blank, minimize instead
+(function() {
+  // Push a state so there's history to pop
+  history.pushState({ page: 'app' }, '', '');
+  window.addEventListener('popstate', function(e) {
+    // When back is pressed, push state again to keep the app alive
+    // and close the sheet if open, otherwise do nothing
+    var mask = document.getElementById('sheetMask') || document.getElementById('smask');
+    var drawer = document.getElementById('drawer');
+    if (mask && mask.classList.contains('open')) {
+      closeSheet();
+    } else if (drawer && drawer.classList.contains('open')) {
+      closeD();
+    } else {
+      // Re-push state to block back/close
+      history.pushState({ page: 'app' }, '', '');
+    }
+  });
+})();
+
 // ── AUTH INIT ──
 var _session = null;
 var _profile = null;
 
+// Show a brief loading state — don't flash login screen if session exists
+var _authChecked = false;
+document.getElementById('loginScreen').classList.add('hidden');
+
+// Show loading indicator
+var _loadingDiv = document.createElement('div');
+_loadingDiv.id = 'appLoading';
+_loadingDiv.style.cssText = 'position:fixed;inset:0;z-index:199;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px';
+_loadingDiv.innerHTML = '<div style="width:36px;height:36px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite"></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+document.body.appendChild(_loadingDiv);
+
 db.auth.getSession().then(function(res) {
+  _authChecked = true;
+  // Remove loading
+  var ld = document.getElementById('appLoading');
+  if (ld) ld.remove();
+
   if (res.data && res.data.session) {
     _session = res.data.session;
     loadProfile(_session.user.id);
   } else {
     showLogin();
   }
+}).catch(function() {
+  var ld = document.getElementById('appLoading');
+  if (ld) ld.remove();
+  showLogin();
 });
 
 db.auth.onAuthStateChange(function(event, session) {
@@ -1462,6 +1506,26 @@ db.auth.onAuthStateChange(function(event, session) {
 });
 
 if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
+
+// Intercept Android back button — prevent app close/blank, minimize instead
+(function() {
+  // Push a state so there's history to pop
+  history.pushState({ page: 'app' }, '', '');
+  window.addEventListener('popstate', function(e) {
+    // When back is pressed, push state again to keep the app alive
+    // and close the sheet if open, otherwise do nothing
+    var mask = document.getElementById('sheetMask') || document.getElementById('smask');
+    var drawer = document.getElementById('drawer');
+    if (mask && mask.classList.contains('open')) {
+      closeSheet();
+    } else if (drawer && drawer.classList.contains('open')) {
+      closeD();
+    } else {
+      // Re-push state to block back/close
+      history.pushState({ page: 'app' }, '', '');
+    }
+  });
+})();
 
 </script>
 </body>
