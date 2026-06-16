@@ -1053,13 +1053,9 @@ async function delOrder(id) {
 
 /* ── AUTH ── */
 function showLogin() {
-  var ld = document.getElementById('appLoading');
-  if (ld) ld.remove();
   document.getElementById('loginScreen').classList.remove('hidden');
   var dui = document.getElementById('drawerUserInfo');
   if (dui) dui.style.display = 'none';
-  // Re-push history state after logout so back button works
-  history.pushState({ page: 'app' }, '', '');
 }
 
 function hideLogin() {
@@ -1206,20 +1202,16 @@ document.addEventListener('keydown', function(e) {
 
 function loadProfile(uid) {
   db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
-    var errEl = document.getElementById('loginErr');
-      if (res.error) {
-      if (errEl) errEl.textContent = 'Profile error: ' + res.error.message;
-      console.error('Profile load error:', res.error, 'UID:', uid);
-      return;
-    }
-    if (!res.data) {
-      if (errEl) errEl.textContent = 'Account not set up. Contact admin.';
+    if (res.error || !res.data) {
+      console.error('Profile error:', res.error);
+      showLogin();
       return;
     }
     _profile = res.data;
     if (!_profile.is_active) {
-      if (errEl) errEl.textContent = 'Your account has been deactivated.';
-      doLogout(); return;
+      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
+      db.auth.signOut();
+      return;
     }
     hideLogin();
     applyRole(_profile);
@@ -1228,9 +1220,8 @@ function loadProfile(uid) {
     loadProds();
     loadOrders();
   }).catch(function(e) {
-    var errEl = document.getElementById('loginErr');
-    if (errEl) errEl.textContent = 'Profile fetch failed: ' + e.message;
-    console.error('Profile catch:', e);
+    console.error('loadProfile error:', e);
+    showLogin();
   });
 }
 
@@ -1613,110 +1604,42 @@ if('serviceWorker' in navigator) window.addEventListener('load',function(){navig
 var _session = null;
 var _profile = null;
 
-// Hide login only if not a recovery link
-var _isRecovery = (window.location.hash && window.location.hash.indexOf('type=recovery') > -1);
-if (!_isRecovery) {
-  document.getElementById('loginScreen').classList.add('hidden');
-}
-var _loadingDiv = document.createElement('div');
-_loadingDiv.id = 'appLoading';
-_loadingDiv.style.cssText = 'position:fixed;inset:0;z-index:199;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px';
-_loadingDiv.innerHTML = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></svg><div style="font-family:Cormorant Garamond,serif;font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)">La <em style=\'color:var(--blue)\'>Robe</em></div>';
-document.body.appendChild(_loadingDiv);
 
-function _removeLoader() {
-  var ld = document.getElementById('appLoading');
-  if (ld) ld.remove();
-}
+
+
+function _removeLoader() {}
 
 // Try to restore session - check localStorage first for speed
 function _initAuth() {
-  // Token is in localStorage — read it directly
-  var TOKEN_KEY = 'sb-oyzfkknoeweafiqirurv-auth-token';
-  var raw = null;
-  try { raw = localStorage.getItem(TOKEN_KEY); } catch(e) {}
-
-  if (!raw) {
-    // Also check lr-auth key
-    try { raw = localStorage.getItem('lr-auth'); } catch(e) {}
-  }
-
-  if (raw) {
-    var parsed = null;
-    try { parsed = JSON.parse(raw); } catch(e) {}
-
-    if (parsed && (parsed.access_token || (parsed.session && parsed.session.access_token))) {
-      var access = parsed.access_token || parsed.session.access_token;
-      var refresh = parsed.refresh_token || (parsed.session && parsed.session.refresh_token);
-
-      db.auth.setSession({ access_token: access, refresh_token: refresh })
-        .then(function(r) {
-          _removeLoader();
-          if (r.data && r.data.session && r.data.user) {
-            _session = r.data.session;
-            loadProfile(r.data.user.id);
-          } else {
-            // Token expired — try refresh
-            db.auth.refreshSession()
-              .then(function(r2) {
-                if (r2.data && r2.data.session) {
-                  _session = r2.data.session;
-                  loadProfile(r2.data.user.id);
-                } else {
-                  showLogin();
-                }
-              }).catch(function() { showLogin(); });
-          }
-        }).catch(function() {
-          _removeLoader();
-          showLogin();
-        });
-      return;
-    }
-  }
-
-  // No token found — fall back to getSession
   db.auth.getSession().then(function(res) {
-    _removeLoader();
     if (res.data && res.data.session) {
       _session = res.data.session;
-      loadProfile(_session.user.id);
+      loadProfile(res.data.user.id);
     } else {
-      showLogin();
+      // Try refreshing
+      db.auth.refreshSession().then(function(r2) {
+        if (r2.data && r2.data.session) {
+          _session = r2.data.session;
+          loadProfile(r2.data.user.id);
+        }
+        // If no session, loginScreen stays visible (it's shown by default)
+      }).catch(function() {});
     }
-  }).catch(function() {
-    _removeLoader();
-    showLogin();
-  });
+  }).catch(function() {});
 }
 
-// Check URL for recovery token
-(function() {
-  var hash = window.location.hash;
-  var isRecovery = hash && hash.indexOf('type=recovery') > -1;
-  if (isRecovery) {
-    // Show reset overlay immediately — Supabase will fire PASSWORD_RECOVERY event
-    showResetScreen();
-    return;
-  }
-  _initAuth();
-})();
+// On load — init auth (loginScreen is visible by default, hideLogin() called on success)
+_initAuth();
 
 db.auth.onAuthStateChange(function(event, session) {
-  if (event === 'PASSWORD_RECOVERY') {
-    _session = session;
-    showResetScreen();
-    return;
-  }
   if (event === 'SIGNED_IN' && session) {
     _session = session;
-    // Don't auto-login if we're in password recovery flow
-    var rs = document.getElementById('resetScreen');
-    if (rs && rs.style.display !== 'none') return;
     if (!_profile) loadProfile(session.user.id);
   } else if (event === 'SIGNED_OUT') {
     _session = null; _profile = null;
     showLogin();
+  } else if (event === 'TOKEN_REFRESHED' && session) {
+    _session = session;
   }
 });
 
