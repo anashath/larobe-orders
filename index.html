@@ -617,6 +617,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
       <button class="sfbtn sf-soft"    id="sedit"    style="display:none" onclick="enterEdit()">Edit</button>
       <button class="sfbtn sf-pack"    id="spack"    style="display:none" onclick="updateOrderStatus('packed')">Mark Packed</button>
       <button class="sfbtn sf-deliver" id="sdeliver" style="display:none" onclick="updateOrderStatus('delivered')">Mark Delivered</button>
+      <button class="sfbtn sf-red"     id="scancel"  style="display:none" onclick="updateOrderStatus('cancelled')">Cancel Order</button>
       <button class="sfbtn sf-ghost"   onclick="closeSheet()">Close</button>
       <button class="sfbtn sf-blue"    id="ssave"    style="display:none" onclick="saveEdit()">Save Changes</button>
     </div>
@@ -910,25 +911,29 @@ function openSheet(id) {
   document.getElementById('ssave').style.display='none';
   // Role-based buttons
   var role = _profile ? _profile.role : '';
-  var sdel = document.getElementById('sdel');
-  var sedit = document.getElementById('sedit');
-  var spack = document.getElementById('spack');
-  var sdelv = document.getElementById('sdeliver');
+  var sdel    = document.getElementById('sdel');
+  var sedit   = document.getElementById('sedit');
+  var spack   = document.getElementById('spack');
+  var sdelv   = document.getElementById('sdeliver');
+  var scancel = document.getElementById('scancel');
   var _o = orders.find(function(x){return x.id===id;});
-  // Admin sees all
+  var isCancelled = _o && _o.status === 'cancelled';
+
+  // Hide all first
+  [sdel, sedit, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
+
   if (role === 'admin') {
-    sdel.style.display=''; sedit.style.display=''; spack.style.display='none'; sdelv.style.display='none';
+    if (sdel)  sdel.style.display  = '';
+    if (sedit) sedit.style.display = '';
+    // Show cancel only if not already cancelled
+    if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'order_collection') {
-    sdel.style.display='none'; sedit.style.display=''; spack.style.display='none'; sdelv.style.display='none';
+    if (sedit) sedit.style.display = '';
+    if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'packing') {
-    sdel.style.display='none'; sedit.style.display='none';
-    spack.style.display = (_o && _o.status === 'confirmed') ? '' : 'none';
-    sdelv.style.display='none';
+    if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
   } else if (role === 'delivery') {
-    sdel.style.display='none'; sedit.style.display='none'; spack.style.display='none';
-    sdelv.style.display = (_o && _o.status === 'packed') ? '' : 'none';
-  } else {
-    sdel.style.display='none'; sedit.style.display='none'; spack.style.display='none'; sdelv.style.display='none';
+    if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
   }
   document.getElementById('sdel').onclick=function(){delOrder(id);};
   var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.add('open');
