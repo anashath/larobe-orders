@@ -371,6 +371,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   </div>
 </div>
 
+<!-- ═══ PASSWORD RESET OVERLAY ══════════════════════════════════════════ -->
+<div id="resetOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:#F5F7FA;align-items:center;justify-content:center;padding:24px;flex-direction:column">
+  <div class="l-card" style="max-width:380px;width:100%">
+    <div class="l-brand" style="margin-bottom:4px">La <em>Robe</em></div>
+    <div class="l-tag">Set your new password</div>
+    <div class="l-fg" style="margin-bottom:12px">
+      <label>New Password</label>
+      <input type="password" id="rNewPass1" placeholder="Minimum 6 characters">
+    </div>
+    <div class="l-fg" style="margin-bottom:16px">
+      <label>Confirm Password</label>
+      <input type="password" id="rNewPass2" placeholder="Repeat new password">
+    </div>
+    <button class="l-btn" id="rSetBtn" onclick="doSetNewPassword()">Set New Password</button>
+    <div id="rSetMsg" style="font-size:12px;text-align:center;margin-top:12px;min-height:18px;font-weight:500"></div>
+  </div>
+</div>
+
 <!-- ═══ HEADER ══════════════════════════════════════════════════════════════ -->
 <header class="hdr">
   <button class="hdr-menu" onclick="openD()"><span></span><span></span></button>
@@ -623,7 +641,7 @@ const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false
+    detectSessionInUrl: true
   }
 });
 
@@ -1089,18 +1107,21 @@ function showLsDebug() {
   el.style.display = 'block';
 }
 function showResetScreen() {
-  // Hide login panel, show reset panel
-  var lp = document.getElementById('loginPanel');
-  var rs = document.getElementById('resetScreen');
-  if (lp) lp.style.display = 'none';
-  if (rs) rs.style.display = 'block';
+  // Show the full-screen reset overlay
+  var overlay = document.getElementById('resetOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  // Make sure login screen is hidden behind it
+  var ls = document.getElementById('loginScreen');
+  if (ls) ls.classList.add('hidden');
+  // Remove loading spinner
+  _removeLoader();
 }
 
-function doSetPassword() {
-  var p1 = document.getElementById('newPass1').value;
-  var p2 = document.getElementById('newPass2').value;
-  var btn = document.getElementById('setPassBtn');
-  var msg = document.getElementById('setPassMsg');
+function doSetNewPassword() {
+  var p1 = document.getElementById('rNewPass1').value;
+  var p2 = document.getElementById('rNewPass2').value;
+  var btn = document.getElementById('rSetBtn');
+  var msg = document.getElementById('rSetMsg');
   msg.style.color = 'var(--red)'; msg.textContent = '';
   if (!p1 || p1.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
   if (p1 !== p2) { msg.textContent = 'Passwords do not match.'; return; }
@@ -1113,18 +1134,18 @@ function doSetPassword() {
     } else {
       msg.style.color = 'var(--green)';
       msg.textContent = 'Password updated! Signing you in…';
-      // Auto sign in after short delay
       setTimeout(function() {
+        document.getElementById('resetOverlay').style.display = 'none';
+        history.replaceState(null, '', window.location.pathname);
         db.auth.getSession().then(function(r) {
           if (r.data && r.data.session) {
             _session = r.data.session;
-            document.getElementById('loginScreen').classList.add('hidden');
             loadProfile(r.data.user.id);
-            // Clear the hash from URL
-            history.replaceState(null, '', window.location.pathname);
+          } else {
+            showLogin();
           }
         });
-      }, 1200);
+      }, 1500);
     }
   }).catch(function(e) {
     btn.disabled = false; btn.textContent = 'Set New Password';
@@ -1669,37 +1690,21 @@ function _initAuth() {
   });
 }
 
-// Check if this is a password recovery redirect
+// Check URL for recovery token
 (function() {
-  var hash = window.location.hash || window.location.search;
-  var isRecovery = hash && (hash.indexOf('type=recovery') > -1 || hash.indexOf('type=magiclink') > -1);
-
+  var hash = window.location.hash;
+  var isRecovery = hash && hash.indexOf('type=recovery') > -1;
   if (isRecovery) {
-    // Show reset screen immediately
-    var ld = document.getElementById('appLoading');
-    if (ld) ld.remove();
-    document.getElementById('loginScreen').classList.remove('hidden');
+    // Show reset overlay immediately — Supabase will fire PASSWORD_RECOVERY event
     showResetScreen();
-    // Let Supabase process the token from URL — it will fire PASSWORD_RECOVERY event
-    db.auth.getSession().then(function(res) {
-      if (res.data && res.data.session) {
-        _session = res.data.session;
-        // Keep on reset screen — don't auto login
-      }
-    });
     return;
   }
-
   _initAuth();
 })();
 
 db.auth.onAuthStateChange(function(event, session) {
   if (event === 'PASSWORD_RECOVERY') {
-    // User clicked reset link — show set new password screen
     _session = session;
-    _removeLoader();
-    var ls = document.getElementById('loginScreen');
-    if (ls) ls.classList.remove('hidden');
     showResetScreen();
     return;
   }
