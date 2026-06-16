@@ -1200,7 +1200,22 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+function _saveSession(session) {
+  if (!session) return;
+  try {
+    var data = JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+      user_id: session.user ? session.user.id : null
+    });
+    localStorage.setItem('lr_session_v2', data);
+  } catch(e) {}
+}
+
 function loadProfile(uid) {
+  // Save session whenever we successfully load a profile
+  if (_session) _saveSession(_session);
   db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
     if (res.error || !res.data) {
       console.error('Profile error:', res.error);
@@ -1632,27 +1647,25 @@ function _removeLoader() {}
 
 // Try to restore session - check localStorage first for speed
 function _getStoredTokens() {
-  // Try our custom key first
-  var keys = ['larobe_session'];
-  // Also scan for any Supabase keys as fallback
+  // Try our manually saved key first (most reliable for Android PWA)
+  var tryKeys = ['lr_session_v2', 'larobe_session'];
+  // Also scan for Supabase auto-saved keys
   try {
     Object.keys(localStorage).forEach(function(k) {
-      if ((k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) ||
-          k === 'larobe_session') {
-        if (keys.indexOf(k) < 0) keys.push(k);
+      if (k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) {
+        tryKeys.push(k);
       }
     });
   } catch(e) {}
 
-  for (var i = 0; i < keys.length; i++) {
+  for (var i = 0; i < tryKeys.length; i++) {
     try {
-      var raw = localStorage.getItem(keys[i]);
+      var raw = localStorage.getItem(tryKeys[i]);
       if (!raw) continue;
-      var data = JSON.parse(raw);
-      // Handle both formats
-      var session = data.session || data;
-      if (session && session.access_token && session.refresh_token) {
-        return { access: session.access_token, refresh: session.refresh_token };
+      var d = JSON.parse(raw);
+      var s = d.session || d;
+      if (s && s.access_token && s.refresh_token) {
+        return { access: s.access_token, refresh: s.refresh_token };
       }
     } catch(e) {}
   }
@@ -1702,12 +1715,15 @@ _initAuth();
 db.auth.onAuthStateChange(function(event, session) {
   if (event === 'SIGNED_IN' && session) {
     _session = session;
+    _saveSession(session);
     if (!_profile) loadProfile(session.user.id);
   } else if (event === 'SIGNED_OUT') {
     _session = null; _profile = null;
+    try { localStorage.removeItem('lr_session_v2'); } catch(e) {}
     showLogin();
   } else if (event === 'TOKEN_REFRESHED' && session) {
     _session = session;
+    _saveSession(session);
   }
 });
 
