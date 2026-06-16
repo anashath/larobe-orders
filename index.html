@@ -343,6 +343,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
       <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--blue);padding:0;letter-spacing:.02em">Forgot password?</button>
     </div>
 
+    <!-- RESET PASSWORD SCREEN -->
+    <div id="resetScreen" style="display:none">
+      <div class="l-brand">La <em>Robe</em></div>
+      <div class="l-tag">Set a new password</div>
+      <div class="l-fg"><label>New Password</label><input type="password" id="newPass1" placeholder="Min 6 characters"></div>
+      <div class="l-fg"><label>Confirm Password</label><input type="password" id="newPass2" placeholder="Repeat new password"></div>
+      <button class="l-btn" id="setPassBtn" onclick="doSetPassword()">Set New Password</button>
+      <div class="l-err" id="setPassMsg"></div>
+    </div>
+
+    <!-- NORMAL LOGIN PANEL -->
+    <div id="loginPanel">
+
     <!-- FORGOT PASSWORD PANEL -->
     <div id="forgotPanel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
       <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Reset Password</div>
@@ -1075,6 +1088,51 @@ function showLsDebug() {
   el.textContent = info.join('\n');
   el.style.display = 'block';
 }
+function showResetScreen() {
+  // Hide login panel, show reset panel
+  var lp = document.getElementById('loginPanel');
+  var rs = document.getElementById('resetScreen');
+  if (lp) lp.style.display = 'none';
+  if (rs) rs.style.display = 'block';
+}
+
+function doSetPassword() {
+  var p1 = document.getElementById('newPass1').value;
+  var p2 = document.getElementById('newPass2').value;
+  var btn = document.getElementById('setPassBtn');
+  var msg = document.getElementById('setPassMsg');
+  msg.style.color = 'var(--red)'; msg.textContent = '';
+  if (!p1 || p1.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
+  if (p1 !== p2) { msg.textContent = 'Passwords do not match.'; return; }
+  btn.disabled = true; btn.textContent = 'Saving...';
+  db.auth.updateUser({ password: p1 }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Set New Password';
+    if (res.error) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = res.error.message;
+    } else {
+      msg.style.color = 'var(--green)';
+      msg.textContent = 'Password updated! Signing you in…';
+      // Auto sign in after short delay
+      setTimeout(function() {
+        db.auth.getSession().then(function(r) {
+          if (r.data && r.data.session) {
+            _session = r.data.session;
+            document.getElementById('loginScreen').classList.add('hidden');
+            loadProfile(r.data.user.id);
+            // Clear the hash from URL
+            history.replaceState(null, '', window.location.pathname);
+          }
+        });
+      }, 1200);
+    }
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Set New Password';
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Error: ' + e.message;
+  });
+}
+
 function showForgot() {
   document.getElementById('forgotPanel').style.display = 'block';
   var resetEmail = document.getElementById('resetEmail');
@@ -1608,12 +1666,37 @@ function _initAuth() {
   });
 }
 
-_initAuth();
+// Check if this is a password recovery redirect
+(function() {
+  var hash = window.location.hash;
+  if (hash && hash.indexOf('type=recovery') > -1) {
+    // Let onAuthStateChange handle it — just remove loading early
+    setTimeout(function() {
+      var ld = document.getElementById('appLoading');
+      if (ld) ld.remove();
+      document.getElementById('loginScreen').classList.remove('hidden');
+      showResetScreen();
+    }, 800);
+    return;
+  }
+  _initAuth();
+})();
 
 db.auth.onAuthStateChange(function(event, session) {
+  if (event === 'PASSWORD_RECOVERY') {
+    // User clicked reset link — show set new password screen
+    _session = session;
+    _removeLoader();
+    document.getElementById('loginScreen').classList.remove('hidden');
+    showResetScreen();
+    return;
+  }
   if (event === 'SIGNED_IN' && session) {
     _session = session;
-    loadProfile(session.user.id);
+    // Don't auto-login if we're in password recovery flow
+    var rs = document.getElementById('resetScreen');
+    if (rs && rs.style.display !== 'none') return;
+    if (!_profile) loadProfile(session.user.id);
   } else if (event === 'SIGNED_OUT') {
     _session = null; _profile = null;
     showLogin();
