@@ -641,7 +641,7 @@ const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: false
   }
 });
 
@@ -1176,7 +1176,7 @@ function doReset() {
   btn.disabled = true; btn.textContent = 'Sending...';
   msg.textContent = ''; msg.style.color = 'var(--green)';
   db.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://anashath.github.io/larobe-orders/'
+    redirectTo: 'https://anashath.github.io/larobe-orders/reset.html'
   }).then(function(res) {
     btn.disabled = false; btn.textContent = 'Send Reset Link';
     if (res.error) {
