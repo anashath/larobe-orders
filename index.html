@@ -1616,22 +1616,62 @@ var _profile = null;
 function _removeLoader() {}
 
 // Try to restore session - check localStorage first for speed
-function _initAuth() {
-  db.auth.getSession().then(function(res) {
-    if (res.data && res.data.session) {
-      _session = res.data.session;
-      loadProfile(res.data.user.id);
-    } else {
-      // Try refreshing
-      db.auth.refreshSession().then(function(r2) {
-        if (r2.data && r2.data.session) {
-          _session = r2.data.session;
-          loadProfile(r2.data.user.id);
+function _getStoredTokens() {
+  // Supabase v2 stores session as: sb-<project-ref>-auth-token
+  var keys = [];
+  try { keys = Object.keys(localStorage); } catch(e) { return null; }
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) {
+      try {
+        var raw = localStorage.getItem(k);
+        if (!raw) continue;
+        var data = JSON.parse(raw);
+        // Supabase stores it as { access_token, refresh_token, ... }
+        if (data && data.access_token && data.refresh_token) {
+          return { access: data.access_token, refresh: data.refresh_token };
         }
-        // If no session, loginScreen stays visible (it's shown by default)
-      }).catch(function() {});
+      } catch(e) {}
     }
-  }).catch(function() {});
+  }
+  return null;
+}
+
+function _initAuth() {
+  var tokens = _getStoredTokens();
+
+  if (tokens) {
+    // We have tokens — set session directly then verify
+    db.auth.setSession({
+      access_token: tokens.access,
+      refresh_token: tokens.refresh
+    }).then(function(res) {
+      if (res.data && res.data.session && res.data.user) {
+        _session = res.data.session;
+        loadProfile(res.data.user.id);
+      } else {
+        // Token might be expired — try refresh
+        db.auth.refreshSession().then(function(r2) {
+          if (r2.data && r2.data.session) {
+            _session = r2.data.session;
+            loadProfile(r2.data.user.id);
+          }
+          // else: stay on login screen
+        }).catch(function() {});
+      }
+    }).catch(function() {
+      // setSession failed — show login
+    });
+  } else {
+    // No stored tokens — check if Supabase has an in-memory session
+    db.auth.getSession().then(function(res) {
+      if (res.data && res.data.session) {
+        _session = res.data.session;
+        loadProfile(res.data.user.id);
+      }
+      // else: stay on login screen
+    }).catch(function() {});
+  }
 }
 
 // On load — init auth (loginScreen is visible by default, hideLogin() called on success)
