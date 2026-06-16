@@ -404,13 +404,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 <!-- ORDERS -->
 <div class="screen on" id="sc-orders">
   <div class="pg">
-    <div class="pg-title" id="ordersTitle">Today's Orders</div>
-    <div id="pg-date" onclick="openDatePicker()" style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:var(--blue-l);border:1.5px solid var(--blue-m);border-radius:20px;padding:5px 12px;cursor:pointer;user-select:none">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <span id="pg-date-label" style="font-size:12px;font-weight:600;color:var(--blue)">Today</span>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <input type="date" id="ordersDate" onchange="changeOrdersDate()" style="position:fixed;opacity:0;width:1px;height:1px;top:0;left:0;border:0;padding:0">
+    <div class="pg-title">Today's Orders</div>
+    <div style="font-size:12px;color:var(--ink3);margin-top:4px;font-weight:500" id="pg-date-label"></div>
   </div>
   <div class="stats">
     <div class="stat"><div class="stat-n" id="stTotal">0</div><div class="stat-l">Total</div></div>
@@ -466,13 +461,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
 <!-- HISTORY -->
 <div class="screen" id="sc-history">
-  <div class="pg"><div class="pg-title">History</div><div style="font-size:13px;color:var(--ink3);margin-top:4px">Browse past orders by date</div></div>
-  <div class="fwrap" style="padding-bottom:8px"><div class="fg"><label>Select Date</label><input type="date" id="histDate"></div></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 14px">
-    <span id="histSummary" style="font-size:13px;color:var(--ink2);font-weight:500"></span>
-    <span id="histRevenue" style="font-size:15px;font-weight:700;color:var(--blue)"></span>
+  <div class="pg">
+    <div class="pg-title">History</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">All past orders grouped by date</div>
   </div>
-  <div class="olist" id="histList"><div class="empty"><div class="empty-ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div><div class="empty-t">Select a date</div><div class="empty-s">Choose a date to view its orders</div></div></div>
+  <div style="padding:0 16px 8px;display:flex;align-items:center;gap:8px">
+    <input type="text" id="histSearch" placeholder="Search customer or product…" oninput="filterHistory()" style="flex:1;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:Inter,sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none">
+  </div>
+  <div id="histList" style="padding:0 16px 16px">
+    <div class="empty">
+      <div class="empty-ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
+      <div class="empty-t">Loading history…</div>
+    </div>
+  </div>
 </div>
 
 <!-- COPY -->
@@ -754,19 +755,16 @@ function openDatePicker() {
 }
 
 async function loadOrders() {
-  var dateEl = document.getElementById('ordersDate');
-  var date = (dateEl && dateEl.value) ? dateEl.value : today();
-  if (!dateEl.value) dateEl.value = date;
-  var isToday = date === today();
-  var titleEl = document.getElementById('ordersTitle');
-  if (titleEl) titleEl.textContent = isToday ? "Today's Orders" : "Orders";
+  var date = today();
   var lbl = document.getElementById('pg-date-label');
-  if (lbl) lbl.textContent = dateLabel(date);
-  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('created_at',{ascending:false});
+  if (lbl) {
+    var d = new Date();
+    lbl.textContent = d.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
+  }
+  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
 }
-function changeOrdersDate() { loadOrders(); }
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
   const prod=document.getElementById('fProduct').value;
@@ -1219,63 +1217,97 @@ function createUser() {
 
 
 /* HISTORY */
+var _histAllOrders = [];
+
 function initHistory() {
-  var d = document.getElementById('histDate');
-  if (!d.value) {
-    var yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    d.value = yesterday.toISOString().slice(0,10);
+  if (_histAllOrders.length === 0) {
+    loadHistory();
   }
-  loadHistory();
 }
 
 function loadHistory() {
-  var dateEl = document.getElementById('histDate');
-  if (!dateEl || !dateEl.value) return;
-  var date = dateEl.value;
   var list = document.getElementById('histList');
-  var summary = document.getElementById('histSummary');
-  var rev = document.getElementById('histRevenue');
-  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
-
-  db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true})
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
+  db.from('orders')
+    .select('*')
+    .lt('order_date', today())
+    .order('order_date', { ascending: false })
+    .order('num', { ascending: true })
     .then(function(res) {
-      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error loading</div></div>'; return; }
-      var data = res.data || [];
-      if (!data.length) {
-        list.innerHTML = '<div class="empty"><div class="empty-ico" style="font-size:32px;opacity:0.2">📋</div><div class="empty-ttl">No orders on this date</div></div>';
-        if (summary) summary.textContent = '';
-        if (rev) rev.textContent = '';
-        return;
-      }
-      var pending   = data.filter(function(o){ return o.status==='pending'; }).length;
-      var delivered = data.filter(function(o){ return o.status==='delivered'; }).length;
-      var revenue   = data.filter(function(o){ return o.status!=='cancelled'; }).reduce(function(s,o){ return s+Number(o.price); }, 0);
-      if (summary) summary.textContent = data.length + ' orders · ' + pending + ' pending · ' + delivered + ' delivered';
-      if (rev) rev.textContent = 'MVR ' + revenue.toLocaleString();
-
-      list.innerHTML = data.map(function(o) {
-        var sc = o.status==='pending' ? 'bp' : o.status==='delivered' ? 'bd' : 'bc';
-        var pc = o.payment_done ? 'pay-done' : 'pay-pend';
-        return '<div class="orow" onclick="openSheet(' + o.id + ')">' +
-          '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>' +
-          '<div class="o-info">' +
-            '<div class="o-name">' + esc(o.customer_name) + '</div>' +
-            '<div class="o-prod">' + esc(o.product) + '</div>' +
-            '<div class="o-meta">' + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>' +
-          '</div>' +
-          '<div class="o-right">' +
-            '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>' +
-            '<span class="badge ' + (sc==='bp'?'b-pending':sc==='bd'?'b-delivered':sc==='bc'?'b-cancelled':'b-packed') + '">' + o.status + '</span>' +
-            '<span class="' + pc + '">' + (o.payment_done ? 'Paid' : 'Unpaid') + '</span>' +
-          '</div>' +
-          '<div class="o-arr">›</div>' +
-        '</div>';
-      }).join('');
-
-      // make orders available in global for openSheet
-      orders = data;
+      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-t">Error loading</div></div>'; return; }
+      _histAllOrders = res.data || [];
+      renderHistory(_histAllOrders);
     });
+}
+
+function filterHistory() {
+  var q = (document.getElementById('histSearch').value || '').toLowerCase();
+  if (!q) { renderHistory(_histAllOrders); return; }
+  var filtered = _histAllOrders.filter(function(o) {
+    return (o.customer_name||'').toLowerCase().includes(q) ||
+           (o.product||'').toLowerCase().includes(q);
+  });
+  renderHistory(filtered);
+}
+
+function renderHistory(data) {
+  var list = document.getElementById('histList');
+  if (!data.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-t">No past orders found</div></div>';
+    return;
+  }
+  // Group by date
+  var groups = {};
+  var dateOrder = [];
+  data.forEach(function(o) {
+    if (!groups[o.order_date]) { groups[o.order_date] = []; dateOrder.push(o.order_date); }
+    groups[o.order_date].push(o);
+  });
+  // Deduplicate dateOrder
+  dateOrder = dateOrder.filter(function(d,i){ return dateOrder.indexOf(d)===i; });
+
+  var html = '';
+  dateOrder.forEach(function(date) {
+    var dayOrders = groups[date];
+    var revenue = dayOrders.filter(function(o){ return o.status!=='cancelled'; })
+                           .reduce(function(s,o){ return s+Number(o.price); }, 0);
+    var parts = date.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    var dayLabel = dt.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+
+    html += '<div style="margin-bottom:18px">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 8px;border-bottom:2px solid var(--line);margin-bottom:8px">';
+    html += '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + dayLabel + '</span>';
+    html += '<span style="font-size:12px;font-weight:600;color:var(--blue)">MVR ' + revenue.toLocaleString() + ' · ' + dayOrders.length + ' orders</span>';
+    html += '</div>';
+
+    dayOrders.forEach(function(o) {
+      var sc = o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
+      var pc = o.payment_done ? 'pay-done' : 'pay-pend';
+      html += '<div class="orow" onclick="openSheet(' + o.id + ')" style="margin-bottom:6px">' +
+        '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>' +
+        '<div class="o-info">' +
+          '<div class="o-name">' + esc(o.customer_name) + '</div>' +
+          '<div class="o-prod">' + esc(o.product) + '</div>' +
+          '<div class="o-meta">' + esc(o.delivery) + '</div>' +
+        '</div>' +
+        '<div class="o-right">' +
+          '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>' +
+          '<span class="badge ' + sc + '">' + o.status + '</span>' +
+          '<span class="' + pc + '">' + (o.payment_done?'Paid':'Unpaid') + '</span>' +
+        '</div>' +
+        '<div class="o-arr">›</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+
+  list.innerHTML = html;
+  // Merge into orders array so openSheet works
+  var ids = _histAllOrders.map(function(o){ return o.id; });
+  var existing = orders.filter(function(o){ return ids.indexOf(o.id)<0; });
+  orders = existing.concat(_histAllOrders);
 }
 
 /* COPY */
@@ -1390,7 +1422,7 @@ function fallbackCopy(text, btn, count) {
 /* INIT */
 document.getElementById('smask').addEventListener('click',function(e){if(e.target===this)closeSheet();});
 document.getElementById('copyDate').addEventListener('change', updateCopyCount);
-document.getElementById('histDate').addEventListener('change', loadHistory);
+
 document.getElementById('newProd').addEventListener('keydown',e=>{if(e.key==='Enter')addProd();});
 document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
