@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Robe — Reset Password</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#F5F7FA;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:20px;width:min(380px,100%);padding:32px 26px;box-shadow:0 12px 40px rgba(0,0,0,.10)}
+.brand{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:#111827}
+.brand em{color:#2563EB;font-style:italic;font-weight:400}
+.tag{text-align:center;font-size:11px;color:#9CA3AF;letter-spacing:.08em;margin:6px 0 24px;font-weight:500}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#9CA3AF}
+.fg input{border:1.5px solid #E2E8F0;border-radius:10px;padding:11px 13px;font-family:'Inter',sans-serif;font-size:14px;color:#111827;background:#F8FAFC;outline:none;width:100%;transition:all .15s}
+.fg input:focus{border-color:#2563EB;background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.btn{width:100%;padding:13px;background:#2563EB;color:#fff;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.msg{font-size:13px;text-align:center;margin-top:12px;min-height:20px;font-weight:500;line-height:1.5}
+.err{color:#DC2626}
+.ok{color:#16A34A}
+.loading{text-align:center;padding:20px;color:#9CA3AF;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">La <em>Robe</em></div>
+  <div class="tag">Maldives · Order Management</div>
+  <div id="view-loading" class="loading">Verifying reset link…</div>
+  <div id="view-form" style="display:none">
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:4px;text-align:center">Set New Password</div>
+    <div style="font-size:13px;color:#9CA3AF;text-align:center;margin-bottom:20px">Choose a strong password for your account.</div>
+    <div class="fg"><label>New Password</label><input type="password" id="p1" placeholder="Minimum 6 characters"></div>
+    <div class="fg"><label>Confirm Password</label><input type="password" id="p2" placeholder="Repeat new password"></div>
+    <button class="btn" id="setBtn" onclick="setPassword()">Set New Password</button>
+    <div class="msg" id="formMsg"></div>
+  </div>
+  <div id="view-error" style="display:none">
+    <div class="msg err" id="errMsg">This reset link is invalid or has expired.</div>
+    <div style="text-align:center;margin-top:16px">
+      <a href="https://anashath.github.io/larobe-orders/" style="color:#2563EB;font-size:13px;font-weight:600;text-decoration:none">← Back to App</a>
+    </div>
+  </div>
+  <div id="view-success" style="display:none">
+    <div style="text-align:center;padding:10px 0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px;display:block"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+      <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:8px">Password Updated!</div>
+      <div style="font-size:13px;color:#9CA3AF;margin-bottom:20px">You can now sign in with your new password.</div>
+      <a href="https://anashath.github.io/larobe-orders/" class="btn" style="display:block;text-align:center;text-decoration:none;padding:13px">Go to App</a>
+    </div>
+  </div>
+</div>
+<script>
+const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
+const db = supabase.createClient(SB_URL, SB_KEY, {
+  auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+});
+
+function show(id) {
+  ['view-loading','view-form','view-error','view-success'].forEach(function(v){
+    document.getElementById(v).style.display = v===id ? 'block' : 'none';
+  });
+}
+
+// Listen for PASSWORD_RECOVERY event
+db.auth.onAuthStateChange(function(event, session) {
+  if (event === 'PASSWORD_RECOVERY') {
+    show('view-form');
+  } else if (event === 'SIGNED_IN' && document.getElementById('view-success').style.display === 'block') {
+    // Already succeeded — ignore
+  }
+});
+
+// Check hash directly
+(function() {
+  var hash = window.location.hash;
+  if (!hash || hash.indexOf('access_token') < 0) {
+    // No token in URL
+    setTimeout(function() {
+      db.auth.getSession().then(function(r) {
+        if (r.data && r.data.session) {
+          show('view-form');
+        } else {
+          show('view-error');
+        }
+      });
+    }, 800);
+  } else {
+    // Token present — Supabase will fire PASSWORD_RECOVERY
+    setTimeout(function() {
+      var f = document.getElementById('view-form');
+      if (f.style.display !== 'block') {
+        // Fallback — try getSession
+        db.auth.getSession().then(function(r) {
+          if (r.data && r.data.session) show('view-form');
+          else show('view-error');
+        });
+      }
+    }, 1500);
+  }
+})();
+
+function setPassword() {
+  var p1 = document.getElementById('p1').value;
+  var p2 = document.getElementById('p2').value;
+  var btn = document.getElementById('setBtn');
+  var msg = document.getElementById('formMsg');
+  msg.className = 'msg err'; msg.textContent = '';
+  if (!p1 || p1.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
+  if (p1 !== p2) { msg.textContent = 'Passwords do not match.'; return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  db.auth.updateUser({ password: p1 }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Set New Password';
+    if (res.error) {
+      msg.className = 'msg err'; msg.textContent = res.error.message;
+    } else {
+      show('view-success');
+    }
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Set New Password';
+    msg.className = 'msg err'; msg.textContent = 'Error: ' + e.message;
+  });
+}
+</script>
+</body>
+</html>
