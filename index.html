@@ -307,7 +307,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 .uact-act{background:var(--green-l);color:var(--green)}
 
 /* ── LOGIN ── */
-#loginScreen{position:fixed;inset:0;z-index:200;background:#F5F7FA;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#loginScreen{position:fixed;inset:0;z-index:500;background:#F5F7FA;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
 #loginScreen.hidden{display:none}
 .l-card{background:var(--card);border:1px solid var(--line);border-radius:20px;width:min(380px,100%);padding:32px 26px;box-shadow:var(--sh-lg)}
 .l-brand{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--ink)}
@@ -1592,8 +1592,11 @@ if('serviceWorker' in navigator) window.addEventListener('load',function(){navig
 var _session = null;
 var _profile = null;
 
-// Hide login, show spinner while checking session
-document.getElementById('loginScreen').classList.add('hidden');
+// Hide login only if not a recovery link
+var _isRecovery = (window.location.hash && window.location.hash.indexOf('type=recovery') > -1);
+if (!_isRecovery) {
+  document.getElementById('loginScreen').classList.add('hidden');
+}
 var _loadingDiv = document.createElement('div');
 _loadingDiv.id = 'appLoading';
 _loadingDiv.style.cssText = 'position:fixed;inset:0;z-index:199;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px';
@@ -1668,17 +1671,25 @@ function _initAuth() {
 
 // Check if this is a password recovery redirect
 (function() {
-  var hash = window.location.hash;
-  if (hash && hash.indexOf('type=recovery') > -1) {
-    // Let onAuthStateChange handle it — just remove loading early
-    setTimeout(function() {
-      var ld = document.getElementById('appLoading');
-      if (ld) ld.remove();
-      document.getElementById('loginScreen').classList.remove('hidden');
-      showResetScreen();
-    }, 800);
+  var hash = window.location.hash || window.location.search;
+  var isRecovery = hash && (hash.indexOf('type=recovery') > -1 || hash.indexOf('type=magiclink') > -1);
+
+  if (isRecovery) {
+    // Show reset screen immediately
+    var ld = document.getElementById('appLoading');
+    if (ld) ld.remove();
+    document.getElementById('loginScreen').classList.remove('hidden');
+    showResetScreen();
+    // Let Supabase process the token from URL — it will fire PASSWORD_RECOVERY event
+    db.auth.getSession().then(function(res) {
+      if (res.data && res.data.session) {
+        _session = res.data.session;
+        // Keep on reset screen — don't auto login
+      }
+    });
     return;
   }
+
   _initAuth();
 })();
 
@@ -1687,7 +1698,8 @@ db.auth.onAuthStateChange(function(event, session) {
     // User clicked reset link — show set new password screen
     _session = session;
     _removeLoader();
-    document.getElementById('loginScreen').classList.remove('hidden');
+    var ls = document.getElementById('loginScreen');
+    if (ls) ls.classList.remove('hidden');
     showResetScreen();
     return;
   }
