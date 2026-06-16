@@ -590,7 +590,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
 const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
-const db = supabase.createClient(SB_URL, SB_KEY);
+const db = supabase.createClient(SB_URL, SB_KEY, {
+  auth: {
+    persistSession: true,
+    storage: window.localStorage,
+    storageKey: 'lr-auth',
+    autoRefreshToken: true,
+    detectSessionInUrl: false
+  }
+});
 
 let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
 
