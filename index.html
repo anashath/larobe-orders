@@ -339,6 +339,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="l-err" id="loginErr"></div>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--blue);padding:0;letter-spacing:.02em">Forgot password?</button>
+    </div>
+
+    <!-- FORGOT PASSWORD PANEL -->
+    <div id="forgotPanel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Reset Password</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Enter your email and we'll send a reset link.</div>
+      <div class="l-fg"><label>Email</label><input type="email" id="resetEmail" placeholder="you@example.com" autocomplete="email"></div>
+      <button class="l-btn" id="resetBtn" onclick="doReset()" style="background:var(--ink)">Send Reset Link</button>
+      <div class="l-err" id="resetMsg" style="color:var(--green)"></div>
+      <div style="text-align:center;margin-top:10px">
+        <button onclick="hideForgot()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;color:var(--ink3);padding:0">← Back to Sign In</button>
+      </div>
+    </div>
 
   </div>
 </div>
@@ -1060,6 +1075,46 @@ function showLsDebug() {
   el.textContent = info.join('\n');
   el.style.display = 'block';
 }
+function showForgot() {
+  document.getElementById('forgotPanel').style.display = 'block';
+  var resetEmail = document.getElementById('resetEmail');
+  var loginEmail = document.getElementById('loginEmail');
+  if (resetEmail && loginEmail) resetEmail.value = loginEmail.value;
+  document.getElementById('loginErr').textContent = '';
+}
+
+function hideForgot() {
+  document.getElementById('forgotPanel').style.display = 'none';
+  document.getElementById('resetMsg').textContent = '';
+  document.getElementById('resetMsg').style.color = 'var(--green)';
+}
+
+function doReset() {
+  var email = document.getElementById('resetEmail').value.trim();
+  var btn = document.getElementById('resetBtn');
+  var msg = document.getElementById('resetMsg');
+  if (!email) { msg.style.color = 'var(--red)'; msg.textContent = 'Please enter your email.'; return; }
+  btn.disabled = true; btn.textContent = 'Sending...';
+  msg.textContent = ''; msg.style.color = 'var(--green)';
+  db.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://anashath.github.io/larobe-orders/'
+  }).then(function(res) {
+    btn.disabled = false; btn.textContent = 'Send Reset Link';
+    if (res.error) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = res.error.message;
+    } else {
+      msg.style.color = 'var(--green)';
+      msg.textContent = 'Reset link sent! Check your email.';
+      btn.style.display = 'none';
+    }
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Send Reset Link';
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Error: ' + e.message;
+  });
+}
+
 function doLogout() {
   db.auth.signOut();
 }
