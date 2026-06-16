@@ -440,7 +440,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="fcard">
       <div class="fcard-hdr">Delivery & Payment</div>
       <div class="fgrid">
-        <div class="fg"><label>Delivery</label><select id="fDelivery"><option value="Local Delivery">Local (Hulhumalé)</option><option value="Male Delivery">Malé Delivery</option><option value="Harbour / Ferry">Harbour / Ferry</option><option value="Pickup">Customer Pickup</option></select></div>
+        <div class="fg"><label>Delivery</label><select id="fDelivery"><option value="Hulhumale Phase 1">Hulhumalé Phase 1</option>
+          <option value="Hulhumale Phase 2">Hulhumalé Phase 2</option><option value="Male Delivery">Malé Delivery</option><option value="Harbour / Ferry">Harbour / Ferry</option><option value="Pickup">Customer Pickup</option></select></div>
         <div class="fg"><label>Payment Method</label><select id="fPayment"><option value="BML Transfer">BML Transfer</option><option value="Cash on Delivery">Cash on Delivery</option><option value="MIB Transfer">MIB Transfer</option><option value="Paid via Messenger">Messenger</option></select></div>
         <div class="fg ffull">
           <label>Payment Received</label>
@@ -916,7 +917,8 @@ function enterEdit() {
       </div>
       <div class="fg"><label>Delivery</label>
         <select id="ed">
-          <option value="Local Delivery"  ${o.delivery==='Local Delivery' ?'selected':''}>Local (Hulhumalé)</option>
+          <option value="Hulhumale Phase 1" ${o.delivery==='Hulhumale Phase 1'?'selected':''}>Hulhumalé Phase 1</option>
+          <option value="Hulhumale Phase 2" ${o.delivery==='Hulhumale Phase 2'?'selected':''}>Hulhumalé Phase 2</option>
           <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé Delivery</option>
           <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry'?'selected':''}>Harbour / Ferry</option>
           <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Customer Pickup</option>
