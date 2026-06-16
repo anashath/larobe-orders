@@ -339,6 +339,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="l-err" id="loginErr"></div>
+    <div id="lsDebug" style="font-size:10px;color:#64748B;margin-top:12px;padding:10px;background:#F1F5F9;border-radius:8px;text-align:left;word-break:break-all;display:none"></div>
+    <button onclick="showLsDebug()" style="margin-top:8px;width:100%;padding:8px;background:none;border:1px solid #E2E8F0;border-radius:8px;font-size:11px;color:#94A3B8;cursor:pointer">Show Debug Info</button>
 
   </div>
 </div>
@@ -1045,6 +1047,19 @@ function doLogin() {
   });
 }
 
+function showLsDebug() {
+  var el = document.getElementById('lsDebug');
+  if (!el) return;
+  var info = [];
+  info.push('localStorage keys: ' + Object.keys(localStorage).length);
+  Object.keys(localStorage).forEach(function(k) {
+    var val = localStorage.getItem(k);
+    info.push(k + ' → ' + (val ? val.slice(0,60) : 'empty'));
+  });
+  info.push('Supabase URL: ' + SB_URL.slice(8,30));
+  el.textContent = info.join('\n');
+  el.style.display = 'block';
+}
 function doLogout() {
   db.auth.signOut();
 }
