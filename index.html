@@ -339,8 +339,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="l-err" id="loginErr"></div>
-    <div id="lsDebug" style="font-size:10px;color:#64748B;margin-top:12px;padding:10px;background:#F1F5F9;border-radius:8px;text-align:left;word-break:break-all;display:none"></div>
-    <button onclick="showLsDebug()" style="margin-top:8px;width:100%;padding:8px;background:none;border:1px solid #E2E8F0;border-radius:8px;font-size:11px;color:#94A3B8;cursor:pointer">Show Debug Info</button>
 
   </div>
 </div>
@@ -1494,43 +1492,61 @@ function _removeLoader() {
 
 // Try to restore session - check localStorage first for speed
 function _initAuth() {
-  // Look for Supabase session in localStorage (key format: sb-<ref>-auth-token)
-  var stored = null;
-  try {
-    var keys = Object.keys(localStorage);
-    for (var i = 0; i < keys.length; i++) {
-      if (keys[i].indexOf('sb-') === 0 && keys[i].indexOf('auth-token') > 0) {
-        var raw = localStorage.getItem(keys[i]);
-        if (raw) { stored = JSON.parse(raw); break; }
-      }
-    }
-  } catch(e) {}
+  // Token is in localStorage — read it directly
+  var TOKEN_KEY = 'sb-oyzfkknoeweafiqirurv-auth-token';
+  var raw = null;
+  try { raw = localStorage.getItem(TOKEN_KEY); } catch(e) {}
 
-  // Always verify with Supabase server (handles token refresh)
+  if (!raw) {
+    // Also check lr-auth key
+    try { raw = localStorage.getItem('lr-auth'); } catch(e) {}
+  }
+
+  if (raw) {
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch(e) {}
+
+    if (parsed && (parsed.access_token || (parsed.session && parsed.session.access_token))) {
+      var access = parsed.access_token || parsed.session.access_token;
+      var refresh = parsed.refresh_token || (parsed.session && parsed.session.refresh_token);
+
+      db.auth.setSession({ access_token: access, refresh_token: refresh })
+        .then(function(r) {
+          _removeLoader();
+          if (r.data && r.data.session && r.data.user) {
+            _session = r.data.session;
+            loadProfile(r.data.user.id);
+          } else {
+            // Token expired — try refresh
+            db.auth.refreshSession()
+              .then(function(r2) {
+                if (r2.data && r2.data.session) {
+                  _session = r2.data.session;
+                  loadProfile(r2.data.user.id);
+                } else {
+                  showLogin();
+                }
+              }).catch(function() { showLogin(); });
+          }
+        }).catch(function() {
+          _removeLoader();
+          showLogin();
+        });
+      return;
+    }
+  }
+
+  // No token found — fall back to getSession
   db.auth.getSession().then(function(res) {
     _removeLoader();
     if (res.data && res.data.session) {
       _session = res.data.session;
       loadProfile(_session.user.id);
-    } else if (stored && stored.access_token) {
-      // Try to set session from localStorage manually
-      db.auth.setSession({
-        access_token: stored.access_token,
-        refresh_token: stored.refresh_token
-      }).then(function(r2) {
-        if (r2.data && r2.data.session) {
-          _session = r2.data.session;
-          loadProfile(_session.user.id);
-        } else {
-          showLogin();
-        }
-      }).catch(function() { showLogin(); });
     } else {
       showLogin();
     }
-  }).catch(function(e) {
+  }).catch(function() {
     _removeLoader();
-    console.error('Session check failed:', e);
     showLogin();
   });
 }
