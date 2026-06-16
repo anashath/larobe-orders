@@ -630,26 +630,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
 const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
-// Custom localStorage adapter to ensure session persists in Android PWA
-var _lsAdapter = {
-  getItem: function(key) {
-    try { return localStorage.getItem(key); } catch(e) { return null; }
-  },
-  setItem: function(key, value) {
-    try { localStorage.setItem(key, value); } catch(e) {}
-  },
-  removeItem: function(key) {
-    try { localStorage.removeItem(key); } catch(e) {}
-  }
-};
-
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: _lsAdapter,
-    storageKey: 'larobe_session'
+    detectSessionInUrl: false
   }
 });
 
@@ -1085,19 +1070,19 @@ function doLogin() {
     btn.disabled = false; btn.textContent = 'Sign In';
     if (res.error) {
       err.textContent = res.error.message || 'Login failed. Check email and password.';
-      console.error('Login error:', res.error);
       return;
     }
     if (res.data && res.data.user) {
+      // Save credentials for auto-login on next open
+      try {
+        localStorage.setItem('lr_creds', JSON.stringify({ e: email, p: pass }));
+      } catch(ex) {}
       _session = res.data.session;
       loadProfile(res.data.user.id);
-    } else {
-      err.textContent = 'No user returned. Check Supabase email confirmation settings.';
     }
   }).catch(function(e) {
     btn.disabled = false; btn.textContent = 'Sign In';
     err.textContent = 'Connection error: ' + e.message;
-    console.error('Login catch:', e);
   });
 }
 
@@ -1191,6 +1176,7 @@ function doReset() {
 }
 
 function doLogout() {
+  try { localStorage.removeItem('lr_creds'); } catch(e) {}
   db.auth.signOut();
 }
 
@@ -1200,530 +1186,34 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-function _saveSession(session) {
-  if (!session) return;
-  try {
-    var data = JSON.stringify({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      expires_at: session.expires_at,
-      user_id: session.user ? session.user.id : null
-    });
-    localStorage.setItem('lr_session_v2', data);
-  } catch(e) {}
-}
+function _autoLogin() {
+  // Try saved credentials for silent re-login
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem('lr_creds') || 'null'); } catch(e) {}
 
-function loadProfile(uid) {
-  // Save session whenever we successfully load a profile
-  if (_session) _saveSession(_session);
-  db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
-    if (res.error || !res.data) {
-      console.error('Profile error:', res.error);
-      showLogin();
-      return;
-    }
-    _profile = res.data;
-    if (!_profile.is_active) {
-      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
-      db.auth.signOut();
-      return;
-    }
-    hideLogin();
-    applyRole(_profile);
-    var _od = document.getElementById('ordersDate');
-    if (_od) _od.value = today();
-    loadProds();
-    loadOrders();
-  }).catch(function(e) {
-    console.error('loadProfile error:', e);
-    showLogin();
-  });
-}
-
-function applyRole(profile) {
-  var role = profile.role;
-  var name = profile.full_name || 'User';
-
-  // Drawer user info
-  var dui = document.getElementById('drawerUserInfo');
-  var dun = document.getElementById('drawerUserName');
-  if (dui) { dui.style.display = 'flex'; dui.style.alignItems = 'center'; dui.style.justifyContent = 'space-between'; }
-  if (dun) dun.textContent = name;
-
-
-  // Nav visibility per role
-  var navMap = {
-    admin:            ['orders','new','history','copy','products','settings','users'],
-    order_collection: ['orders','new','history','copy'],
-    packing:          ['orders','history'],
-    delivery:         ['orders','history']
-  };
-  var allowed = navMap[role] || ['orders'];
-
-  // Bottom nav — show all for admin, filter for others
-  ['orders','history','products','copy','settings'].forEach(function(s) {
-    var btn = document.getElementById('bn-'+s);
-    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
-  });
-
-  // New FAB — always show for admin and order_collection
-  var newBtn = document.getElementById('bn-new');
-  if (newBtn) newBtn.style.display = (role === 'admin' || role === 'order_collection') ? '' : 'none';
-
-  // Drawer nav
-  ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
-    var btn = document.getElementById('dn-'+s);
-    if (btn) btn.style.display = (role === 'admin' || allowed.indexOf(s) >= 0) ? '' : 'none';
-  });
-
-  // Users drawer item — admin only
-  var usersBtn = document.getElementById('dn-users');
-  if (usersBtn) usersBtn.style.display = role === 'admin' ? '' : 'none';
-
-  go('orders');
-}
-
-function roleLabel(role) {
-  var map = {
-    admin: 'Admin',
-    order_collection: 'Order Collection',
-    packing: 'Packing',
-    delivery: 'Delivery'
-  };
-  return map[role] || role;
-}
-
-/* ── ROLE-AWARE RENDER ── */
-function canEdit() {
-  return _profile && (_profile.role === 'admin' || _profile.role === 'order_collection');
-}
-function canPack() {
-  return _profile && (_profile.role === 'admin' || _profile.role === 'packing');
-}
-function canDeliver() {
-  return _profile && (_profile.role === 'admin' || _profile.role === 'delivery');
-}
-
-/* ── ADMIN: USER MANAGEMENT ── */
-function loadUsers() {
-  var list = document.getElementById('userList');
-  if (!list) return;
-  list.innerHTML = '<div class="empty"><div class="empty-ttl" style="color:var(--ink3)">Loading...</div></div>';
-  db.from('profiles').select('id, full_name, role, is_active, created_at').order('created_at').then(function(res) {
-    if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-ttl">Error</div></div>'; return; }
-    var users = res.data || [];
-    if (!users.length) { list.innerHTML = '<div class="empty"><div class="empty-ttl">No users yet</div></div>'; return; }
-    var html = '';
-    users.forEach(function(u) {
-      var rclass = u.is_active ? 'urole-badge r-' + u.role : 'urole-badge r-inactive';
-      var rlabel = u.is_active ? roleLabel(u.role) : 'Inactive';
-      var isSelf = _session && u.id === _session.user.id;
-      var selfTag = isSelf ? ' <span style="color:var(--ink3);font-size:10px">(you)</span>' : '';
-      var actionHtml = '';
-      if (!isSelf) {
-        if (u.is_active) {
-          actionHtml = '<button class="uact-btn uact-deact" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',false)">Deactivate</button>';
+  if (saved && saved.e && saved.p) {
+    db.auth.signInWithPassword({ email: saved.e, password: saved.p })
+      .then(function(res) {
+        if (res.data && res.data.user) {
+          _session = res.data.session;
+          loadProfile(res.data.user.id);
         } else {
-          actionHtml = '<button class="uact-btn uact-act" onclick="setUserActive(this,' + JSON.stringify(u.id) + ',true)">Activate</button>';
+          // Saved creds failed — clear and show login
+          try { localStorage.removeItem('lr_creds'); } catch(e) {}
         }
-      }
-      html += '<div class="u-row">'
-        + '<div class="u-info">'
-          + '<div class="u-name">' + esc(u.full_name || 'Unnamed') + selfTag + '</div>'
-          + '<div class="user-email" style="margin-top:3px"><span class="' + rclass + '">' + rlabel + '</span></div>'
-        + '</div>'
-        + '<div class="user-actions">' + actionHtml + '</div>'
-        + '</div>';
-    });
-    list.innerHTML = html;
-  });
-}
-function setUserActive(btn, uid, active) {
-  if (!_profile || _profile.role !== 'admin') { toast('Admin access required', true); return; }
-  var label = active ? 'activate' : 'deactivate';
-  if (!confirm((active ? 'Activate' : 'Deactivate') + ' this user?')) return;
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-
-  db.from('profiles')
-    .update({ is_active: active })
-    .eq('id', uid)
-    .select()
-    .then(function(res) {
-      if (res.error) {
-        console.error('setUserActive error:', res.error);
-        if (res.error.code === '42501' || res.error.message.indexOf('policy') > -1) {
-          toast('RLS error — run the SQL fix in Supabase', true);
-        } else {
-          toast('Error: ' + res.error.message, true);
-        }
-        if (btn) { btn.disabled = false; btn.textContent = active ? 'Activate' : 'Deactivate'; }
-        return;
-      }
-      toast(active ? 'User activated' : 'User deactivated');
-      loadUsers();
-    })
-    .catch(function(e) {
-      toast('Error: ' + e.message, true);
-      if (btn) { btn.disabled = false; }
-    });
-}
-
-function createUser() {
-  var name  = document.getElementById('nuName').value.trim();
-  var email = document.getElementById('nuEmail').value.trim();
-  var pass  = document.getElementById('nuPass').value;
-  var role  = document.getElementById('nuRole').value;
-  if (!name || !email || !pass) { toast('Fill in all fields', true); return; }
-  if (pass.length < 6) { toast('Password must be at least 6 characters', true); return; }
-  var btn = document.getElementById('createUserBtn');
-  btn.disabled = true; btn.textContent = 'Creating...';
-
-  // Use signUp — works with anon key, no admin privileges needed
-  db.auth.signUp({
-    email: email,
-    password: pass,
-    options: { data: { full_name: name, role: role } }
-  }).then(function(res) {
-    btn.disabled = false; btn.textContent = 'Create User';
-    if (res.error) { toast('Error: ' + res.error.message, true); return; }
-    if (!res.data || !res.data.user) { toast('User may already exist', true); return; }
-
-    var uid = res.data.user.id;
-    // Update profile with correct role and name
-    db.from('profiles').upsert({ id: uid, full_name: name, role: role, is_active: true }).then(function(upRes) {
-      if (upRes.error) { toast('User created but profile update failed: ' + upRes.error.message, true); return; }
-      document.getElementById('nuName').value = '';
-      document.getElementById('nuEmail').value = '';
-      document.getElementById('nuPass').value = '';
-      toast('User created successfully ✓');
-      loadUsers();
-    });
-  });
-}
-
-
-/* HISTORY */
-var _histAllOrders = [];
-
-function initHistory() {
-  if (_histAllOrders.length === 0) {
-    loadHistory();
+      })
+      .catch(function() {});
   }
+  // Whether or not we have saved creds, login screen stays visible
+  // until loadProfile calls hideLogin()
 }
 
-function loadHistory() {
-  var list = document.getElementById('histList');
-  if (!list) return;
-  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
-  db.from('orders')
-    .select('*')
-    .lt('order_date', today())
-    .order('order_date', { ascending: false })
-    .order('num', { ascending: true })
-    .then(function(res) {
-      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-t">Error loading</div></div>'; return; }
-      _histAllOrders = res.data || [];
-      renderHistory(_histAllOrders);
-    });
-}
-
-function filterHistory() {
-  var q = (document.getElementById('histSearch').value || '').toLowerCase();
-  if (!q) { renderHistory(_histAllOrders); return; }
-  var filtered = _histAllOrders.filter(function(o) {
-    return (o.customer_name||'').toLowerCase().includes(q) ||
-           (o.product||'').toLowerCase().includes(q);
-  });
-  renderHistory(filtered);
-}
-
-function renderHistory(data) {
-  var list = document.getElementById('histList');
-  if (!data.length) {
-    list.innerHTML = '<div class="empty"><div class="empty-t">No past orders found</div></div>';
-    return;
-  }
-  // Group by date
-  var groups = {};
-  var dateOrder = [];
-  data.forEach(function(o) {
-    if (!groups[o.order_date]) { groups[o.order_date] = []; dateOrder.push(o.order_date); }
-    groups[o.order_date].push(o);
-  });
-  // Deduplicate dateOrder
-  dateOrder = dateOrder.filter(function(d,i){ return dateOrder.indexOf(d)===i; });
-
-  var html = '';
-  dateOrder.forEach(function(date) {
-    var dayOrders = groups[date];
-    var revenue = dayOrders.filter(function(o){ return o.status!=='cancelled'; })
-                           .reduce(function(s,o){ return s+Number(o.price); }, 0);
-    var parts = date.split('-');
-    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    var dayLabel = dt.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
-
-    html += '<div style="margin-bottom:18px">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 8px;border-bottom:2px solid var(--line);margin-bottom:8px">';
-    html += '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + dayLabel + '</span>';
-    html += '<span style="font-size:12px;font-weight:600;color:var(--blue)">MVR ' + revenue.toLocaleString() + ' · ' + dayOrders.length + ' orders</span>';
-    html += '</div>';
-
-    dayOrders.forEach(function(o) {
-      var sc = o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
-      var pc = o.payment_done ? 'pay-done' : 'pay-pend';
-      html += '<div class="orow" onclick="openSheet(' + o.id + ')" style="margin-bottom:6px">' +
-        '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>' +
-        '<div class="o-info">' +
-          '<div class="o-name">' + esc(o.customer_name) + '</div>' +
-          '<div class="o-prod">' + esc(o.product) + '</div>' +
-          '<div class="o-meta">' + esc(o.delivery) + '</div>' +
-        '</div>' +
-        '<div class="o-right">' +
-          '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>' +
-          '<span class="badge ' + sc + '">' + o.status + '</span>' +
-          '<span class="' + pc + '">' + (o.payment_done?'Paid':'Unpaid') + '</span>' +
-        '</div>' +
-        '<div class="o-arr">›</div>' +
-      '</div>';
-    });
-    html += '</div>';
-  });
-
-  list.innerHTML = html;
-  // Merge into orders array so openSheet works
-  var ids = _histAllOrders.map(function(o){ return o.id; });
-  var existing = orders.filter(function(o){ return ids.indexOf(o.id)<0; });
-  orders = existing.concat(_histAllOrders);
-}
-
-/* COPY */
-var _copyFlt = 'all';
-
-function setCopyFlt(btn, flt) {
-  _copyFlt = flt;
-  document.querySelectorAll('.copy-flt-btn').forEach(function(b){ b.classList.remove('on'); });
-  btn.classList.add('on');
-  updateCopyCount();
-}
-
-function initCopy() {
-  var d = document.getElementById('copyDate');
-  if (d && !d.value) d.value = today();
-  updateCopyCount();
-}
-
-function updateCopyCount() {
-  var date = document.getElementById('copyDate');
-  if (!date || !date.value) return;
-  var q = db.from('orders').select('*', {count:'exact', head:true}).eq('order_date', date.value);
-  if (_copyFlt === 'pending') q = q.eq('status', 'pending');
-  q.then(function(res) {
-    var el = document.getElementById('copyCount');
-    if (!el) return;
-    var n = res.count || 0;
-    var label = _copyFlt === 'pending' ? 'pending order' : 'order';
-    el.textContent = n ? (n + ' ' + label + (n !== 1 ? 's' : '')) : 'No orders found';
-  });
-}
-
-function runCopy() {
-  var dateEl = document.getElementById('copyDate');
-  if (!dateEl || !dateEl.value) { toast('Select a date first', true); return; }
-  var date = dateEl.value;
-  var btn = document.getElementById('copyBtn');
-  btn.disabled = true;
-  btn.textContent = 'Loading...';
-
-  var q = db.from('orders').select('*').eq('order_date', date).order('num', {ascending: true});
-  if (_copyFlt === 'pending') q = q.eq('status', 'pending');
-
-  q.then(function(res) {
-    btn.disabled = false;
-    if (res.error) { toast('Error: ' + res.error.message, true); btn.textContent = 'Copy as Text'; return; }
-    var data = res.data;
-    if (!data || data.length === 0) {
-      toast(_copyFlt === 'pending' ? 'No pending orders on this date' : 'No orders on this date', true);
-      btn.textContent = 'Copy as Text';
-      return;
-    }
-    var parts = date.split('-');
-    var dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    var d = dt.toLocaleDateString('en-US', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-    var flabel = _copyFlt === 'pending' ? ' - PENDING ONLY' : '';
-    var sep = '----------------------------------';
-    var lines = [];
-    lines.push('LA ROBE MALDIVES - ' + d + flabel);
-    lines.push('');
-    lines.push(sep);
-    data.forEach(function(o) {
-      lines.push('ORDER #' + o.num + ' (' + o.order_date + ')');
-      lines.push('Customer         : ' + o.customer_name);
-      if (o.contact) lines.push('Contact          : ' + o.contact);
-      lines.push('Product          : ' + o.product);
-      lines.push('Price            : MVR ' + Number(o.price).toLocaleString());
-      lines.push('');
-      lines.push('Delivery Status  : ' + (o.status === 'delivered' ? 'Delivered' : o.status === 'cancelled' ? 'Cancelled' : 'Pending'));
-      lines.push('Delivery Method  : ' + o.delivery);
-      lines.push('');
-      lines.push('Payment Method   : ' + o.payment);
-      lines.push('Payment Status   : ' + (o.payment_done ? 'Received' : 'Not Received'));
-      if (o.notes) { lines.push(''); lines.push('Notes            : ' + o.notes); }
-      lines.push(sep);
-      lines.push('');
-    });
-    var text = lines.join('\n').replace(/\n+$/, '');
-    var pre = document.getElementById('copyPre');
-    if (pre) { pre.textContent = text; pre.style.display = 'block'; }
-    try {
-      navigator.clipboard.writeText(text).then(function() {
-        btn.textContent = 'Copied!';
-        btn.style.background = '#2A7A50';
-        setTimeout(function(){ btn.textContent = 'Copy as Text'; btn.style.background = ''; }, 2500);
-        toast('Copied ' + data.length + (data.length !== 1 ? ' orders' : ' order'));
-      }).catch(function() { fallbackCopy(text, btn, data.length); });
-    } catch(e) { fallbackCopy(text, btn, data.length); }
-  }).catch(function(err) {
-    btn.disabled = false;
-    btn.textContent = 'Copy as Text';
-    toast('Error: ' + err.message, true);
-  });
-}
-
-function fallbackCopy(text, btn, count) {
-  var el = document.createElement('textarea');
-  el.value = text;
-  el.style.position = 'fixed';
-  el.style.opacity = '0';
-  document.body.appendChild(el);
-  el.focus();
-  el.select();
-  try { document.execCommand('copy'); } catch(e) {}
-  document.body.removeChild(el);
-  btn.textContent = 'Copied!';
-  btn.style.background = '#2A7A50';
-  setTimeout(function(){ btn.textContent = 'Copy as Text'; btn.style.background = ''; }, 2500);
-  toast('Copied ' + count + (count !== 1 ? ' orders' : ' order'));
-}
-
-/* INIT */
-document.getElementById('smask').addEventListener('click',function(e){if(e.target===this)closeSheet();});
-document.getElementById('copyDate').addEventListener('change', updateCopyCount);
-
-document.getElementById('newProd').addEventListener('keydown',e=>{if(e.key==='Enter')addProd();});
-document.getElementById('ddate').textContent=new Date().toLocaleDateString('en-MV',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-
-
-db.channel('lr').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadOrders()).subscribe();
-if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
-
-// Intercept Android back button — prevent app close/blank, minimize instead
-(function() {
-  // Push a state so there's history to pop
-  history.pushState({ page: 'app' }, '', '');
-  window.addEventListener('popstate', function(e) {
-    // When back is pressed, push state again to keep the app alive
-    // and close the sheet if open, otherwise do nothing
-    var mask = document.getElementById('sheetMask') || document.getElementById('smask');
-    var drawer = document.getElementById('drawer');
-    if (mask && mask.classList.contains('open')) {
-      closeSheet();
-    } else if (drawer && drawer.classList.contains('open')) {
-      closeD();
-    } else {
-      // Re-push state to block back/close
-      history.pushState({ page: 'app' }, '', '');
-    }
-  });
-})();
-
-// ── AUTH INIT ──
-var _session = null;
-var _profile = null;
-
-
-
-
-function _removeLoader() {}
-
-// Try to restore session - check localStorage first for speed
-function _getStoredTokens() {
-  // Try our manually saved key first (most reliable for Android PWA)
-  var tryKeys = ['lr_session_v2', 'larobe_session'];
-  // Also scan for Supabase auto-saved keys
-  try {
-    Object.keys(localStorage).forEach(function(k) {
-      if (k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) {
-        tryKeys.push(k);
-      }
-    });
-  } catch(e) {}
-
-  for (var i = 0; i < tryKeys.length; i++) {
-    try {
-      var raw = localStorage.getItem(tryKeys[i]);
-      if (!raw) continue;
-      var d = JSON.parse(raw);
-      var s = d.session || d;
-      if (s && s.access_token && s.refresh_token) {
-        return { access: s.access_token, refresh: s.refresh_token };
-      }
-    } catch(e) {}
-  }
-  return null;
-}
-
-function _initAuth() {
-  var tokens = _getStoredTokens();
-
-  if (tokens) {
-    // We have tokens — set session directly then verify
-    db.auth.setSession({
-      access_token: tokens.access,
-      refresh_token: tokens.refresh
-    }).then(function(res) {
-      if (res.data && res.data.session && res.data.user) {
-        _session = res.data.session;
-        loadProfile(res.data.user.id);
-      } else {
-        // Token might be expired — try refresh
-        db.auth.refreshSession().then(function(r2) {
-          if (r2.data && r2.data.session) {
-            _session = r2.data.session;
-            loadProfile(r2.data.user.id);
-          }
-          // else: stay on login screen
-        }).catch(function() {});
-      }
-    }).catch(function() {
-      // setSession failed — show login
-    });
-  } else {
-    // No stored tokens — check if Supabase has an in-memory session
-    db.auth.getSession().then(function(res) {
-      if (res.data && res.data.session) {
-        _session = res.data.session;
-        loadProfile(res.data.user.id);
-      }
-      // else: stay on login screen
-    }).catch(function() {});
-  }
-}
-
-// On load — init auth (loginScreen is visible by default, hideLogin() called on success)
-_initAuth();
+_autoLogin();
 
 db.auth.onAuthStateChange(function(event, session) {
-  if (event === 'SIGNED_IN' && session) {
-    _session = session;
-    _saveSession(session);
-    if (!_profile) loadProfile(session.user.id);
-  } else if (event === 'SIGNED_OUT') {
+  if (event === 'SIGNED_OUT') {
     _session = null; _profile = null;
-    try { localStorage.removeItem('lr_session_v2'); } catch(e) {}
     showLogin();
-  } else if (event === 'TOKEN_REFRESHED' && session) {
-    _session = session;
-    _saveSession(session);
   }
 });
 
