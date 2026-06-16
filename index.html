@@ -1304,12 +1304,28 @@ function loadUsers() {
   });
 }
 function setUserActive(btn, uid, active) {
+  if (!_profile || _profile.role !== 'admin') { toast('Admin access required', true); return; }
+  if (!confirm(active ? 'Activate this user?' : 'Deactivate this user?')) return;
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
-  db.from('profiles').update({ is_active: active }).eq('id', uid).then(function(res) {
-    if (res.error) { toast('Error: ' + res.error.message, true); if (btn) { btn.disabled = false; } return; }
-    toast(active ? 'User activated' : 'User deactivated');
-    loadUsers();
-  });
+
+  // Use upsert to bypass potential RLS issues
+  db.from('profiles')
+    .update({ is_active: active })
+    .eq('id', uid)
+    .then(function(res) {
+      if (res.error) {
+        console.error('setUserActive error:', res.error);
+        toast('Error: ' + res.error.message, true);
+        if (btn) { btn.disabled = false; btn.textContent = active ? 'Activate' : 'Deactivate'; }
+        return;
+      }
+      toast(active ? 'User activated ✓' : 'User deactivated ✓');
+      loadUsers();
+    })
+    .catch(function(e) {
+      toast('Error: ' + e.message, true);
+      if (btn) { btn.disabled = false; }
+    });
 }
 
 function createUser() {
