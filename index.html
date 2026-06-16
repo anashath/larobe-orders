@@ -630,11 +630,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
 const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
+// Custom localStorage adapter to ensure session persists in Android PWA
+var _lsAdapter = {
+  getItem: function(key) {
+    try { return localStorage.getItem(key); } catch(e) { return null; }
+  },
+  setItem: function(key, value) {
+    try { localStorage.setItem(key, value); } catch(e) {}
+  },
+  removeItem: function(key) {
+    try { localStorage.removeItem(key); } catch(e) {}
+  }
+};
+
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false
+    detectSessionInUrl: false,
+    storage: _lsAdapter,
+    storageKey: 'larobe_session'
   }
 });
 
@@ -1617,22 +1632,29 @@ function _removeLoader() {}
 
 // Try to restore session - check localStorage first for speed
 function _getStoredTokens() {
-  // Supabase v2 stores session as: sb-<project-ref>-auth-token
-  var keys = [];
-  try { keys = Object.keys(localStorage); } catch(e) { return null; }
+  // Try our custom key first
+  var keys = ['larobe_session'];
+  // Also scan for any Supabase keys as fallback
+  try {
+    Object.keys(localStorage).forEach(function(k) {
+      if ((k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) ||
+          k === 'larobe_session') {
+        if (keys.indexOf(k) < 0) keys.push(k);
+      }
+    });
+  } catch(e) {}
+
   for (var i = 0; i < keys.length; i++) {
-    var k = keys[i];
-    if (k.indexOf('sb-') === 0 && k.indexOf('auth-token') > -1) {
-      try {
-        var raw = localStorage.getItem(k);
-        if (!raw) continue;
-        var data = JSON.parse(raw);
-        // Supabase stores it as { access_token, refresh_token, ... }
-        if (data && data.access_token && data.refresh_token) {
-          return { access: data.access_token, refresh: data.refresh_token };
-        }
-      } catch(e) {}
-    }
+    try {
+      var raw = localStorage.getItem(keys[i]);
+      if (!raw) continue;
+      var data = JSON.parse(raw);
+      // Handle both formats
+      var session = data.session || data;
+      if (session && session.access_token && session.refresh_token) {
+        return { access: session.access_token, refresh: session.refresh_token };
+      }
+    } catch(e) {}
   }
   return null;
 }
