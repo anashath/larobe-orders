@@ -333,38 +333,30 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 <!-- ═══ LOGIN ═══════════════════════════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="l-card">
-    <div class="l-logo"><div class="l-brand">La <em>Robe</em></div></div>
-    <div class="l-tag">Maldives · Order Management</div>
-    <div class="l-fg"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"></div>
-    <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
-    <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
-    <div class="l-err" id="loginErr"></div>
-    <div style="text-align:center;margin-top:12px">
-      <button onclick="showForgot()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--blue);padding:0;letter-spacing:.02em">Forgot password?</button>
-    </div>
 
-    <!-- RESET PASSWORD SCREEN -->
-    <div id="resetScreen" style="display:none">
+    <!-- SIGN IN VIEW -->
+    <div id="loginView">
       <div class="l-brand">La <em>Robe</em></div>
-      <div class="l-tag">Set a new password</div>
-      <div class="l-fg"><label>New Password</label><input type="password" id="newPass1" placeholder="Min 6 characters"></div>
-      <div class="l-fg"><label>Confirm Password</label><input type="password" id="newPass2" placeholder="Repeat new password"></div>
-      <button class="l-btn" id="setPassBtn" onclick="doSetPassword()">Set New Password</button>
-      <div class="l-err" id="setPassMsg"></div>
+      <div class="l-tag">Maldives · Order Management</div>
+      <div class="l-fg"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="l-fg"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="l-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+      <div class="l-err" id="loginErr"></div>
+      <div style="text-align:center;margin-top:14px">
+        <button onclick="showView('forgotView')" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:var(--blue);padding:0">Forgot password?</button>
+      </div>
     </div>
 
-    <!-- NORMAL LOGIN PANEL -->
-    <div id="loginPanel">
-
-    <!-- FORGOT PASSWORD PANEL -->
-    <div id="forgotPanel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
-      <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Reset Password</div>
-      <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Enter your email and we'll send a reset link.</div>
+    <!-- FORGOT PASSWORD VIEW -->
+    <div id="forgotView" style="display:none">
+      <div class="l-brand">La <em>Robe</em></div>
+      <div class="l-tag">Reset your password</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:16px;text-align:center;line-height:1.5">Enter your email and we'll send a reset link.</div>
       <div class="l-fg"><label>Email</label><input type="email" id="resetEmail" placeholder="you@example.com" autocomplete="email"></div>
-      <button class="l-btn" id="resetBtn" onclick="doReset()" style="background:var(--ink)">Send Reset Link</button>
-      <div class="l-err" id="resetMsg" style="color:var(--green)"></div>
-      <div style="text-align:center;margin-top:10px">
-        <button onclick="hideForgot()" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;color:var(--ink3);padding:0">← Back to Sign In</button>
+      <button class="l-btn" id="resetBtn" onclick="doReset()">Send Reset Link</button>
+      <div id="resetMsg" style="font-size:12px;text-align:center;margin-top:10px;min-height:18px;font-weight:500"></div>
+      <div style="text-align:center;margin-top:14px">
+        <button onclick="showView('loginView')" style="background:none;border:none;cursor:pointer;font-family:Inter,sans-serif;font-size:12px;color:var(--ink3);padding:0">← Back to Sign In</button>
       </div>
     </div>
 
@@ -1102,16 +1094,7 @@ function showLsDebug() {
   el.textContent = info.join('\n');
   el.style.display = 'block';
 }
-function showResetScreen() {
-  // Show the full-screen reset overlay
-  var overlay = document.getElementById('resetOverlay');
-  if (overlay) overlay.style.display = 'flex';
-  // Make sure login screen is hidden behind it
-  var ls = document.getElementById('loginScreen');
-  if (ls) ls.classList.add('hidden');
-  // Remove loading spinner
-  _removeLoader();
-}
+
 
 function doSetNewPassword() {
   var p1 = document.getElementById('rNewPass1').value;
@@ -1150,18 +1133,15 @@ function doSetNewPassword() {
   });
 }
 
-function showForgot() {
-  document.getElementById('forgotPanel').style.display = 'block';
-  var resetEmail = document.getElementById('resetEmail');
-  var loginEmail = document.getElementById('loginEmail');
-  if (resetEmail && loginEmail) resetEmail.value = loginEmail.value;
-  document.getElementById('loginErr').textContent = '';
-}
 
-function hideForgot() {
-  document.getElementById('forgotPanel').style.display = 'none';
-  document.getElementById('resetMsg').textContent = '';
-  document.getElementById('resetMsg').style.color = 'var(--green)';
+
+
+
+function showView(id) {
+  ['loginView','forgotView'].forEach(function(v) {
+    var el = document.getElementById(v);
+    if (el) el.style.display = v === id ? 'block' : 'none';
+  });
 }
 
 function doReset() {
