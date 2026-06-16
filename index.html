@@ -1305,21 +1305,26 @@ function loadUsers() {
 }
 function setUserActive(btn, uid, active) {
   if (!_profile || _profile.role !== 'admin') { toast('Admin access required', true); return; }
-  if (!confirm(active ? 'Activate this user?' : 'Deactivate this user?')) return;
+  var label = active ? 'activate' : 'deactivate';
+  if (!confirm((active ? 'Activate' : 'Deactivate') + ' this user?')) return;
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
 
-  // Use upsert to bypass potential RLS issues
   db.from('profiles')
     .update({ is_active: active })
     .eq('id', uid)
+    .select()
     .then(function(res) {
       if (res.error) {
         console.error('setUserActive error:', res.error);
-        toast('Error: ' + res.error.message, true);
+        if (res.error.code === '42501' || res.error.message.indexOf('policy') > -1) {
+          toast('RLS error — run the SQL fix in Supabase', true);
+        } else {
+          toast('Error: ' + res.error.message, true);
+        }
         if (btn) { btn.disabled = false; btn.textContent = active ? 'Activate' : 'Deactivate'; }
         return;
       }
-      toast(active ? 'User activated ✓' : 'User deactivated ✓');
+      toast(active ? 'User activated' : 'User deactivated');
       loadUsers();
     })
     .catch(function(e) {
