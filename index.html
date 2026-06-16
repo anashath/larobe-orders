@@ -701,7 +701,9 @@ function go(s) {
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
-  if(s==='users') { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
+  if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
+  if(s==='copy')     { initCopy(); }
+  if(s==='history')  { initHistory(); }
 }
 
 /* UTILS */
@@ -1186,6 +1188,307 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+
+/* ── AUTH PROFILE ── */
+function _saveSession(session) {}
+
+function loadProfile(uid) {
+  db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
+    if (res.error || !res.data) { showLogin(); return; }
+    _profile = res.data;
+    if (!_profile.is_active) {
+      document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
+      db.auth.signOut(); return;
+    }
+    hideLogin();
+    applyRole(_profile);
+    var _od = document.getElementById('ordersDate');
+    if (_od) _od.value = today();
+    loadProds();
+    loadOrders();
+  }).catch(function() { showLogin(); });
+}
+
+function applyRole(profile) {
+  var role = profile.role;
+  var name = profile.full_name || 'User';
+  var dui = document.getElementById('drawerUserInfo');
+  var dun = document.getElementById('drawerUserName');
+  if (dui) { dui.style.display = 'flex'; dui.style.alignItems = 'center'; dui.style.justifyContent = 'space-between'; }
+  if (dun) dun.textContent = name;
+  var navMap = {
+    admin:            ['orders','new','history','copy','products','settings','users'],
+    order_collection: ['orders','new','history','copy'],
+    packing:          ['orders','history'],
+    delivery:         ['orders','history']
+  };
+  var allowed = navMap[role] || ['orders'];
+  ['orders','history','products','copy','settings'].forEach(function(s) {
+    var btn = document.getElementById('bn-'+s);
+    if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
+  });
+  var newBtn = document.getElementById('bn-new');
+  if (newBtn) newBtn.style.display = (role==='admin'||role==='order_collection') ? '' : 'none';
+  ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
+    var btn = document.getElementById('dn-'+s);
+    if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
+  });
+  var usersBtn = document.getElementById('dn-users');
+  if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
+  go('orders');
+}
+
+function roleLabel(role) {
+  var map = { admin:'Admin', order_collection:'Order Collection', packing:'Packing', delivery:'Delivery' };
+  return map[role] || role;
+}
+
+function canEdit()    { return _profile && (_profile.role==='admin'||_profile.role==='order_collection'); }
+function canPack()    { return _profile && (_profile.role==='admin'||_profile.role==='packing'); }
+function canDeliver() { return _profile && (_profile.role==='admin'||_profile.role==='delivery'); }
+
+/* ── USERS ── */
+function loadUsers() {
+  var list = document.getElementById('userList');
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading...</div></div>';
+  db.from('profiles').select('id,full_name,role,is_active,created_at').order('created_at')
+    .then(function(res) {
+      if (res.error) { list.innerHTML = '<div class="empty"><div class="empty-t">Error</div></div>'; return; }
+      var users = res.data || [];
+      if (!users.length) { list.innerHTML = '<div class="empty"><div class="empty-t">No users yet</div></div>'; return; }
+      var html = '';
+      users.forEach(function(u) {
+        var rclass = u.is_active ? 'urole-badge r-'+u.role : 'urole-badge r-inactive';
+        var rlabel = u.is_active ? roleLabel(u.role) : 'Inactive';
+        var isSelf = _session && u.id === _session.user.id;
+        var selfTag = isSelf ? ' <span style="color:var(--ink3);font-size:10px">(you)</span>' : '';
+        var actionHtml = '';
+        if (!isSelf) {
+          if (u.is_active) {
+            actionHtml = '<button class="uact-btn uact-deact" data-uid="'+u.id+'" data-active="0" onclick="handleUserActive(this)">Deactivate</button>';
+          } else {
+            actionHtml = '<button class="uact-btn uact-act" data-uid="'+u.id+'" data-active="1" onclick="handleUserActive(this)">Activate</button>';
+          }
+        }
+        html += '<div class="u-row">'
+          + '<div class="u-info">'
+            + '<div class="u-name">'+esc(u.full_name||'Unnamed')+selfTag+'</div>'
+            + '<div class="u-sub"><span class="'+rclass+'">'+rlabel+'</span></div>'
+          + '</div>'
+          + '<div class="u-actions">'+actionHtml+'</div>'
+          + '</div>';
+      });
+      list.innerHTML = html;
+    });
+}
+
+function handleUserActive(btn) {
+  var uid = btn.getAttribute('data-uid');
+  var active = btn.getAttribute('data-active') === '1';
+  setUserActive(btn, uid, active);
+}
+
+function setUserActive(btn, uid, active) {
+  if (!_profile || _profile.role !== 'admin') { toast('Admin only', true); return; }
+  if (!confirm((active?'Activate':'Deactivate')+' this user?')) return;
+  if (btn) { btn.disabled=true; btn.textContent='...'; }
+  db.from('profiles').update({ is_active: active }).eq('id', uid).select()
+    .then(function(res) {
+      if (res.error) { toast('Error: '+res.error.message, true); if(btn){btn.disabled=false;} return; }
+      toast(active ? 'User activated' : 'User deactivated');
+      loadUsers();
+    }).catch(function(e) { toast('Error: '+e.message, true); if(btn) btn.disabled=false; });
+}
+
+function createUser() {
+  var name  = document.getElementById('nuName').value.trim();
+  var email = document.getElementById('nuEmail').value.trim();
+  var pass  = document.getElementById('nuPass').value;
+  var role  = document.getElementById('nuRole').value;
+  if (!name||!email||!pass) { toast('Fill in all fields', true); return; }
+  if (pass.length < 6) { toast('Password min 6 characters', true); return; }
+  var btn = document.getElementById('createUserBtn');
+  btn.disabled=true; btn.textContent='Creating...';
+  db.auth.signUp({ email:email, password:pass, options:{ data:{ full_name:name, role:role } } })
+    .then(function(res) {
+      btn.disabled=false; btn.textContent='Create User';
+      if (res.error) { toast('Error: '+res.error.message, true); return; }
+      if (!res.data||!res.data.user) { toast('User may already exist', true); return; }
+      db.from('profiles').upsert({ id:res.data.user.id, full_name:name, role:role, is_active:true })
+        .then(function() {
+          document.getElementById('nuName').value='';
+          document.getElementById('nuEmail').value='';
+          document.getElementById('nuPass').value='';
+          toast('User created');
+          loadUsers();
+        });
+    });
+}
+
+/* ── COPY ── */
+var _copyFlt = 'all';
+
+function initCopy() {
+  var d = document.getElementById('copyDate');
+  if (d && !d.value) d.value = today();
+  updateCopyCount();
+}
+
+function setCopyFlt(btn, flt) {
+  _copyFlt = flt;
+  document.querySelectorAll('.copy-flt-btn').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  updateCopyCount();
+}
+
+function updateCopyCount() {
+  var dateEl = document.getElementById('copyDate');
+  if (!dateEl||!dateEl.value) return;
+  var q = db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',dateEl.value);
+  if (_copyFlt==='pending') q = q.eq('status','pending');
+  q.then(function(res) {
+    var el = document.getElementById('copyCount');
+    if (!el) return;
+    var n = res.count||0;
+    el.textContent = n ? n+' '+(n!==1?'orders':'order') : 'No orders found';
+  });
+}
+
+function runCopy() {
+  var dateEl = document.getElementById('copyDate');
+  if (!dateEl||!dateEl.value) { toast('Select a date first', true); return; }
+  var date = dateEl.value;
+  var btn = document.getElementById('copyBtn');
+  btn.disabled=true; btn.textContent='Loading...';
+  var q = db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  if (_copyFlt==='pending') q = q.eq('status','pending');
+  q.then(function(res) {
+    btn.disabled=false;
+    if (res.error) { toast('Error: '+res.error.message,true); btn.textContent='Copy as Text'; return; }
+    var data = res.data;
+    if (!data||!data.length) { toast(_copyFlt==='pending'?'No pending orders':'No orders on this date',true); btn.textContent='Copy as Text'; return; }
+    var parts=date.split('-');
+    var dt=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    var d=dt.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    var sep='----------------------------------';
+    var lines=[];
+    lines.push('LA ROBE MALDIVES - '+d+(_copyFlt==='pending'?' - PENDING ONLY':''));
+    lines.push(''); lines.push(sep);
+    data.forEach(function(o) {
+      lines.push('ORDER #'+o.num);
+      lines.push('Customer         : '+o.customer_name);
+      if(o.contact) lines.push('Contact          : '+o.contact);
+      lines.push('Product          : '+o.product);
+      lines.push('Price            : MVR '+Number(o.price).toLocaleString());
+      lines.push('');
+      lines.push('Delivery Status  : '+(o.status==='delivered'?'Delivered':o.status==='cancelled'?'Cancelled':'Pending'));
+      lines.push('Delivery Method  : '+o.delivery);
+      lines.push('');
+      lines.push('Payment Method   : '+o.payment);
+      lines.push('Payment Status   : '+(o.payment_done?'Received':'Not Received'));
+      if(o.notes){ lines.push(''); lines.push('Notes            : '+o.notes); }
+      lines.push(sep); lines.push('');
+    });
+    var text=lines.join('\n').replace(/\n+$/,'');
+    var pre=document.getElementById('copyPre');
+    if(pre){ pre.textContent=text; pre.style.display='block'; }
+    try {
+      navigator.clipboard.writeText(text).then(function(){
+        btn.textContent='Copied!'; btn.style.background='var(--green)';
+        setTimeout(function(){ btn.textContent='Copy as Text'; btn.style.background=''; },2500);
+        toast('Copied '+data.length+' '+(data.length!==1?'orders':'order'));
+      }).catch(function(){ fallbackCopy(text,btn,data.length); });
+    } catch(e){ fallbackCopy(text,btn,data.length); }
+  });
+}
+
+function fallbackCopy(text,btn,count) {
+  var el=document.createElement('textarea');
+  el.value=text; el.style.position='fixed'; el.style.opacity='0';
+  document.body.appendChild(el); el.focus(); el.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(el);
+  btn.textContent='Copied!'; btn.style.background='var(--green)';
+  setTimeout(function(){ btn.textContent='Copy as Text'; btn.style.background=''; },2500);
+  toast('Copied '+count+' '+(count!==1?'orders':'order'));
+}
+
+/* ── HISTORY ── */
+var _histAllOrders = [];
+
+function initHistory() {
+  if (!_histAllOrders.length) loadHistory();
+}
+
+function loadHistory() {
+  var list = document.getElementById('histList');
+  if (!list) return;
+  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
+  db.from('orders').select('*').lt('order_date',today())
+    .order('order_date',{ascending:false}).order('num',{ascending:true})
+    .then(function(res) {
+      if (res.error) { list.innerHTML='<div class="empty"><div class="empty-t">Error</div></div>'; return; }
+      _histAllOrders = res.data||[];
+      renderHistory(_histAllOrders);
+    });
+}
+
+function filterHistory() {
+  var q = (document.getElementById('histSearch').value||'').toLowerCase();
+  renderHistory(!q ? _histAllOrders : _histAllOrders.filter(function(o){
+    return (o.customer_name||'').toLowerCase().includes(q)||(o.product||'').toLowerCase().includes(q);
+  }));
+}
+
+function renderHistory(data) {
+  var list = document.getElementById('histList');
+  if (!data.length) { list.innerHTML='<div class="empty"><div class="empty-t">No past orders found</div></div>'; return; }
+  var groups={}, dateOrder=[];
+  data.forEach(function(o){
+    if(!groups[o.order_date]){ groups[o.order_date]=[]; dateOrder.push(o.order_date); }
+    groups[o.order_date].push(o);
+  });
+  dateOrder = dateOrder.filter(function(d,i){ return dateOrder.indexOf(d)===i; });
+  var html='';
+  dateOrder.forEach(function(date) {
+    var dayOrders=groups[date];
+    var revenue=dayOrders.filter(function(o){ return o.status!=='cancelled'; })
+                         .reduce(function(s,o){ return s+Number(o.price); },0);
+    var parts=date.split('-');
+    var dt=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+    var dayLabel=dt.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    html+='<div style="margin-bottom:18px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 8px;border-bottom:2px solid var(--line);margin-bottom:8px">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--ink)">'+dayLabel+'</span>'
+      +'<span style="font-size:12px;font-weight:600;color:var(--blue)">MVR '+revenue.toLocaleString()+' · '+dayOrders.length+' orders</span>'
+      +'</div>';
+    dayOrders.forEach(function(o){
+      var sc=o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
+      var pc=o.payment_done?'pay-done':'pay-pend';
+      html+='<div class="orow" onclick="openSheet('+o.id+')" style="margin-bottom:6px">'
+        +'<div class="o-num"><div class="o-num-t">'+o.num+'</div></div>'
+        +'<div class="o-info">'
+          +'<div class="o-name">'+esc(o.customer_name)+'</div>'
+          +'<div class="o-prod">'+esc(o.product)+'</div>'
+          +'<div class="o-meta">'+esc(o.delivery)+'</div>'
+        +'</div>'
+        +'<div class="o-right">'
+          +'<div class="o-price">MVR '+Number(o.price).toLocaleString()+'</div>'
+          +'<span class="badge '+sc+'">'+o.status+'</span>'
+          +'<span class="'+pc+'">'+(o.payment_done?'Paid':'Unpaid')+'</span>'
+        +'</div>'
+        +'<div class="o-arr">›</div>'
+        +'</div>';
+    });
+    html+='</div>';
+  });
+  list.innerHTML=html;
+  var ids=_histAllOrders.map(function(o){ return o.id; });
+  orders=orders.filter(function(o){ return ids.indexOf(o.id)<0; }).concat(_histAllOrders);
+}
+
+
 function _autoLogin() {
   // Try saved credentials for silent re-login
   var saved = null;
@@ -1208,7 +1511,6 @@ function _autoLogin() {
   // until loadProfile calls hideLogin()
 }
 
-_autoLogin();
 
 db.auth.onAuthStateChange(function(event, session) {
   if (event === 'SIGNED_OUT') {
@@ -1216,6 +1518,7 @@ db.auth.onAuthStateChange(function(event, session) {
     showLogin();
   }
 });
+
 
 if('serviceWorker' in navigator) window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});
 
@@ -1239,6 +1542,7 @@ if('serviceWorker' in navigator) window.addEventListener('load',function(){navig
   });
 })();
 
+_autoLogin();
 </script>
 </body>
 </html>
