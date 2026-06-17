@@ -974,7 +974,8 @@ function openSheet(id) {
   if (role === 'admin') {
     if (sdel)  sdel.style.display  = '';
     if (sedit) sedit.style.display = '';
-    // Show cancel only if not already cancelled
+    if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
+    if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'order_collection') {
     if (sedit) sedit.style.display = '';
