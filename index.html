@@ -564,9 +564,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   <div class="pg"><div class="pg-title">Products</div><div style="font-size:13px;color:var(--ink3);margin-top:4px">Manage your bag catalogue, pricing & stock</div></div>
   <div class="prod-body" style="padding:0 16px 16px">
 
-    <!-- ADD NEW PRODUCT CARD -->
-    <div class="fcard">
-      <div class="fcard-hdr">Add New Product</div>
+    <!-- ADD NEW PRODUCT TRIGGER -->
+    <button class="btn btn-blue" onclick="toggleAddProdForm()" id="addProdTrigger" style="width:100%;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add New Product
+    </button>
+
+    <!-- ADD NEW PRODUCT CARD (collapsed by default) -->
+    <div class="fcard" id="addProdCard" style="display:none">
+      <div class="fcard-hdr" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Add New Product</span>
+        <button class="s-x" onclick="toggleAddProdForm()" style="width:26px;height:26px"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
 
       <!-- Photo upload -->
       <div class="fg">
@@ -977,6 +986,14 @@ function renderProds() {
   if(editProdId){ const i=document.getElementById('pe-'+editProdId); if(i){i.focus();i.select();} }
 }
 
+function toggleAddProdForm() {
+  var card = document.getElementById('addProdCard');
+  var trigger = document.getElementById('addProdTrigger');
+  var isOpen = card.style.display !== 'none';
+  card.style.display = isOpen ? 'none' : '';
+  trigger.style.display = isOpen ? '' : 'none';
+}
+
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
   const cost = parseFloat(document.getElementById('newProdCost').value) || 0;
@@ -1009,6 +1026,7 @@ async function addProd() {
   _newProdPhotoFile = null;
 
   fillDrop(); renderProds(); toast('Product added');
+  toggleAddProdForm();
 }
 
 var _prodSheetId = null;
