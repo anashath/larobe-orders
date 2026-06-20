@@ -467,6 +467,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <button class="d-item" id="dn-users" onclick="go('users')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>Users
     </button>
+    <button class="d-item" id="dn-sales" onclick="go('sales')" style="display:none">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>Sales
+    </button>
     <button class="d-item" id="dn-settings" onclick="go('settings')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>Settings
     </button>
@@ -644,6 +647,38 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
     <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:10px">Team Members</div>
     <div id="userList"><div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading...</div></div></div>
   </div>
+</div>
+
+<!-- SALES -->
+<div class="screen" id="sc-sales">
+  <div class="pg">
+    <div class="pg-title">Sales</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">Revenue & gross profit from delivered orders</div>
+  </div>
+  <div class="chips">
+    <button class="chip on" onclick="setSalesRange('today',this)">Today</button>
+    <button class="chip" onclick="setSalesRange('week',this)">This Week</button>
+    <button class="chip" onclick="setSalesRange('month',this)">This Month</button>
+    <button class="chip" onclick="setSalesRange('all',this)">All Time</button>
+  </div>
+  <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+    <div class="stat hi"><div class="stat-n" id="salesRevenue">0</div><div class="stat-l">Revenue (MVR)</div></div>
+    <div class="stat"><div class="stat-n" id="salesGP">0</div><div class="stat-l">Gross Profit (MVR)</div></div>
+  </div>
+  <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+    <div class="stat"><div class="stat-n" id="salesCount">0</div><div class="stat-l">Orders Delivered</div></div>
+    <div class="stat"><div class="stat-n" id="salesMargin">0%</div><div class="stat-l">GP Margin</div></div>
+  </div>
+
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Top Products</div>
+  </div>
+  <div id="salesTopProducts" style="padding:0 16px 16px"></div>
+
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Delivered Orders</div>
+  </div>
+  <div class="olist" id="salesOrderList" style="padding-bottom:16px"></div>
 </div>
 
 <!-- SETTINGS -->
@@ -881,10 +916,12 @@ function go(s) {
   if(s==='new')      { fillDrop(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
+  if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
   if(s==='settings') updSett();
   if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
+  if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
 }
 
 /* UTILS */
@@ -1795,7 +1832,7 @@ function applyRole(profile) {
   if (dui) { dui.style.display = 'flex'; dui.style.alignItems = 'center'; dui.style.justifyContent = 'space-between'; }
   if (dun) dun.textContent = name;
   var navMap = {
-    admin:            ['orders','new','history','copy','products','settings','users'],
+    admin:            ['orders','new','history','copy','products','settings','users','sales'],
     order_collection: ['orders','new','history','copy'],
     packing:          ['orders','history'],
     delivery:         ['orders','history']
@@ -1807,12 +1844,14 @@ function applyRole(profile) {
   });
   var newBtn = document.getElementById('bn-new');
   if (newBtn) newBtn.style.display = (role==='admin'||role==='order_collection') ? '' : 'none';
-  ['orders','new','history','copy','products','settings','users'].forEach(function(s) {
+  ['orders','new','history','copy','products','settings','users','sales'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
   });
   var usersBtn = document.getElementById('dn-users');
   if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
+  var salesBtn = document.getElementById('dn-sales');
+  if (salesBtn) salesBtn.style.display = role==='admin' ? '' : 'none';
   go('orders');
 }
 
@@ -1993,6 +2032,121 @@ function fallbackCopy(text,btn,count) {
 }
 
 /* ── HISTORY ── */
+var _salesRange = 'today';
+var _salesOrders = [];
+
+function setSalesRange(range, btn) {
+  _salesRange = range;
+  document.querySelectorAll('#sc-sales .chip').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  loadSales();
+}
+
+function salesDateBounds(range) {
+  var now = new Date();
+  var start, end;
+  if (range === 'today') {
+    start = today();
+    end = today();
+  } else if (range === 'week') {
+    var d = new Date();
+    var dow = d.getDay(); // 0=Sun
+    var monday = new Date(d);
+    monday.setDate(d.getDate() - ((dow + 6) % 7));
+    start = monday.toISOString().slice(0,10);
+    end = today();
+  } else if (range === 'month') {
+    var d2 = new Date();
+    start = d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-01';
+    end = today();
+  } else {
+    start = '2000-01-01';
+    end = today();
+  }
+  return { start: start, end: end };
+}
+
+async function loadSales() {
+  var bounds = salesDateBounds(_salesRange);
+  const {data, error} = await db.from('orders')
+    .select('*')
+    .eq('status', 'delivered')
+    .gte('order_date', bounds.start)
+    .lte('order_date', bounds.end)
+    .order('order_date', { ascending: false });
+
+  if (error) { toast('Error loading sales: ' + error.message, true); return; }
+  _salesOrders = data || [];
+  renderSales();
+}
+
+function renderSales() {
+  var revenue = 0, gp = 0;
+  var productTotals = {}; // name -> {qty, revenue}
+
+  _salesOrders.forEach(function(o) {
+    var price = Number(o.price) || 0;
+    revenue += price;
+
+    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
+    var cost = p ? Number(p.cost_price)||0 : 0;
+    gp += (price - cost);
+
+    var key = o.product || 'Unknown';
+    if (!productTotals[key]) productTotals[key] = { qty: 0, revenue: 0 };
+    productTotals[key].qty += 1;
+    productTotals[key].revenue += price;
+  });
+
+  document.getElementById('salesRevenue').textContent = revenue.toLocaleString();
+  document.getElementById('salesGP').textContent = gp.toLocaleString();
+  document.getElementById('salesCount').textContent = _salesOrders.length;
+  document.getElementById('salesMargin').textContent = revenue > 0 ? Math.round((gp/revenue)*100) + '%' : '0%';
+
+  // Top products
+  var sorted = Object.keys(productTotals).map(function(k) {
+    return { name: k, qty: productTotals[k].qty, revenue: productTotals[k].revenue };
+  }).sort(function(a,b){ return b.qty - a.qty; }).slice(0, 5);
+
+  var topEl = document.getElementById('salesTopProducts');
+  if (!sorted.length) {
+    topEl.innerHTML = '<div class="empty"><div class="empty-t">No sales yet</div></div>';
+  } else {
+    topEl.innerHTML = sorted.map(function(item, i) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px">'
+        + '<div style="width:24px;height:24px;border-radius:6px;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (i+1) + '</div>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(item.name) + '</div><div style="font-size:11px;color:var(--ink3)">' + item.qty + ' sold</div></div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--blue)">MVR ' + item.revenue.toLocaleString() + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Order list
+  var listEl = document.getElementById('salesOrderList');
+  if (!_salesOrders.length) {
+    listEl.innerHTML = '<div class="empty"><div class="empty-t">No delivered orders in this range</div></div>';
+  } else {
+    listEl.innerHTML = _salesOrders.map(function(o) {
+      return '<div class="orow" onclick="openSheet(' + o.id + ')">'
+        + '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>'
+        + '<div class="o-info">'
+          + '<div class="o-name">' + esc(o.customer_name) + '</div>'
+          + '<div class="o-prod">' + esc(o.product) + '</div>'
+          + '<div class="o-meta">' + o.order_date + '</div>'
+        + '</div>'
+        + '<div class="o-right">'
+          + '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>'
+          + '<span class="badge b-delivered">Delivered</span>'
+        + '</div>'
+        + '<div class="o-arr">›</div>'
+        + '</div>';
+    }).join('');
+    // Make these orders available to openSheet
+    var ids = _salesOrders.map(function(o){ return o.id; });
+    orders = orders.filter(function(o){ return ids.indexOf(o.id)<0; }).concat(_salesOrders);
+  }
+}
+
 var _histAllOrders = [];
 
 function initHistory() {
