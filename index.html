@@ -1087,15 +1087,17 @@ async function uploadProductPhoto(file, productId) {
   return urlData.publicUrl;
 }
 
-function stockBadgeClass(qty) {
+function stockBadgeClass(qty, threshold) {
+  threshold = (threshold === undefined || threshold === null) ? 3 : threshold;
   if (qty <= 0) return 'stock-out';
-  if (qty <= 3) return 'stock-low';
+  if (qty <= threshold) return 'stock-low';
   return 'stock-ok';
 }
 
-function stockBadgeClass(qty) {
+function stockBadgeClass(qty, threshold) {
+  threshold = (threshold === undefined || threshold === null) ? 3 : threshold;
   if (qty <= 0) return 'stock-out';
-  if (qty <= 3) return 'stock-low';
+  if (qty <= threshold) return 'stock-low';
   return 'stock-ok';
 }
 
@@ -1107,8 +1109,9 @@ function renderProds() {
 
   L.innerHTML = products.map(function(p) {
     var stock = p.stock_qty || 0;
-    var stockClass = stockBadgeClass(stock);
-    var stockLabel = stock<=0?'Out of stock':stock<=3?'Low stock':'In stock';
+    var threshold = p.low_stock_threshold != null ? p.low_stock_threshold : 3;
+    var stockClass = stockBadgeClass(stock, threshold);
+    var stockLabel = stock<=0?'Out of stock':stock<=threshold?'Low stock':'In stock';
 
     var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '" alt="">'
@@ -1272,6 +1275,7 @@ function renderProdSheetBody() {
     : '<div style="text-align:center;color:var(--ink3)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:12px;font-weight:600">Tap to change photo</div></div>';
 
   var stock = p.stock_qty || 0;
+  var threshold = p.low_stock_threshold != null ? p.low_stock_threshold : 3;
 
   var html = '';
 
@@ -1298,10 +1302,12 @@ function renderProdSheetBody() {
     + '<label>Stock Quantity</label>'
     + '<div style="display:flex;gap:8px;align-items:center">'
       + '<input type="number" id="ps-stock" value="' + stock + '" style="flex:1">'
-      + '<span class="stock-badge ' + stockBadgeClass(stock) + '">' + (stock<=0?'Out':stock<=3?'Low':'OK') + '</span>'
+      + '<span class="stock-badge ' + stockBadgeClass(stock, threshold) + '">' + (stock<=0?'Out':stock<=threshold?'Low':'OK') + '</span>'
       + '<button type="button" class="btn btn-blue btn-sm" onclick="openRestockPrompt(' + p.id + ')" style="padding:9px 14px">+ Restock</button>'
     + '</div>'
   + '</div>';
+  html += '<div class="fg"><label>Low Stock Alert Threshold</label><input type="number" id="ps-threshold" value="' + threshold + '" min="0">'
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:4px">Marked "Low Stock" when quantity falls to or below this number</div></div>';
 
   // Active toggle
   html += '<div class="fg"><label>Status</label>'
@@ -1325,9 +1331,11 @@ async function saveProdFromSheet() {
   var cost = parseFloat(document.getElementById('ps-cost').value) || 0;
   var price = parseFloat(document.getElementById('ps-price').value) || 0;
   var stock = parseInt(document.getElementById('ps-stock').value) || 0;
+  var threshold = parseInt(document.getElementById('ps-threshold').value);
+  if (isNaN(threshold) || threshold < 0) threshold = 3;
   if (!name) { toast('Name cannot be empty', true); return; }
 
-  var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock };
+  var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock, low_stock_threshold: threshold };
 
   if (_prodSheetPhotoFile) {
     var url = await uploadProductPhoto(_prodSheetPhotoFile, p.id);
@@ -1337,7 +1345,7 @@ async function saveProdFromSheet() {
   const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
 
-  p.name = name; p.color = color; p.cost_price = cost; p.selling_price = price; p.price = price; p.stock_qty = stock;
+  p.name = name; p.color = color; p.cost_price = cost; p.selling_price = price; p.price = price; p.stock_qty = stock; p.low_stock_threshold = threshold;
   if (updates.image_url) p.image_url = updates.image_url;
 
   fillDrop(); renderProds(); closeProdSheet();
@@ -2101,7 +2109,7 @@ async function loadDashboard() {
   document.getElementById('dashPending').textContent = pendingCount;
 
   // Stock levels across all products
-  var lowStock = products.filter(function(p){ return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= 3; }).length;
+  var lowStock = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; }).length;
   var outStock = products.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; }).length;
   document.getElementById('dashLowStock').textContent = lowStock;
   document.getElementById('dashOutStock').textContent = outStock;
