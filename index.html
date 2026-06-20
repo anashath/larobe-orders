@@ -503,7 +503,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
         <div class="fg"><label>Customer Name</label><input type="text" id="fName" placeholder="Aminath Riyasha"></div>
         <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx"></div>
         <div class="fg ffull"><label>Product</label><select id="fProduct" onchange="onOrderProductChange()"><option value="">Select product…</option></select></div>
-        <div class="fg ffull" id="fColorWrap" style="display:none"><label>Color</label><select id="fColor" onchange="onOrderColorChange()"><option value="">Select color…</option></select></div>
         <div class="fg"><label>Price (MVR)</label><input type="number" id="fPrice" placeholder="0" min="0" inputmode="numeric"></div>
         <div class="fg"><label>Status</label><select id="fStatus"><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="delivered">Delivered</option></select></div>
       </div>
@@ -591,20 +590,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
       <div class="fg"><label>Product Name</label><input type="text" id="newProd" placeholder="e.g. Moon Bag"></div>
       <div class="fgrid">
+        <div class="fg"><label>Color</label><input type="text" id="newProdColor" placeholder="e.g. Black"></div>
+        <div class="fg"><label>Stock Quantity</label><input type="number" id="newProdStock" placeholder="0" min="0"></div>
+      </div>
+      <div class="fgrid">
         <div class="fg"><label>Cost Price (MVR)</label><input type="number" id="newProdCost" placeholder="0" min="0"></div>
         <div class="fg"><label>Selling Price (MVR)</label><input type="number" id="newProdPrice" placeholder="0" min="0"></div>
-      </div>
-
-      <!-- Colors & Stock -->
-      <div class="fg">
-        <label>Colors & Stock</label>
-        <div id="newProdColorsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="newProdColorName" placeholder="Color (e.g. Black)" style="flex:1.4;border:1.5px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;font-family:Inter,sans-serif;background:var(--card2);color:var(--ink)" onkeydown="if(event.key==='Enter'){event.preventDefault();addNewProdColorRow();}">
-          <input type="number" id="newProdColorStock" placeholder="Qty" value="0" style="flex:0 0 64px;border:1.5px solid var(--line);border-radius:8px;padding:9px 8px;font-size:13px;font-family:Inter,sans-serif;background:var(--card2);color:var(--ink);text-align:center">
-          <button type="button" class="btn btn-blue btn-sm" onclick="addNewProdColorRow()" style="flex:0 0 auto;padding:9px 14px">+</button>
-        </div>
-        <div style="font-size:11px;color:var(--ink3);margin-top:6px">Add at least one color before saving, or skip if this product has no color variants.</div>
       </div>
 
       <div class="factions">
@@ -854,8 +845,8 @@ function go(s) {
   const b=document.getElementById('bn-'+s); if(b) b.classList.add('on');
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
-  if(s==='products') { loadVariants().then(renderProds); }
-  if(s==='new')      { loadVariants().then(fillDrop); }
+  if(s==='products') { renderProds(); }
+  if(s==='new')      { fillDrop(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
@@ -886,45 +877,26 @@ async function loadProds() {
 function fillDrop() {
   const s=document.getElementById('fProduct'), cur=s.value;
   s.innerHTML='<option value="">Select product…</option>';
-  products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; if(String(p.id)===String(cur)) o.selected=true; s.appendChild(o); });
+  products.filter(p=>p.active).forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id;
+    var label = p.name + (p.color ? ' - ' + p.color : '');
+    var stock = p.stock_qty || 0;
+    label += ' (' + stock + (stock===1?' left':' in stock') + ')';
+    if (stock <= 0) { label += ' — OUT OF STOCK'; o.disabled = true; }
+    o.textContent = label;
+    if(String(p.id)===String(cur)) o.selected=true;
+    s.appendChild(o);
+  });
 }
 
 function onOrderProductChange() {
   var productId = parseInt(document.getElementById('fProduct').value);
-  var colorWrap = document.getElementById('fColorWrap');
-  var colorSel = document.getElementById('fColor');
   var priceInput = document.getElementById('fPrice');
-
   var p = products.find(function(x){ return x.id === productId; });
-  if (!p) { colorWrap.style.display='none'; return; }
-
-  // Auto-fill selling price
+  if (!p) return;
   if (p.selling_price) priceInput.value = p.selling_price;
-
-  var vs = (_variants[productId] || []).filter(function(v){ return v.active; });
-
-  if (!vs.length) {
-    // No variants — hide color picker, order proceeds without one
-    colorWrap.style.display = 'none';
-    return;
-  }
-
-  colorWrap.style.display = '';
-  colorSel.innerHTML = '<option value="">Select color…</option>';
-  vs.forEach(function(v) {
-    var o = document.createElement('option');
-    o.value = v.id;
-    o.textContent = v.color + ' (' + v.stock_qty + ' in stock)';
-    if (v.stock_qty <= 0) { o.textContent += ' — OUT OF STOCK'; o.disabled = true; }
-    colorSel.appendChild(o);
-  });
 }
-
-function onOrderColorChange() {
-  // Nothing extra needed right now — stock check happens at submit time
-}
-var _variants = {};
-var _expandedProd = null;
 var _newProdPhotoFile = null;
 
 function previewNewProdPhoto(input) {
@@ -948,13 +920,10 @@ async function uploadProductPhoto(file, productId) {
   return urlData.publicUrl;
 }
 
-async function loadVariants() {
-  const {data} = await db.from('product_variants').select('*').order('color');
-  _variants = {};
-  (data||[]).forEach(function(v) {
-    if (!_variants[v.product_id]) _variants[v.product_id] = [];
-    _variants[v.product_id].push(v);
-  });
+function stockBadgeClass(qty) {
+  if (qty <= 0) return 'stock-out';
+  if (qty <= 3) return 'stock-low';
+  return 'stock-ok';
 }
 
 function stockBadgeClass(qty) {
@@ -963,19 +932,13 @@ function stockBadgeClass(qty) {
   return 'stock-ok';
 }
 
-function toggleProdExpand(pid) {
-  _expandedProd = (_expandedProd === pid) ? null : pid;
-  renderProds();
-}
-
 function renderProds() {
   const L=document.getElementById('prodList');
   if(!products.length){ L.innerHTML='<div class="empty"><div class="empty-t">No products yet</div><div class="empty-s">Add one above</div></div>'; return; }
 
   L.innerHTML = products.map(function(p) {
-    var vs = _variants[p.id] || [];
-    var isOpen = _expandedProd === p.id;
-    var totalStock = vs.reduce(function(s,v){ return s + v.stock_qty; }, 0);
+    var stock = p.stock_qty || 0;
+    var stockClass = stockBadgeClass(stock);
 
     var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '" alt="">'
@@ -985,9 +948,9 @@ function renderProds() {
       + '<div class="pcard-top' + (p.active?'':' off') + '" onclick="openProdSheet(' + p.id + ')">'
       + '<div class="pcard-img">' + imgHtml + '</div>'
       + '<div class="pcard-info">'
-        + '<div class="pcard-name">' + esc(p.name) + '</div>'
+        + '<div class="pcard-name">' + esc(p.name) + (p.color ? ' <span style="color:var(--ink3);font-weight:500">— ' + esc(p.color) + '</span>' : '') + '</div>'
         + '<div class="pcard-price">MVR ' + Number(p.selling_price||0).toLocaleString() + (p.cost_price ? ' <span style="color:var(--ink3);font-weight:400">· cost ' + Number(p.cost_price).toLocaleString() + '</span>' : '') + '</div>'
-        + '<div class="pcard-stock">' + (vs.length ? totalStock + ' in stock across ' + vs.length + ' ' + (vs.length===1?'color':'colors') : 'No colors added yet') + (p.active ? '' : ' · Hidden') + '</div>'
+        + '<div class="pcard-stock"><span class="stock-badge ' + stockClass + '" style="margin-right:6px">' + (stock<=0?'Out':stock<=3?'Low':'OK') + '</span>' + stock + ' in stock' + (p.active ? '' : ' · Hidden') + '</div>'
       + '</div>'
       + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink3);flex-shrink:0;align-self:center"><polyline points="9 18 15 12 9 6"/></svg>'
       + '</div>'
@@ -1012,49 +975,16 @@ function toggleAddProdForm() {
   }
 }
 
-var _newProdColors = []; // {color, stock} staged before product creation
-
-function renderNewProdColorsList() {
-  var L = document.getElementById('newProdColorsList');
-  if (!_newProdColors.length) { L.innerHTML = ''; return; }
-  L.innerHTML = _newProdColors.map(function(c, i) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--card2);border:1px solid var(--line);border-radius:8px">'
-      + '<div style="flex:1;font-size:13px;font-weight:500;color:var(--ink)">' + esc(c.color) + '</div>'
-      + '<div style="font-size:12px;color:var(--ink3)">Qty: ' + c.stock + '</div>'
-      + '<button type="button" class="ibt del" onclick="removeNewProdColorRow(' + i + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
-      + '</div>';
-  }).join('');
-}
-
-function addNewProdColorRow() {
-  var nameInput = document.getElementById('newProdColorName');
-  var stockInput = document.getElementById('newProdColorStock');
-  var color = nameInput.value.trim();
-  var stock = parseInt(stockInput.value) || 0;
-  if (!color) { toast('Enter a color name', true); return; }
-  if (_newProdColors.find(function(c){ return c.color.toLowerCase() === color.toLowerCase(); })) {
-    toast('That color is already added', true); return;
-  }
-  _newProdColors.push({ color: color, stock: stock });
-  nameInput.value = ''; stockInput.value = '0';
-  nameInput.focus();
-  renderNewProdColorsList();
-}
-
-function removeNewProdColorRow(index) {
-  _newProdColors.splice(index, 1);
-  renderNewProdColorsList();
-}
-
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
+  const color=document.getElementById('newProdColor').value.trim();
+  const stock=parseInt(document.getElementById('newProdStock').value)||0;
   const cost = parseFloat(document.getElementById('newProdCost').value) || 0;
   const price = parseFloat(document.getElementById('newProdPrice').value) || 0;
   if(!n){toast('Enter a product name',true);return;}
-  if(products.find(p=>p.name.toLowerCase()===n.toLowerCase())){toast('Already exists',true);return;}
 
   const {data,error}=await db.from('products').insert({
-    name:n, active:true, cost_price:cost, selling_price:price, price:price
+    name:n, color:color||null, stock_qty:stock, active:true, cost_price:cost, selling_price:price, price:price
   }).select();
 
   if(error){toast('Error: '+error.message,true);return;}
@@ -1069,28 +999,15 @@ async function addProd() {
     }
   }
 
-  // Create staged color variants
-  if (_newProdColors.length) {
-    var variantRows = _newProdColors.map(function(c) {
-      return { product_id: newProduct.id, color: c.color, stock_qty: c.stock, active: true };
-    });
-    const {data: variantData, error: variantError} = await db.from('product_variants').insert(variantRows).select();
-    if (variantError) {
-      toast('Product saved, but colors failed: ' + variantError.message, true);
-    } else {
-      _variants[newProduct.id] = variantData || [];
-    }
-  }
-
   products.push(newProduct);
   document.getElementById('newProd').value='';
+  document.getElementById('newProdColor').value='';
+  document.getElementById('newProdStock').value='';
   document.getElementById('newProdCost').value='';
   document.getElementById('newProdPrice').value='';
   document.getElementById('newProdPhotoPreview').innerHTML =
     '<div id="newProdPhotoPlaceholder" style="text-align:center;color:var(--ink3)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:12px;font-weight:600">Tap to add photo</div></div>';
   _newProdPhotoFile = null;
-  _newProdColors = [];
-  renderNewProdColorsList();
 
   fillDrop(); renderProds(); toast('Product added');
   toggleAddProdForm();
@@ -1099,15 +1016,12 @@ async function addProd() {
 var _prodSheetId = null;
 var _prodSheetPhotoFile = null;
 
-var _restockVariantId = null;
 var _restockProductId = null;
 
-function openRestockPrompt(variantId, productId) {
-  _restockVariantId = variantId;
+function openRestockPrompt(productId) {
   _restockProductId = productId;
-  var v = (_variants[productId]||[]).find(function(x){ return x.id === variantId; });
   var p = products.find(function(x){ return x.id === productId; });
-  document.getElementById('restockSub').textContent = (p?p.name:'') + ' — ' + (v?v.color:'') + ' (current: ' + (v?v.stock_qty:0) + ')';
+  document.getElementById('restockSub').textContent = (p?p.name:'') + (p&&p.color?' — '+p.color:'') + ' (current: ' + (p?p.stock_qty||0:0) + ')';
   document.getElementById('restockQty').value = '';
   document.getElementById('restockCost').value = p ? (p.cost_price||'') : '';
   document.getElementById('restockMask').classList.add('open');
@@ -1115,7 +1029,6 @@ function openRestockPrompt(variantId, productId) {
 
 function closeRestockPrompt() {
   document.getElementById('restockMask').classList.remove('open');
-  _restockVariantId = null;
   _restockProductId = null;
 }
 
@@ -1124,26 +1037,21 @@ async function confirmRestock() {
   var cost = parseFloat(document.getElementById('restockCost').value) || 0;
   if (qty <= 0) { toast('Enter a quantity greater than 0', true); return; }
 
-  var v = (_variants[_restockProductId]||[]).find(function(x){ return x.id === _restockVariantId; });
-  if (!v) { toast('Variant not found', true); return; }
+  var p = products.find(function(x){ return x.id === _restockProductId; });
+  if (!p) { toast('Product not found', true); return; }
 
-  var newQty = v.stock_qty + qty;
+  var newQty = (p.stock_qty||0) + qty;
+  var updates = { stock_qty: newQty };
+  if (cost > 0) updates.cost_price = cost;
 
-  // Update stock
-  const {error} = await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
+  const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
-  v.stock_qty = newQty;
 
-  // Update product cost price to latest batch cost
-  if (cost > 0) {
-    await db.from('products').update({ cost_price: cost }).eq('id', _restockProductId);
-    var p = products.find(function(x){ return x.id === _restockProductId; });
-    if (p) p.cost_price = cost;
-  }
+  p.stock_qty = newQty;
+  if (cost > 0) p.cost_price = cost;
 
-  // Log the restock movement
   await db.from('stock_movements').insert({
-    variant_id: v.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
+    product_id: p.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
   });
 
   closeRestockPrompt();
@@ -1180,13 +1088,14 @@ function previewProdSheetPhoto(input) {
 function renderProdSheetBody() {
   var p = products.find(function(x){ return x.id === _prodSheetId; });
   if (!p) { closeProdSheet(); return; }
-  var vs = _variants[p.id] || [];
 
   document.getElementById('prodSheetTitle').textContent = p.name;
 
   var imgHtml = p.image_url
     ? '<img src="' + p.image_url + '" style="width:100%;height:100%;object-fit:cover">'
     : '<div style="text-align:center;color:var(--ink3)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:12px;font-weight:600">Tap to change photo</div></div>';
+
+  var stock = p.stock_qty || 0;
 
   var html = '';
 
@@ -1198,44 +1107,30 @@ function renderProdSheetBody() {
     + '<input type="file" id="prodSheetPhotoInput" accept="image/*" style="display:none" onchange="previewProdSheetPhoto(this)">'
     + '</div>';
 
-  // Name + prices
+  // Name + color
   html += '<div class="fg"><label>Product Name</label><input type="text" id="ps-name" value="' + esc(p.name) + '"></div>';
+  html += '<div class="fg"><label>Color</label><input type="text" id="ps-color" value="' + esc(p.color||'') + '" placeholder="e.g. Black"></div>';
+
+  // Prices
   html += '<div class="fgrid" style="margin-bottom:12px">'
     + '<div class="fg"><label>Cost Price (MVR)</label><input type="number" id="ps-cost" value="' + (p.cost_price||0) + '"></div>'
     + '<div class="fg"><label>Selling Price (MVR)</label><input type="number" id="ps-price" value="' + (p.selling_price||0) + '"></div>'
     + '</div>';
 
+  // Stock + restock
+  html += '<div class="fg">'
+    + '<label>Stock Quantity</label>'
+    + '<div style="display:flex;gap:8px;align-items:center">'
+      + '<input type="number" id="ps-stock" value="' + stock + '" style="flex:1">'
+      + '<span class="stock-badge ' + stockBadgeClass(stock) + '">' + (stock<=0?'Out':stock<=3?'Low':'OK') + '</span>'
+      + '<button type="button" class="btn btn-blue btn-sm" onclick="openRestockPrompt(' + p.id + ')" style="padding:9px 14px">+ Restock</button>'
+    + '</div>'
+  + '</div>';
+
   // Active toggle
   html += '<div class="fg"><label>Status</label>'
     + '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" style="padding:8px 16px;font-size:12px" onclick="toggleProdSheetActive()">' + (p.active?'Active — visible in orders':'Hidden — not visible in orders') + '</button>'
     + '</div>';
-
-  // Variants section
-  html += '<div style="margin-top:8px;padding-top:14px;border-top:1px solid var(--line)">'
-    + '<div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">Colors & Stock</div>';
-
-  if (!vs.length) {
-    html += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">No colors added yet</div>';
-  }
-  vs.forEach(function(v) {
-    html += '<div class="variant-row" style="padding-left:0;border-radius:8px;margin-bottom:6px;border:1px solid var(--line);border-top:1px solid var(--line);flex-wrap:wrap">'
-      + '<div class="variant-color">' + esc(v.color) + '</div>'
-      + '<div class="variant-stock">'
-        + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onchange="updateStock(' + v.id + ',this.value)">'
-        + '<span class="stock-badge ' + stockBadgeClass(v.stock_qty) + '">' + (v.stock_qty<=0?'Out':v.stock_qty<=3?'Low':'OK') + '</span>'
-        + '<button class="ibt" onclick="openRestockPrompt(' + v.id + ',' + p.id + ')" title="Restock" style="color:var(--green)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
-        + '<button class="ibt del" onclick="delVariant(' + v.id + ',' + p.id + ');renderProdSheetBody()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
-      + '</div>'
-      + '</div>';
-  });
-
-  html += '<div class="variant-add-row" style="padding-left:0;border-top:none;background:none">'
-    + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\'){addVariant(' + p.id + ').then(function(ok){ if(ok) renderProdSheetBody(); })}">'
-    + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0">'
-    + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ').then(function(ok){ if(ok) renderProdSheetBody(); })" style="padding:7px 12px;font-size:12px">+ Add</button>'
-    + '</div>';
-
-  html += '</div>';
 
   document.getElementById('prodSheetBody').innerHTML = html;
 }
@@ -1250,11 +1145,13 @@ async function saveProdFromSheet() {
   var p = products.find(function(x){ return x.id === _prodSheetId; });
   if (!p) return;
   var name = document.getElementById('ps-name').value.trim();
+  var color = document.getElementById('ps-color').value.trim();
   var cost = parseFloat(document.getElementById('ps-cost').value) || 0;
   var price = parseFloat(document.getElementById('ps-price').value) || 0;
+  var stock = parseInt(document.getElementById('ps-stock').value) || 0;
   if (!name) { toast('Name cannot be empty', true); return; }
 
-  var updates = { name: name, cost_price: cost, selling_price: price, price: price };
+  var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock };
 
   if (_prodSheetPhotoFile) {
     var url = await uploadProductPhoto(_prodSheetPhotoFile, p.id);
@@ -1264,7 +1161,7 @@ async function saveProdFromSheet() {
   const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
 
-  p.name = name; p.cost_price = cost; p.selling_price = price; p.price = price;
+  p.name = name; p.color = color; p.cost_price = cost; p.selling_price = price; p.price = price; p.stock_qty = stock;
   if (updates.image_url) p.image_url = updates.image_url;
 
   fillDrop(); renderProds(); closeProdSheet();
@@ -1274,67 +1171,15 @@ async function saveProdFromSheet() {
 async function delProdFromSheet() {
   var p = products.find(function(x){ return x.id === _prodSheetId; });
   if (!p) return;
-  if (!confirm('Delete "' + p.name + '"? This will also remove its color variants. This cannot be undone.')) return;
+  if (!confirm('Delete "' + p.name + '"? This cannot be undone.')) return;
   await db.from('products').delete().eq('id', p.id);
   products = products.filter(function(x){ return x.id !== p.id; });
-  delete _variants[p.id];
   fillDrop(); renderProds();
   closeProdSheet();
   toast('Product deleted');
 }
 
-async function addVariant(productId) {
-  var colorInput = document.getElementById('newVariant-' + productId);
-  var stockInput = document.getElementById('newVariantStock-' + productId);
-  var color = colorInput.value.trim();
-  var stock = parseInt(stockInput.value) || 0;
-  if (!color) { toast('Enter a color name', true); return false; }
-
-  const {data, error} = await db.from('product_variants')
-    .insert({ product_id: productId, color: color, stock_qty: stock, active: true })
-    .select();
-
-  if (error) {
-    if (error.code === '23505') { toast('That color already exists', true); }
-    else { toast('Error: ' + error.message, true); }
-    return false;
-  }
-
-  if (!_variants[productId]) _variants[productId] = [];
-  _variants[productId].push(data[0]);
-  colorInput.value = ''; stockInput.value = '0';
-  toast('Variant added');
-  return true;
-}
-
-async function updateStock(variantId, newQty) {
-  newQty = parseInt(newQty) || 0;
-  const {error} = await db.from('product_variants').update({ stock_qty: newQty }).eq('id', variantId);
-  if (error) { toast('Error: ' + error.message, true); return; }
-
-  Object.keys(_variants).forEach(function(pid) {
-    _variants[pid].forEach(function(v) {
-      if (v.id === variantId) v.stock_qty = newQty;
-    });
-  });
-
-  db.from('stock_movements').insert({
-    variant_id: variantId, change_qty: 0, reason: 'manual_adjustment'
-  });
-
-  renderProds();
-  toast('Stock updated');
-}
-
-async function delVariant(variantId, productId) {
-  if (!confirm('Remove this color variant?')) return;
-  const {error} = await db.from('product_variants').delete().eq('id', variantId);
-  if (error) { toast('Error: ' + error.message, true); return; }
-  _variants[productId] = (_variants[productId]||[]).filter(function(v){ return v.id !== variantId; });
-  renderProds();
-  toast('Variant removed');
-}
-function startPEdit(id){editProdId=id;_expandedProd=id;renderProds();}
+function startPEdit(id){editProdId=id;renderProds();}
 function cancelPEdit(){editProdId=null;renderProds();}
 async function saveProd(id) {
   const i=document.getElementById('pe-'+id); const n=i?i.value.trim():'';
@@ -1404,20 +1249,9 @@ async function addOrder() {
 
   var p = products.find(function(x){ return x.id === productId; });
   if (!p) { toast('Product not found', true); return; }
+  if ((p.stock_qty||0) <= 0) { toast('This product is out of stock', true); return; }
 
-  // Check if this product has variants — if so, color is required
-  var vs = (_variants[productId] || []).filter(function(v){ return v.active; });
-  var variantId = null;
-  var productLabel = p.name;
-
-  if (vs.length) {
-    variantId = parseInt(document.getElementById('fColor').value) || null;
-    if (!variantId) { toast('Please select a color', true); return; }
-    var v = vs.find(function(x){ return x.id === variantId; });
-    if (!v) { toast('Color not found', true); return; }
-    if (v.stock_qty <= 0) { toast('That color is out of stock', true); return; }
-    productLabel = p.name + ' - ' + v.color;
-  }
+  var productLabel = p.name + (p.color ? ' - ' + p.color : '');
 
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
   var orderDate = today();
@@ -1432,7 +1266,7 @@ async function addOrder() {
     num, customer_name:name,
     contact:document.getElementById('fContact').value.trim(),
     product:productLabel,
-    variant_id:variantId,
+    product_id:productId,
     price:parseFloat(document.getElementById('fPrice').value)||0,
     status:document.getElementById('fStatus').value,
     delivery:document.getElementById('fDelivery').value,
@@ -1448,7 +1282,7 @@ async function addOrder() {
   if(data&&data.length) orders.unshift(data[0]);
 
   // If order is created already-confirmed, deduct stock immediately
-  if (variantId && data && data.length && (data[0].status === 'confirmed' || data[0].status === 'packed' || data[0].status === 'delivered')) {
+  if (data && data.length && ['confirmed','packed','delivered'].indexOf(data[0].status) >= 0) {
     await deductStock(data[0]);
   }
 
@@ -1456,51 +1290,41 @@ async function addOrder() {
 }
 
 async function deductStock(order) {
-  if (!order.variant_id || order.stock_deducted) return;
-  var v = null;
-  Object.keys(_variants).forEach(function(pid) {
-    var found = _variants[pid].find(function(x){ return x.id === order.variant_id; });
-    if (found) v = found;
-  });
-  if (!v) return;
+  if (!order.product_id || order.stock_deducted) return;
+  var p = products.find(function(x){ return x.id === order.product_id; });
+  if (!p) return;
 
-  var newQty = Math.max(0, v.stock_qty - 1);
-  await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
-  v.stock_qty = newQty;
+  var newQty = Math.max(0, (p.stock_qty||0) - 1);
+  await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  p.stock_qty = newQty;
 
   await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
   order.stock_deducted = true;
 
   await db.from('stock_movements').insert({
-    variant_id: v.id, order_id: order.id, change_qty: -1, reason: 'order_confirmed'
+    product_id: p.id, order_id: order.id, change_qty: -1, reason: 'order_confirmed'
   });
 }
 
 async function restoreStock(order) {
-  if (!order.variant_id || !order.stock_deducted) return;
-  var v = null;
-  Object.keys(_variants).forEach(function(pid) {
-    var found = _variants[pid].find(function(x){ return x.id === order.variant_id; });
-    if (found) v = found;
-  });
-  if (!v) return;
+  if (!order.product_id || !order.stock_deducted) return;
+  var p = products.find(function(x){ return x.id === order.product_id; });
+  if (!p) return;
 
-  var newQty = v.stock_qty + 1;
-  await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
-  v.stock_qty = newQty;
+  var newQty = (p.stock_qty||0) + 1;
+  await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  p.stock_qty = newQty;
 
   await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
   order.stock_deducted = false;
 
   await db.from('stock_movements').insert({
-    variant_id: v.id, order_id: order.id, change_qty: 1, reason: 'order_cancelled'
+    product_id: p.id, order_id: order.id, change_qty: 1, reason: 'order_cancelled'
   });
 }
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fPrice').value=''; document.getElementById('fProduct').value='';
-  document.getElementById('fColorWrap').style.display='none';
-  document.getElementById('fColor').innerHTML='<option value="">Select color…</option>';
   _payDone=false; renderPayDone();
 }
 function renderPayDone() {
@@ -1869,7 +1693,6 @@ function loadProfile(uid) {
     var _od = document.getElementById('ordersDate');
     if (_od) _od.value = today();
     loadProds();
-    loadVariants();
     loadOrders();
   }).catch(function() { showLogin(); });
 }
