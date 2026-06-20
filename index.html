@@ -1145,9 +1145,9 @@ function renderProdSheetBody() {
   });
 
   html += '<div class="variant-add-row" style="padding-left:0;border-top:none;background:none">'
-    + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\'){addVariant(' + p.id + ').then(renderProdSheetBody)}">'
+    + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\'){addVariant(' + p.id + ').then(function(ok){ if(ok) renderProdSheetBody(); })}">'
     + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0">'
-    + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ').then(renderProdSheetBody)" style="padding:7px 12px;font-size:12px">+ Add</button>'
+    + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ').then(function(ok){ if(ok) renderProdSheetBody(); })" style="padding:7px 12px;font-size:12px">+ Add</button>'
     + '</div>';
 
   html += '</div>';
@@ -1203,7 +1203,7 @@ async function addVariant(productId) {
   var stockInput = document.getElementById('newVariantStock-' + productId);
   var color = colorInput.value.trim();
   var stock = parseInt(stockInput.value) || 0;
-  if (!color) { toast('Enter a color name', true); return; }
+  if (!color) { toast('Enter a color name', true); return false; }
 
   const {data, error} = await db.from('product_variants')
     .insert({ product_id: productId, color: color, stock_qty: stock, active: true })
@@ -1212,14 +1212,14 @@ async function addVariant(productId) {
   if (error) {
     if (error.code === '23505') { toast('That color already exists', true); }
     else { toast('Error: ' + error.message, true); }
-    return;
+    return false;
   }
 
   if (!_variants[productId]) _variants[productId] = [];
   _variants[productId].push(data[0]);
   colorInput.value = ''; stockInput.value = '0';
-  renderProds();
   toast('Variant added');
+  return true;
 }
 
 async function updateStock(variantId, newQty) {
