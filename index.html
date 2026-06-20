@@ -213,7 +213,22 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 /* ── PRODUCTS ── */
 .prod-add-row{display:flex;gap:8px;margin-bottom:12px}
 .prod-add-row .fg{flex:1;margin:0}
-.prow{display:flex;align-items:center;gap:10px;padding:11px 12px;margin-bottom:7px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.prow{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0;cursor:pointer}
+.prow.no-variants{border-radius:var(--r)}
+.prow-expand{transition:transform .2s;color:var(--ink3);flex-shrink:0}
+.prow-expand.open{transform:rotate(90deg)}
+.variant-wrap{border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r) var(--r);margin-bottom:7px;overflow:hidden;display:none}
+.variant-wrap.open{display:block}
+.variant-row{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 38px;border-top:1px solid var(--line);background:var(--card2)}
+.variant-color{flex:1;font-size:13px;font-weight:500;color:var(--ink)}
+.variant-stock{display:flex;align-items:center;gap:6px}
+.stock-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+.stock-ok{background:var(--green-l);color:var(--green)}
+.stock-low{background:var(--amber-l);color:var(--amber)}
+.stock-out{background:var(--red-l);color:var(--red)}
+.stock-input{width:50px;text-align:center;border:1.5px solid var(--line);border-radius:6px;padding:4px;font-size:12px;font-family:Inter,sans-serif;background:var(--card)}
+.variant-add-row{display:flex;gap:8px;padding:10px 12px 10px 38px;border-top:1px solid var(--line);background:var(--card2)}
+.variant-add-row input{flex:1;border:1.5px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;font-family:Inter,sans-serif;background:var(--card);color:var(--ink)}
 .prow.off{opacity:.38}
 .p-name{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
 .p-edit-inp{flex:1;border:1.5px solid var(--blue);border-radius:8px;padding:7px 10px;font-family:'Inter',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none}
@@ -744,7 +759,7 @@ function go(s) {
   const b=document.getElementById('bn-'+s); if(b) b.classList.add('on');
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
-  if(s==='products') renderProds();
+  if(s==='products') { loadVariants().then(renderProds); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
@@ -777,22 +792,84 @@ function fillDrop() {
   s.innerHTML='<option value="">Select product…</option>';
   products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.name; o.textContent=p.name; if(p.name===cur) o.selected=true; s.appendChild(o); });
 }
+var _variants = {};      // productId -> array of variants
+var _expandedProd = null; // currently expanded product id
+var _addingVariant = null; // product id currently adding a variant to
+
+async function loadVariants() {
+  const {data} = await db.from('product_variants').select('*').order('color');
+  _variants = {};
+  (data||[]).forEach(function(v) {
+    if (!_variants[v.product_id]) _variants[v.product_id] = [];
+    _variants[v.product_id].push(v);
+  });
+}
+
+function stockBadgeClass(qty) {
+  if (qty <= 0) return 'stock-out';
+  if (qty <= 3) return 'stock-low';
+  return 'stock-ok';
+}
+
+function toggleProdExpand(pid) {
+  _expandedProd = (_expandedProd === pid) ? null : pid;
+  renderProds();
+}
+
 function renderProds() {
   const L=document.getElementById('prodList');
-  if(!products.length){ L.innerHTML='<div class="empty"><div class="empty-ico">🏷</div><div class="empty-ttl">No products yet</div><div class="empty-sub">Add one above</div></div>'; return; }
-  L.innerHTML=products.map(p=>`
-    <div class="prow ${p.active?'':'off'}" id="pi-${p.id}">
-      ${editProdId===p.id
-        ? `<input class="p-edit-inp" id="pe-${p.id}" value="${esc(p.name)}" onkeydown="if(event.key==='Enter')saveProd(${p.id})">`
-        : `<div class="p-name">${esc(p.name)}</div>`}
-      <button class="ptog ${p.active?'pt-on':'pt-off'}" onclick="togProd(${p.id},${p.active})">${p.active?'Active':'Hidden'}</button>
-      ${editProdId===p.id
-        ? `<button class="ibt" onclick="saveProd(${p.id})">✓</button><button class="ibt" onclick="cancelPEdit()">✕</button>`
-        : `<button class="ibt" onclick="startPEdit(${p.id})">✎</button>`}
-      <button class="ibt del" onclick="delProd(${p.id})">🗑</button>
-    </div>`).join('');
+  if(!products.length){ L.innerHTML='<div class="empty"><div class="empty-t">No products yet</div><div class="empty-s">Add one above</div></div>'; return; }
+
+  L.innerHTML = products.map(function(p) {
+    var vs = _variants[p.id] || [];
+    var isOpen = _expandedProd === p.id;
+    var totalStock = vs.reduce(function(s,v){ return s + v.stock_qty; }, 0);
+
+    var rowHtml = '<div class="prow ' + (p.active?'':'off') + (vs.length===0?' no-variants':'') + '" onclick="toggleProdExpand(' + p.id + ')">'
+      + '<svg class="prow-expand' + (isOpen?' open':'') + '" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+    if (editProdId === p.id) {
+      rowHtml += '<input class="p-edit-inp" id="pe-' + p.id + '" value="' + esc(p.name) + '" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')saveProd(' + p.id + ')">';
+    } else {
+      rowHtml += '<div class="p-name">' + esc(p.name) + (vs.length ? ' <span style="color:var(--ink3);font-weight:400;font-size:12px">(' + totalStock + ' in stock)</span>' : '') + '</div>';
+    }
+
+    rowHtml += '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" onclick="event.stopPropagation();togProd(' + p.id + ',' + p.active + ')">' + (p.active?'Active':'Hidden') + '</button>';
+
+    if (editProdId === p.id) {
+      rowHtml += '<button class="ibt" onclick="event.stopPropagation();saveProd(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
+        + '<button class="ibt" onclick="event.stopPropagation();cancelPEdit()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+    } else {
+      rowHtml += '<button class="ibt" onclick="event.stopPropagation();startPEdit(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+    }
+    rowHtml += '<button class="ibt del" onclick="event.stopPropagation();delProd(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg></button>';
+    rowHtml += '</div>';
+
+    // Variant panel
+    var panelHtml = '<div class="variant-wrap' + (isOpen?' open':'') + '" id="vw-' + p.id + '">';
+    vs.forEach(function(v) {
+      panelHtml += '<div class="variant-row">'
+        + '<div class="variant-color">' + esc(v.color) + '</div>'
+        + '<div class="variant-stock">'
+          + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onchange="updateStock(' + v.id + ',this.value)">'
+          + '<span class="stock-badge ' + stockBadgeClass(v.stock_qty) + '">' + (v.stock_qty<=0?'Out':v.stock_qty<=3?'Low':'OK') + '</span>'
+          + '<button class="ibt del" onclick="delVariant(' + v.id + ',' + p.id + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+        + '</div>'
+        + '</div>';
+    });
+    panelHtml += '<div class="variant-add-row">'
+      + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\')addVariant(' + p.id + ')">'
+      + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0">'
+      + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ')" style="padding:7px 12px;font-size:12px">+ Add</button>'
+      + '</div>';
+    panelHtml += '</div>';
+
+    return rowHtml + panelHtml;
+  }).join('');
+
   if(editProdId){ const i=document.getElementById('pe-'+editProdId); if(i){i.focus();i.select();} }
 }
+
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
   if(!n){toast('Enter a name',true);return;}
@@ -800,7 +877,61 @@ async function addProd() {
   const {data,error}=await db.from('products').insert({name:n,active:true}).select();
   if(error){toast('Error: '+error.message,true);return;}
   products.push(data[0]); document.getElementById('newProd').value='';
-  fillDrop(); renderProds(); toast('Product added ✓');
+  fillDrop(); renderProds(); toast('Product added');
+}
+
+async function addVariant(productId) {
+  var colorInput = document.getElementById('newVariant-' + productId);
+  var stockInput = document.getElementById('newVariantStock-' + productId);
+  var color = colorInput.value.trim();
+  var stock = parseInt(stockInput.value) || 0;
+  if (!color) { toast('Enter a color name', true); return; }
+
+  const {data, error} = await db.from('product_variants')
+    .insert({ product_id: productId, color: color, stock_qty: stock, active: true })
+    .select();
+
+  if (error) {
+    if (error.code === '23505') { toast('That color already exists', true); }
+    else { toast('Error: ' + error.message, true); }
+    return;
+  }
+
+  if (!_variants[productId]) _variants[productId] = [];
+  _variants[productId].push(data[0]);
+  colorInput.value = ''; stockInput.value = '0';
+  renderProds();
+  toast('Variant added');
+}
+
+async function updateStock(variantId, newQty) {
+  newQty = parseInt(newQty) || 0;
+  const {error} = await db.from('product_variants').update({ stock_qty: newQty }).eq('id', variantId);
+  if (error) { toast('Error: ' + error.message, true); return; }
+
+  // Update local cache
+  Object.keys(_variants).forEach(function(pid) {
+    _variants[pid].forEach(function(v) {
+      if (v.id === variantId) v.stock_qty = newQty;
+    });
+  });
+
+  // Log manual adjustment
+  db.from('stock_movements').insert({
+    variant_id: variantId, change_qty: 0, reason: 'manual_adjustment'
+  });
+
+  renderProds();
+  toast('Stock updated');
+}
+
+async function delVariant(variantId, productId) {
+  if (!confirm('Remove this color variant?')) return;
+  const {error} = await db.from('product_variants').delete().eq('id', variantId);
+  if (error) { toast('Error: ' + error.message, true); return; }
+  _variants[productId] = (_variants[productId]||[]).filter(function(v){ return v.id !== variantId; });
+  renderProds();
+  toast('Variant removed');
 }
 function startPEdit(id){editProdId=id;renderProds();}
 function cancelPEdit(){editProdId=null;renderProds();}
@@ -1253,6 +1384,7 @@ function loadProfile(uid) {
     var _od = document.getElementById('ordersDate');
     if (_od) _od.value = today();
     loadProds();
+    loadVariants();
     loadOrders();
   }).catch(function() { showLogin(); });
 }
