@@ -213,6 +213,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 /* ── PRODUCTS ── */
 .prod-add-row{display:flex;gap:8px;margin-bottom:12px}
 .prod-add-row .fg{flex:1;margin:0}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden}
+.pcard-top{display:flex;gap:12px;padding:12px;cursor:pointer}
+.pcard-top.off{opacity:.4}
+.pcard-img{width:56px;height:56px;border-radius:10px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.pcard-img img{width:100%;height:100%;object-fit:cover}
+.pcard-img svg{color:var(--ink3);opacity:.4}
+.pcard-info{flex:1;min-width:0}
+.pcard-name{font-size:14px;font-weight:600;color:var(--ink)}
+.pcard-price{font-size:13px;color:var(--blue);font-weight:700;margin-top:2px}
+.pcard-stock{font-size:11px;color:var(--ink3);margin-top:2px}
+.pcard-expand{color:var(--ink3);flex-shrink:0;align-self:center;transition:transform .2s}
+.pcard-expand.open{transform:rotate(90deg)}
 .prow{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0;cursor:pointer}
 .prow.no-variants{border-radius:var(--r)}
 .prow-expand{transition:transform .2s;color:var(--ink3);flex-shrink:0}
@@ -548,12 +560,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 
 <!-- PRODUCTS -->
 <div class="screen" id="sc-products">
-  <div class="pg"><div class="pg-title">Products</div><div style="font-size:13px;color:var(--ink3);margin-top:4px">Manage your bag catalogue</div></div>
+  <div class="pg"><div class="pg-title">Products</div><div style="font-size:13px;color:var(--ink3);margin-top:4px">Manage your bag catalogue, pricing & stock</div></div>
   <div class="prod-body" style="padding:0 16px 16px">
-    <div class="prod-add-row">
-      <div class="fg"><label>New Product</label><input type="text" id="newProd" placeholder="e.g. Clutch Bag — Gold"></div>
-      <button class="btn btn-blue btn-sm" onclick="addProd()" style="align-self:flex-end;padding:11px 16px">+ Add</button>
+
+    <!-- ADD NEW PRODUCT CARD -->
+    <div class="fcard">
+      <div class="fcard-hdr">Add New Product</div>
+
+      <!-- Photo upload -->
+      <div class="fg">
+        <label>Photo</label>
+        <div id="newProdPhotoPreview" style="width:100%;height:140px;border:1.5px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--card2);overflow:hidden;cursor:pointer" onclick="document.getElementById('newProdPhotoInput').click()">
+          <div id="newProdPhotoPlaceholder" style="text-align:center;color:var(--ink3)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <div style="font-size:12px;font-weight:600">Tap to add photo</div>
+          </div>
+        </div>
+        <input type="file" id="newProdPhotoInput" accept="image/*" style="display:none" onchange="previewNewProdPhoto(this)">
+      </div>
+
+      <div class="fg"><label>Product Name</label><input type="text" id="newProd" placeholder="e.g. Moon Bag"></div>
+      <div class="fgrid">
+        <div class="fg"><label>Cost Price (MVR)</label><input type="number" id="newProdCost" placeholder="0" min="0"></div>
+        <div class="fg"><label>Selling Price (MVR)</label><input type="number" id="newProdPrice" placeholder="0" min="0"></div>
+      </div>
+      <div class="factions">
+        <button class="btn btn-blue" onclick="addProd()">Add Product</button>
+      </div>
     </div>
+
     <div id="prodList"><div class="empty"><div class="empty-t">Loading…</div></div></div>
   </div>
 </div>
@@ -792,9 +827,30 @@ function fillDrop() {
   s.innerHTML='<option value="">Select product…</option>';
   products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.name; o.textContent=p.name; if(p.name===cur) o.selected=true; s.appendChild(o); });
 }
-var _variants = {};      // productId -> array of variants
-var _expandedProd = null; // currently expanded product id
-var _addingVariant = null; // product id currently adding a variant to
+var _variants = {};
+var _expandedProd = null;
+var _newProdPhotoFile = null;
+
+function previewNewProdPhoto(input) {
+  var file = input.files[0];
+  if (!file) return;
+  _newProdPhotoFile = file;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('newProdPhotoPreview').innerHTML =
+      '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadProductPhoto(file, productId) {
+  var ext = file.name.split('.').pop();
+  var path = productId + '_' + Date.now() + '.' + ext;
+  const {data, error} = await db.storage.from('product-images').upload(path, file, { upsert: true });
+  if (error) { console.error('Upload error:', error); return null; }
+  const { data: urlData } = db.storage.from('product-images').getPublicUrl(path);
+  return urlData.publicUrl;
+}
 
 async function loadVariants() {
   const {data} = await db.from('product_variants').select('*').order('color');
@@ -825,46 +881,67 @@ function renderProds() {
     var isOpen = _expandedProd === p.id;
     var totalStock = vs.reduce(function(s,v){ return s + v.stock_qty; }, 0);
 
-    var rowHtml = '<div class="prow ' + (p.active?'':'off') + (vs.length===0?' no-variants':'') + '" onclick="toggleProdExpand(' + p.id + ')">'
-      + '<svg class="prow-expand' + (isOpen?' open':'') + '" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    var imgHtml = p.image_url
+      ? '<img src="' + p.image_url + '" alt="">'
+      : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
 
+    var cardHtml = '<div class="pcard">'
+      + '<div class="pcard-top' + (p.active?'':' off') + '" onclick="toggleProdExpand(' + p.id + ')">'
+      + '<div class="pcard-img">' + imgHtml + '</div>'
+      + '<div class="pcard-info">'
+        + '<div class="pcard-name">' + esc(p.name) + '</div>'
+        + '<div class="pcard-price">MVR ' + Number(p.selling_price||0).toLocaleString() + (p.cost_price ? ' <span style="color:var(--ink3);font-weight:400">· cost ' + Number(p.cost_price).toLocaleString() + '</span>' : '') + '</div>'
+        + '<div class="pcard-stock">' + (vs.length ? totalStock + ' in stock across ' + vs.length + ' ' + (vs.length===1?'color':'colors') : 'No colors added yet') + '</div>'
+      + '</div>'
+      + '<svg class="pcard-expand' + (isOpen?' open':'') + '" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      + '</div>';
+
+    // Expandable detail panel
+    cardHtml += '<div class="variant-wrap' + (isOpen?' open':'') + '" id="vw-' + p.id + '" onclick="event.stopPropagation()" style="border-radius:0">';
+
+    // Edit product row (name + prices + toggle + delete)
+    cardHtml += '<div style="padding:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px">';
     if (editProdId === p.id) {
-      rowHtml += '<input class="p-edit-inp" id="pe-' + p.id + '" value="' + esc(p.name) + '" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')saveProd(' + p.id + ')">';
+      cardHtml += '<input class="p-edit-inp" id="pe-' + p.id + '" value="' + esc(p.name) + '" style="width:100%">'
+        + '<div style="display:flex;gap:8px">'
+        + '<input type="number" id="pe-cost-' + p.id + '" value="' + (p.cost_price||0) + '" placeholder="Cost price" style="flex:1;border:1.5px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--card)">'
+        + '<input type="number" id="pe-price-' + p.id + '" value="' + (p.selling_price||0) + '" placeholder="Selling price" style="flex:1;border:1.5px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--card)">'
+        + '</div>'
+        + '<div style="display:flex;gap:8px">'
+        + '<button class="btn btn-blue btn-sm" onclick="saveProd(' + p.id + ')">Save</button>'
+        + '<button class="btn btn-ghost btn-sm" onclick="cancelPEdit()">Cancel</button>'
+        + '</div>';
     } else {
-      rowHtml += '<div class="p-name">' + esc(p.name) + (vs.length ? ' <span style="color:var(--ink3);font-weight:400;font-size:12px">(' + totalStock + ' in stock)</span>' : '') + '</div>';
+      cardHtml += '<div style="display:flex;gap:8px;align-items:center">'
+        + '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" onclick="togProd(' + p.id + ',' + p.active + ')">' + (p.active?'Active':'Hidden') + '</button>'
+        + '<button class="ibt" onclick="startPEdit(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+        + '<button class="ibt del" onclick="delProd(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg></button>'
+        + '</div>';
     }
+    cardHtml += '</div>';
 
-    rowHtml += '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" onclick="event.stopPropagation();togProd(' + p.id + ',' + p.active + ')">' + (p.active?'Active':'Hidden') + '</button>';
-
-    if (editProdId === p.id) {
-      rowHtml += '<button class="ibt" onclick="event.stopPropagation();saveProd(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
-        + '<button class="ibt" onclick="event.stopPropagation();cancelPEdit()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-    } else {
-      rowHtml += '<button class="ibt" onclick="event.stopPropagation();startPEdit(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
-    }
-    rowHtml += '<button class="ibt del" onclick="event.stopPropagation();delProd(' + p.id + ')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4h6v2"/></svg></button>';
-    rowHtml += '</div>';
-
-    // Variant panel
-    var panelHtml = '<div class="variant-wrap' + (isOpen?' open':'') + '" id="vw-' + p.id + '">';
+    // Variants list
     vs.forEach(function(v) {
-      panelHtml += '<div class="variant-row" onclick="event.stopPropagation()">'
+      cardHtml += '<div class="variant-row">'
         + '<div class="variant-color">' + esc(v.color) + '</div>'
         + '<div class="variant-stock">'
-          + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onclick="event.stopPropagation()" onchange="updateStock(' + v.id + ',this.value)">'
+          + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onchange="updateStock(' + v.id + ',this.value)">'
           + '<span class="stock-badge ' + stockBadgeClass(v.stock_qty) + '">' + (v.stock_qty<=0?'Out':v.stock_qty<=3?'Low':'OK') + '</span>'
-          + '<button class="ibt del" onclick="event.stopPropagation();delVariant(' + v.id + ',' + p.id + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+          + '<button class="ibt del" onclick="delVariant(' + v.id + ',' + p.id + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
         + '</div>'
         + '</div>';
     });
-    panelHtml += '<div class="variant-add-row" onclick="event.stopPropagation()">'
-      + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')addVariant(' + p.id + ')">'
-      + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0" onclick="event.stopPropagation()">'
-      + '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();addVariant(' + p.id + ')" style="padding:7px 12px;font-size:12px">+ Add</button>'
-      + '</div>';
-    panelHtml += '</div>';
 
-    return rowHtml + panelHtml;
+    cardHtml += '<div class="variant-add-row">'
+      + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\')addVariant(' + p.id + ')">'
+      + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0">'
+      + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ')" style="padding:7px 12px;font-size:12px">+ Add</button>'
+      + '</div>';
+
+    cardHtml += '</div>'; // end variant-wrap
+    cardHtml += '</div>'; // end pcard
+
+    return cardHtml;
   }).join('');
 
   if(editProdId){ const i=document.getElementById('pe-'+editProdId); if(i){i.focus();i.select();} }
@@ -872,11 +949,35 @@ function renderProds() {
 
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
-  if(!n){toast('Enter a name',true);return;}
+  const cost = parseFloat(document.getElementById('newProdCost').value) || 0;
+  const price = parseFloat(document.getElementById('newProdPrice').value) || 0;
+  if(!n){toast('Enter a product name',true);return;}
   if(products.find(p=>p.name.toLowerCase()===n.toLowerCase())){toast('Already exists',true);return;}
-  const {data,error}=await db.from('products').insert({name:n,active:true}).select();
+
+  const {data,error}=await db.from('products').insert({
+    name:n, active:true, cost_price:cost, selling_price:price, price:price
+  }).select();
+
   if(error){toast('Error: '+error.message,true);return;}
-  products.push(data[0]); document.getElementById('newProd').value='';
+  var newProduct = data[0];
+
+  // Upload photo if one was selected
+  if (_newProdPhotoFile) {
+    var url = await uploadProductPhoto(_newProdPhotoFile, newProduct.id);
+    if (url) {
+      await db.from('products').update({ image_url: url }).eq('id', newProduct.id);
+      newProduct.image_url = url;
+    }
+  }
+
+  products.push(newProduct);
+  document.getElementById('newProd').value='';
+  document.getElementById('newProdCost').value='';
+  document.getElementById('newProdPrice').value='';
+  document.getElementById('newProdPhotoPreview').innerHTML =
+    '<div id="newProdPhotoPlaceholder" style="text-align:center;color:var(--ink3)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:12px;font-weight:600">Tap to add photo</div></div>';
+  _newProdPhotoFile = null;
+
   fillDrop(); renderProds(); toast('Product added');
 }
 
@@ -909,14 +1010,12 @@ async function updateStock(variantId, newQty) {
   const {error} = await db.from('product_variants').update({ stock_qty: newQty }).eq('id', variantId);
   if (error) { toast('Error: ' + error.message, true); return; }
 
-  // Update local cache
   Object.keys(_variants).forEach(function(pid) {
     _variants[pid].forEach(function(v) {
       if (v.id === variantId) v.stock_qty = newQty;
     });
   });
 
-  // Log manual adjustment
   db.from('stock_movements').insert({
     variant_id: variantId, change_qty: 0, reason: 'manual_adjustment'
   });
@@ -937,11 +1036,16 @@ function startPEdit(id){editProdId=id;renderProds();}
 function cancelPEdit(){editProdId=null;renderProds();}
 async function saveProd(id) {
   const i=document.getElementById('pe-'+id); const n=i?i.value.trim():'';
+  const costEl = document.getElementById('pe-cost-'+id);
+  const priceEl = document.getElementById('pe-price-'+id);
+  const cost = costEl ? (parseFloat(costEl.value)||0) : 0;
+  const price = priceEl ? (parseFloat(priceEl.value)||0) : 0;
   if(!n){toast('Name empty',true);return;}
-  const {error}=await db.from('products').update({name:n}).eq('id',id);
+  const {error}=await db.from('products').update({name:n, cost_price:cost, selling_price:price, price:price}).eq('id',id);
   if(error){toast('Error: '+error.message,true);return;}
-  const p=products.find(x=>x.id===id); if(p) p.name=n;
-  editProdId=null; fillDrop(); renderProds(); toast('Renamed ✓');
+  const p=products.find(x=>x.id===id);
+  if(p) { p.name=n; p.cost_price=cost; p.selling_price=price; p.price=price; }
+  editProdId=null; fillDrop(); renderProds(); toast('Saved');
 }
 async function togProd(id,cur) {
   const {error}=await db.from('products').update({active:!cur}).eq('id',id);
