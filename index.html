@@ -454,6 +454,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   <div class="d-date" id="ddate"></div>
   <div class="d-nav">
     <div class="d-sec">Main</div>
+    <button class="d-item" id="dn-dashboard" onclick="go('dashboard')" style="display:none">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Dashboard
+    </button>
     <button class="d-item on" id="dn-orders" onclick="go('orders')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></span>Orders
     </button>
@@ -492,8 +495,40 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 <!-- ═══ SCROLL ═══════════════════════════════════════════════════════════════ -->
 <div class="content">
 
+<!-- DASHBOARD -->
+<div class="screen" id="sc-dashboard">
+  <div class="pg">
+    <div class="pg-title">Dashboard</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px" id="dashGreeting">Here's how things are going</div>
+  </div>
+
+  <!-- Today's pulse -->
+  <div class="stats">
+    <div class="stat hi"><div class="stat-n" id="dashOrdersToday">0</div><div class="stat-l">Orders Today</div></div>
+    <div class="stat hi"><div class="stat-n" id="dashRevenueToday">0</div><div class="stat-l">Revenue Today</div></div>
+    <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashPending">0</div><div class="stat-l">Pending</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
+    <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
+    <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashRevenueMonth">0</div><div class="stat-l">Revenue (Month)</div></div>
+  </div>
+
+  <!-- Action items -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Needs Attention</div>
+  </div>
+  <div style="padding:0 16px 16px" id="dashActionItems"></div>
+
+  <!-- Top products this month -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Top Products This Month</div>
+  </div>
+  <div style="padding:0 16px 16px" id="dashTopProducts"></div>
+</div>
+
 <!-- ORDERS -->
-<div class="screen on" id="sc-orders">
+<div class="screen" id="sc-orders">
   <div class="pg">
     <div class="pg-title">Today's Orders</div>
     <div style="font-size:12px;color:var(--ink3);margin-top:4px;font-weight:500" id="pg-date-label"></div>
@@ -923,11 +958,13 @@ function go(s) {
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
+  if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
   if(s==='settings') updSett();
   if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
+  if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
 }
 
 /* UTILS */
@@ -1867,7 +1904,9 @@ function applyRole(profile) {
   if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
   var salesBtn = document.getElementById('dn-sales');
   if (salesBtn) salesBtn.style.display = role==='admin' ? '' : 'none';
-  go('orders');
+  var dashBtn = document.getElementById('dn-dashboard');
+  if (dashBtn) dashBtn.style.display = role==='admin' ? '' : 'none';
+  go(role==='admin' ? 'dashboard' : 'orders');
 }
 
 function roleLabel(role) {
@@ -2047,6 +2086,93 @@ function fallbackCopy(text,btn,count) {
 }
 
 /* ── HISTORY ── */
+async function loadDashboard() {
+  var todayDate = today();
+
+  // Today's orders + revenue
+  const {data: todayOrders} = await db.from('orders').select('*').eq('order_date', todayDate);
+  var ordersToday = (todayOrders||[]).filter(function(o){ return o.status !== 'cancelled'; });
+  var revenueToday = ordersToday.filter(function(o){ return o.status === 'delivered'; })
+                                .reduce(function(s,o){ return s + Number(o.price); }, 0);
+  var pendingCount = (todayOrders||[]).filter(function(o){ return o.status === 'pending'; }).length;
+
+  document.getElementById('dashOrdersToday').textContent = ordersToday.length;
+  document.getElementById('dashRevenueToday').textContent = revenueToday.toLocaleString();
+  document.getElementById('dashPending').textContent = pendingCount;
+
+  // Stock levels across all products
+  var lowStock = products.filter(function(p){ return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= 3; }).length;
+  var outStock = products.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; }).length;
+  document.getElementById('dashLowStock').textContent = lowStock;
+  document.getElementById('dashOutStock').textContent = outStock;
+
+  // This month's revenue (delivered only)
+  var d = new Date();
+  var monthStart = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+  const {data: monthOrders} = await db.from('orders').select('*')
+    .eq('status','delivered').gte('order_date', monthStart).lte('order_date', todayDate);
+  var revenueMonth = (monthOrders||[]).reduce(function(s,o){ return s + Number(o.price); }, 0);
+  document.getElementById('dashRevenueMonth').textContent = revenueMonth.toLocaleString();
+
+  // Action items — orders waiting at each stage (all-time, not just today)
+  const {data: allActive} = await db.from('orders').select('*').in('status', ['pending','confirmed','packed']);
+  var waitingConfirm = (allActive||[]).filter(function(o){ return o.status === 'pending'; }).length;
+  var waitingPack    = (allActive||[]).filter(function(o){ return o.status === 'confirmed'; }).length;
+  var waitingDeliver = (allActive||[]).filter(function(o){ return o.status === 'packed'; }).length;
+
+  var actionsEl = document.getElementById('dashActionItems');
+  var actions = [];
+  if (waitingConfirm > 0) actions.push({ label: waitingConfirm + ' order' + (waitingConfirm!==1?'s':'') + ' awaiting confirmation', color: 'amber', filter: 'pending' });
+  if (waitingPack > 0)    actions.push({ label: waitingPack + ' order' + (waitingPack!==1?'s':'') + ' ready to pack', color: 'blue', filter: 'confirmed' });
+  if (waitingDeliver > 0) actions.push({ label: waitingDeliver + ' order' + (waitingDeliver!==1?'s':'') + ' ready to deliver', color: 'green', filter: 'packed' });
+  if (outStock > 0) actions.push({ label: outStock + ' product' + (outStock!==1?'s':'') + ' out of stock', color: 'red', filter: null });
+
+  if (!actions.length) {
+    actionsEl.innerHTML = '<div class="empty" style="padding:24px"><div class="empty-t">All caught up</div><div class="empty-s">No pending actions right now</div></div>';
+  } else {
+    actionsEl.innerHTML = actions.map(function(a) {
+      var colorMap = { amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)', red:'var(--red)' };
+      var bgMap = { amber:'var(--amber-l)', blue:'var(--blue-l)', green:'var(--green-l)', red:'var(--red-l)' };
+      return '<div onclick="' + (a.filter ? "go('orders')" : "go('products')") + '" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:' + bgMap[a.color] + ';border-radius:var(--r);margin-bottom:8px;cursor:pointer">'
+        + '<div style="width:8px;height:8px;border-radius:50%;background:' + colorMap[a.color] + ';flex-shrink:0"></div>'
+        + '<div style="flex:1;font-size:13px;font-weight:600;color:' + colorMap[a.color] + '">' + a.label + '</div>'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + colorMap[a.color] + '" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Top products this month
+  var productTotals = {};
+  (monthOrders||[]).forEach(function(o) {
+    var key = o.product || 'Unknown';
+    if (!productTotals[key]) productTotals[key] = 0;
+    productTotals[key] += 1;
+  });
+  var sorted = Object.keys(productTotals).map(function(k){ return { name: k, qty: productTotals[k] }; })
+    .sort(function(a,b){ return b.qty - a.qty; }).slice(0, 3);
+
+  var topEl = document.getElementById('dashTopProducts');
+  if (!sorted.length) {
+    topEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-t">No sales yet this month</div></div>';
+  } else {
+    topEl.innerHTML = sorted.map(function(item, i) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px">'
+        + '<div style="width:24px;height:24px;border-radius:6px;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (i+1) + '</div>'
+        + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--ink)">' + esc(item.name) + '</div>'
+        + '<div style="font-size:12px;color:var(--ink3)">' + item.qty + ' sold</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Greeting
+  var greetEl = document.getElementById('dashGreeting');
+  if (greetEl) {
+    var hour = new Date().getHours();
+    var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    greetEl.textContent = greeting + ' — here\'s your overview';
+  }
+}
+
 var _salesRange = 'today';
 var _salesOrders = [];
 
