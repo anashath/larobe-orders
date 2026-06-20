@@ -502,7 +502,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
       <div class="fgrid">
         <div class="fg"><label>Customer Name</label><input type="text" id="fName" placeholder="Aminath Riyasha"></div>
         <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx"></div>
-        <div class="fg ffull"><label>Product</label><select id="fProduct"><option value="">Select product…</option></select></div>
+        <div class="fg ffull"><label>Product</label><select id="fProduct" onchange="onOrderProductChange()"><option value="">Select product…</option></select></div>
+        <div class="fg ffull" id="fColorWrap" style="display:none"><label>Color</label><select id="fColor" onchange="onOrderColorChange()"><option value="">Select color…</option></select></div>
         <div class="fg"><label>Price (MVR)</label><input type="number" id="fPrice" placeholder="0" min="0" inputmode="numeric"></div>
         <div class="fg"><label>Status</label><select id="fStatus"><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="delivered">Delivered</option></select></div>
       </div>
@@ -832,6 +833,7 @@ function go(s) {
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
   if(s==='products') { loadVariants().then(renderProds); }
+  if(s==='new')      { loadVariants().then(fillDrop); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='settings') updSett();
@@ -862,7 +864,42 @@ async function loadProds() {
 function fillDrop() {
   const s=document.getElementById('fProduct'), cur=s.value;
   s.innerHTML='<option value="">Select product…</option>';
-  products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.name; o.textContent=p.name; if(p.name===cur) o.selected=true; s.appendChild(o); });
+  products.filter(p=>p.active).forEach(p=>{ const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; if(String(p.id)===String(cur)) o.selected=true; s.appendChild(o); });
+}
+
+function onOrderProductChange() {
+  var productId = parseInt(document.getElementById('fProduct').value);
+  var colorWrap = document.getElementById('fColorWrap');
+  var colorSel = document.getElementById('fColor');
+  var priceInput = document.getElementById('fPrice');
+
+  var p = products.find(function(x){ return x.id === productId; });
+  if (!p) { colorWrap.style.display='none'; return; }
+
+  // Auto-fill selling price
+  if (p.selling_price) priceInput.value = p.selling_price;
+
+  var vs = (_variants[productId] || []).filter(function(v){ return v.active; });
+
+  if (!vs.length) {
+    // No variants — hide color picker, order proceeds without one
+    colorWrap.style.display = 'none';
+    return;
+  }
+
+  colorWrap.style.display = '';
+  colorSel.innerHTML = '<option value="">Select color…</option>';
+  vs.forEach(function(v) {
+    var o = document.createElement('option');
+    o.value = v.id;
+    o.textContent = v.color + ' (' + v.stock_qty + ' in stock)';
+    if (v.stock_qty <= 0) { o.textContent += ' — OUT OF STOCK'; o.disabled = true; }
+    colorSel.appendChild(o);
+  });
+}
+
+function onOrderColorChange() {
+  // Nothing extra needed right now — stock check happens at submit time
 }
 var _variants = {};
 var _expandedProd = null;
@@ -1277,10 +1314,27 @@ async function loadOrders() {
 }
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
-  const prod=document.getElementById('fProduct').value;
-  if(!name||!prod){toast('Fill in name and product',true);return;}
+  const productId=parseInt(document.getElementById('fProduct').value);
+  if(!name||!productId){toast('Fill in name and product',true);return;}
+
+  var p = products.find(function(x){ return x.id === productId; });
+  if (!p) { toast('Product not found', true); return; }
+
+  // Check if this product has variants — if so, color is required
+  var vs = (_variants[productId] || []).filter(function(v){ return v.active; });
+  var variantId = null;
+  var productLabel = p.name;
+
+  if (vs.length) {
+    variantId = parseInt(document.getElementById('fColor').value) || null;
+    if (!variantId) { toast('Please select a color', true); return; }
+    var v = vs.find(function(x){ return x.id === variantId; });
+    if (!v) { toast('Color not found', true); return; }
+    if (v.stock_qty <= 0) { toast('That color is out of stock', true); return; }
+    productLabel = p.name + ' - ' + v.color;
+  }
+
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
-  // Daily order number — resets to 1 each new day
   var orderDate = today();
   var numRes = await db.from('orders')
     .select('num')
@@ -1288,10 +1342,12 @@ async function addOrder() {
     .order('num', { ascending: false })
     .limit(1);
   var num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
+
   const {data,error}=await db.from('orders').insert({
     num, customer_name:name,
     contact:document.getElementById('fContact').value.trim(),
-    product:prod,
+    product:productLabel,
+    variant_id:variantId,
     price:parseFloat(document.getElementById('fPrice').value)||0,
     status:document.getElementById('fStatus').value,
     delivery:document.getElementById('fDelivery').value,
@@ -1301,14 +1357,65 @@ async function addOrder() {
     order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'}),
     payment_done:_payDone
   }).select();
+
   btn.disabled=false; btn.textContent='Record Order';
   if(error){toast('Error: '+error.message,true);return;}
   if(data&&data.length) orders.unshift(data[0]);
-  render(); clearForm(); toast('Order #'+num+' recorded ✓'); go('orders');
+
+  // If order is created already-confirmed, deduct stock immediately
+  if (variantId && data && data.length && (data[0].status === 'confirmed' || data[0].status === 'packed' || data[0].status === 'delivered')) {
+    await deductStock(data[0]);
+  }
+
+  render(); clearForm(); toast('Order #'+num+' recorded'); go('orders');
+}
+
+async function deductStock(order) {
+  if (!order.variant_id || order.stock_deducted) return;
+  var v = null;
+  Object.keys(_variants).forEach(function(pid) {
+    var found = _variants[pid].find(function(x){ return x.id === order.variant_id; });
+    if (found) v = found;
+  });
+  if (!v) return;
+
+  var newQty = Math.max(0, v.stock_qty - 1);
+  await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
+  v.stock_qty = newQty;
+
+  await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
+  order.stock_deducted = true;
+
+  await db.from('stock_movements').insert({
+    variant_id: v.id, order_id: order.id, change_qty: -1, reason: 'order_confirmed'
+  });
+}
+
+async function restoreStock(order) {
+  if (!order.variant_id || !order.stock_deducted) return;
+  var v = null;
+  Object.keys(_variants).forEach(function(pid) {
+    var found = _variants[pid].find(function(x){ return x.id === order.variant_id; });
+    if (found) v = found;
+  });
+  if (!v) return;
+
+  var newQty = v.stock_qty + 1;
+  await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
+  v.stock_qty = newQty;
+
+  await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
+  order.stock_deducted = false;
+
+  await db.from('stock_movements').insert({
+    variant_id: v.id, order_id: order.id, change_qty: 1, reason: 'order_cancelled'
+  });
 }
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fPrice').value=''; document.getElementById('fProduct').value='';
+  document.getElementById('fColorWrap').style.display='none';
+  document.getElementById('fColor').innerHTML='<option value="">Select color…</option>';
   _payDone=false; renderPayDone();
 }
 function renderPayDone() {
@@ -1470,15 +1577,24 @@ async function saveEdit() {
   const o=orders.find(x=>x.id===viewId); if(o) Object.assign(o,u);
   render(); openSheet(viewId); toast('Saved ✓');
 }
-function updateOrderStatus(newStatus) {
+async function updateOrderStatus(newStatus) {
   if (!viewId) return;
-  db.from('orders').update({ status: newStatus }).eq('id', viewId).then(function(res) {
-    if (res.error) { toast('Error: ' + res.error.message, true); return; }
-    var o = orders.find(function(x){return x.id===viewId;});
-    if (o) o.status = newStatus;
-    closeSheet(); render();
-    toast('Status updated to ' + newStatus);
-  });
+  const res = await db.from('orders').update({ status: newStatus }).eq('id', viewId);
+  if (res.error) { toast('Error: ' + res.error.message, true); return; }
+  var o = orders.find(function(x){return x.id===viewId;});
+  if (o) {
+    o.status = newStatus;
+    // Deduct stock when order becomes confirmed/packed/delivered (first time only)
+    if (['confirmed','packed','delivered'].indexOf(newStatus) >= 0 && !o.stock_deducted) {
+      await deductStock(o);
+    }
+    // Restore stock if order is cancelled after stock was deducted
+    if (newStatus === 'cancelled' && o.stock_deducted) {
+      await restoreStock(o);
+    }
+  }
+  closeSheet(); render();
+  toast('Status updated to ' + newStatus);
 }
 
 async function delOrder(id) {
