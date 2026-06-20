@@ -848,19 +848,19 @@ function renderProds() {
     // Variant panel
     var panelHtml = '<div class="variant-wrap' + (isOpen?' open':'') + '" id="vw-' + p.id + '">';
     vs.forEach(function(v) {
-      panelHtml += '<div class="variant-row">'
+      panelHtml += '<div class="variant-row" onclick="event.stopPropagation()">'
         + '<div class="variant-color">' + esc(v.color) + '</div>'
         + '<div class="variant-stock">'
-          + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onchange="updateStock(' + v.id + ',this.value)">'
+          + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onclick="event.stopPropagation()" onchange="updateStock(' + v.id + ',this.value)">'
           + '<span class="stock-badge ' + stockBadgeClass(v.stock_qty) + '">' + (v.stock_qty<=0?'Out':v.stock_qty<=3?'Low':'OK') + '</span>'
-          + '<button class="ibt del" onclick="delVariant(' + v.id + ',' + p.id + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+          + '<button class="ibt del" onclick="event.stopPropagation();delVariant(' + v.id + ',' + p.id + ')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
         + '</div>'
         + '</div>';
     });
-    panelHtml += '<div class="variant-add-row">'
-      + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onkeydown="if(event.key===\'Enter\')addVariant(' + p.id + ')">'
-      + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0">'
-      + '<button class="btn btn-blue btn-sm" onclick="addVariant(' + p.id + ')" style="padding:7px 12px;font-size:12px">+ Add</button>'
+    panelHtml += '<div class="variant-add-row" onclick="event.stopPropagation()">'
+      + '<input type="text" id="newVariant-' + p.id + '" placeholder="Add color (e.g. Black)" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')addVariant(' + p.id + ')">'
+      + '<input type="number" id="newVariantStock-' + p.id + '" placeholder="Qty" style="width:60px;flex:0 0 auto" value="0" onclick="event.stopPropagation()">'
+      + '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();addVariant(' + p.id + ')" style="padding:7px 12px;font-size:12px">+ Add</button>'
       + '</div>';
     panelHtml += '</div>';
 
