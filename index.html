@@ -721,6 +721,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   </div>
 </div>
 
+<!-- ═══ RESTOCK PROMPT ══════════════════════════════════════════════════════ -->
+<div class="s-mask" id="restockMask" style="z-index:150">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Restock</div><div class="s-sub" id="restockSub"></div></div>
+      <button class="s-x" onclick="closeRestockPrompt()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <div class="fg"><label>Quantity Received</label><input type="number" id="restockQty" placeholder="e.g. 10" min="1"></div>
+      <div class="fg"><label>Cost Price This Batch (MVR)</label><input type="number" id="restockCost" placeholder="e.g. 110"></div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px">This updates the product's cost price and adds to current stock. Logged for your records.</div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeRestockPrompt()">Cancel</button>
+      <button class="sfbtn sf-blue" onclick="confirmRestock()">Add Stock</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ EDIT PRODUCT SHEET ══════════════════════════════════════════════════ -->
 <div class="s-mask" id="prodSheetMask">
   <div class="sheet">
@@ -957,6 +977,59 @@ async function addProd() {
 var _prodSheetId = null;
 var _prodSheetPhotoFile = null;
 
+var _restockVariantId = null;
+var _restockProductId = null;
+
+function openRestockPrompt(variantId, productId) {
+  _restockVariantId = variantId;
+  _restockProductId = productId;
+  var v = (_variants[productId]||[]).find(function(x){ return x.id === variantId; });
+  var p = products.find(function(x){ return x.id === productId; });
+  document.getElementById('restockSub').textContent = (p?p.name:'') + ' — ' + (v?v.color:'') + ' (current: ' + (v?v.stock_qty:0) + ')';
+  document.getElementById('restockQty').value = '';
+  document.getElementById('restockCost').value = p ? (p.cost_price||'') : '';
+  document.getElementById('restockMask').classList.add('open');
+}
+
+function closeRestockPrompt() {
+  document.getElementById('restockMask').classList.remove('open');
+  _restockVariantId = null;
+  _restockProductId = null;
+}
+
+async function confirmRestock() {
+  var qty = parseInt(document.getElementById('restockQty').value) || 0;
+  var cost = parseFloat(document.getElementById('restockCost').value) || 0;
+  if (qty <= 0) { toast('Enter a quantity greater than 0', true); return; }
+
+  var v = (_variants[_restockProductId]||[]).find(function(x){ return x.id === _restockVariantId; });
+  if (!v) { toast('Variant not found', true); return; }
+
+  var newQty = v.stock_qty + qty;
+
+  // Update stock
+  const {error} = await db.from('product_variants').update({ stock_qty: newQty }).eq('id', v.id);
+  if (error) { toast('Error: ' + error.message, true); return; }
+  v.stock_qty = newQty;
+
+  // Update product cost price to latest batch cost
+  if (cost > 0) {
+    await db.from('products').update({ cost_price: cost }).eq('id', _restockProductId);
+    var p = products.find(function(x){ return x.id === _restockProductId; });
+    if (p) p.cost_price = cost;
+  }
+
+  // Log the restock movement
+  await db.from('stock_movements').insert({
+    variant_id: v.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
+  });
+
+  closeRestockPrompt();
+  renderProdSheetBody();
+  renderProds();
+  toast('Restocked +' + qty + ' units');
+}
+
 function openProdSheet(id) {
   _prodSheetId = id;
   _prodSheetPhotoFile = null;
@@ -1023,11 +1096,12 @@ function renderProdSheetBody() {
     html += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">No colors added yet</div>';
   }
   vs.forEach(function(v) {
-    html += '<div class="variant-row" style="padding-left:0;border-radius:8px;margin-bottom:6px;border:1px solid var(--line);border-top:1px solid var(--line)">'
+    html += '<div class="variant-row" style="padding-left:0;border-radius:8px;margin-bottom:6px;border:1px solid var(--line);border-top:1px solid var(--line);flex-wrap:wrap">'
       + '<div class="variant-color">' + esc(v.color) + '</div>'
       + '<div class="variant-stock">'
         + '<input type="number" class="stock-input" id="stk-' + v.id + '" value="' + v.stock_qty + '" onchange="updateStock(' + v.id + ',this.value)">'
         + '<span class="stock-badge ' + stockBadgeClass(v.stock_qty) + '">' + (v.stock_qty<=0?'Out':v.stock_qty<=3?'Low':'OK') + '</span>'
+        + '<button class="ibt" onclick="openRestockPrompt(' + v.id + ',' + p.id + ')" title="Restock" style="color:var(--green)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
         + '<button class="ibt del" onclick="delVariant(' + v.id + ',' + p.id + ');renderProdSheetBody()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
       + '</div>'
       + '</div>';
