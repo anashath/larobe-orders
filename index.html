@@ -354,6 +354,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 [data-theme="dark"] .st-logo-light { display:none; }
 [data-theme="dark"] .st-logo-dark  { display:block; }
 
+/* ── PRODUCT PICKER ── */
+.pp-item{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;transition:background .12s}
+.pp-item:active{background:var(--card2)}
+.pp-item.disabled{opacity:.4;pointer-events:none}
+.pp-img{width:42px;height:42px;border-radius:9px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.pp-img img{width:100%;height:100%;object-fit:cover}
+.pp-img svg{color:var(--ink3);opacity:.4}
+.pp-info{flex:1;min-width:0}
+.pp-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-meta{font-size:11px;color:var(--ink3);margin-top:1px}
+.pp-price{font-size:12px;font-weight:700;color:var(--blue);flex-shrink:0}
+
 /* ── TOAST ── */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--card);padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;opacity:0;transition:all .2s;pointer-events:none;z-index:999;white-space:nowrap;box-shadow:var(--sh-md)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -502,7 +514,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
       <div class="fgrid">
         <div class="fg"><label>Customer Name</label><input type="text" id="fName" placeholder="Aminath Riyasha"></div>
         <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx"></div>
-        <div class="fg ffull"><label>Product</label><select id="fProduct" onchange="onOrderProductChange()"><option value="">Select product…</option></select></div>
+        <div class="fg ffull">
+          <label>Product</label>
+          <div id="fProductDisplay" onclick="openProductPicker()" style="display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--card2);cursor:pointer;min-height:44px">
+            <div id="fProductDisplayImg" style="width:32px;height:32px;border-radius:7px;background:var(--card);flex-shrink:0;display:none;overflow:hidden"></div>
+            <span id="fProductDisplayText" style="flex:1;font-size:14px;color:var(--ink3)">Select product…</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <input type="hidden" id="fProduct">
+        </div>
         <div class="fg"><label>Price (MVR)</label><input type="number" id="fPrice" placeholder="0" min="0" inputmode="numeric"></div>
         <div class="fg"><label>Status</label><select id="fStatus"><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="delivered">Delivered</option></select></div>
       </div>
@@ -735,6 +755,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   </div>
 </div>
 
+<!-- ═══ PRODUCT PICKER ══════════════════════════════════════════════════════ -->
+<div class="s-mask" id="productPickerMask" style="z-index:160">
+  <div class="sheet">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Select Product</div><div class="s-sub">Tap an item to choose it</div></div>
+      <button class="s-x" onclick="closeProductPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body" id="productPickerBody" style="max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- ═══ RESTOCK PROMPT ══════════════════════════════════════════════════════ -->
 <div class="s-mask" id="restockMask" style="z-index:150">
   <div class="sheet" style="max-width:420px;margin:0 auto">
@@ -875,19 +907,74 @@ async function loadProds() {
   products=data||[]; fillDrop();
 }
 function fillDrop() {
-  const s=document.getElementById('fProduct'), cur=s.value;
-  s.innerHTML='<option value="">Select product…</option>';
-  products.filter(p=>p.active).forEach(p=>{
-    const o=document.createElement('option');
-    o.value=p.id;
-    var label = p.name + (p.color ? ' - ' + p.color : '');
+  // Product picker now renders directly from the products array — nothing to pre-fill.
+  // If the currently selected product became inactive/out of stock, clear the selection.
+  var cur = document.getElementById('fProduct').value;
+  if (cur) {
+    var p = products.find(function(x){ return String(x.id) === String(cur); });
+    if (!p || !p.active) {
+      document.getElementById('fProduct').value = '';
+      document.getElementById('fProductDisplayText').textContent = 'Select product…';
+      document.getElementById('fProductDisplayText').style.color = 'var(--ink3)';
+      document.getElementById('fProductDisplayImg').style.display = 'none';
+    }
+  }
+}
+
+function openProductPicker() {
+  document.getElementById('productPickerMask').classList.add('open');
+  renderProductPicker();
+}
+
+function closeProductPicker() {
+  document.getElementById('productPickerMask').classList.remove('open');
+}
+
+function renderProductPicker() {
+  var body = document.getElementById('productPickerBody');
+  var active = products.filter(function(p){ return p.active; });
+  if (!active.length) {
+    body.innerHTML = '<div class="empty"><div class="empty-t">No products available</div></div>';
+    return;
+  }
+  body.innerHTML = active.map(function(p) {
     var stock = p.stock_qty || 0;
-    label += ' (' + stock + (stock===1?' left':' in stock') + ')';
-    if (stock <= 0) { label += ' — OUT OF STOCK'; o.disabled = true; }
-    o.textContent = label;
-    if(String(p.id)===String(cur)) o.selected=true;
-    s.appendChild(o);
-  });
+    var outOfStock = stock <= 0;
+    var imgHtml = p.image_url
+      ? '<img src="' + p.image_url + '">'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
+    return '<div class="pp-item' + (outOfStock?' disabled':'') + '" onclick="' + (outOfStock?'':'selectProduct(' + p.id + ')') + '">'
+      + '<div class="pp-img">' + imgHtml + '</div>'
+      + '<div class="pp-info">'
+        + '<div class="pp-name">' + esc(p.name) + (p.color ? ' — ' + esc(p.color) : '') + '</div>'
+        + '<div class="pp-meta">' + (outOfStock ? 'Out of stock' : stock + ' in stock') + '</div>'
+      + '</div>'
+      + '<div class="pp-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selectProduct(productId) {
+  var p = products.find(function(x){ return x.id === productId; });
+  if (!p) return;
+  document.getElementById('fProduct').value = productId;
+
+  var imgWrap = document.getElementById('fProductDisplayImg');
+  var textEl = document.getElementById('fProductDisplayText');
+
+  if (p.image_url) {
+    imgWrap.innerHTML = '<img src="' + p.image_url + '" style="width:100%;height:100%;object-fit:cover">';
+    imgWrap.style.display = '';
+  } else {
+    imgWrap.style.display = 'none';
+  }
+
+  textEl.textContent = p.name + (p.color ? ' — ' + p.color : '') + ' (' + (p.stock_qty||0) + ' in stock)';
+  textEl.style.color = 'var(--ink)';
+
+  if (p.selling_price) document.getElementById('fPrice').value = p.selling_price;
+
+  closeProductPicker();
 }
 
 function onOrderProductChange() {
@@ -1325,6 +1412,9 @@ async function restoreStock(order) {
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fPrice').value=''; document.getElementById('fProduct').value='';
+  document.getElementById('fProductDisplayText').textContent = 'Select product…';
+  document.getElementById('fProductDisplayText').style.color = 'var(--ink3)';
+  document.getElementById('fProductDisplayImg').style.display = 'none';
   _payDone=false; renderPayDone();
 }
 function renderPayDone() {
