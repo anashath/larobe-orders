@@ -378,16 +378,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.err{background:var(--red);color:#fff}
 
-/* ── DESKTOP: center the app in a phone-width frame ── */
+/* ── DESKTOP / WEB: fixed small centered column, no fancy bezel ── */
 @media (min-width: 640px) {
-  body{background:#D6DAE2}
-  [data-theme="dark"] body{background:#04060B}
-  .hdr{width:480px;left:50%;right:auto;margin-left:-240px}
-  .bnav{width:480px;left:50%;right:auto;margin-left:-240px}
-  .content{max-width:480px;margin:0 auto;box-shadow:0 0 50px rgba(0,0,0,.15)}
-  .drawer{left:50%;margin-left:-240px}
-  #loginScreen,#resetOverlay{background:#D6DAE2}
-  [data-theme="dark"] #loginScreen,[data-theme="dark"] #resetOverlay{background:#04060B}
+  body{background:#C9CDD6}
+  [data-theme="dark"] body{background:#03050A}
+
+  .hdr{width:400px;left:50%;right:auto;margin-left:-200px}
+  .bnav{width:400px;left:50%;right:auto;margin-left:-200px}
+  .content{max-width:400px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.18)}
+  .drawer{left:50%;margin-left:-200px}
+
+  .s-mask .sheet{max-width:400px;margin:0 auto}
+  .d-mask{max-width:400px;margin:0 auto;left:50%;transform:translateX(-50%)}
+
+  #loginScreen,#resetOverlay{background:#C9CDD6}
+  [data-theme="dark"] #loginScreen,[data-theme="dark"] #resetOverlay{background:#03050A}
 }
 </style>
 </head>
