@@ -363,11 +363,25 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 [data-theme="dark"] .st-logo-light { display:none; }
 [data-theme="dark"] .st-logo-dark  { display:block; }
 
+.product-select-field{
+  display:flex;align-items:center;gap:10px;
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  padding:11px 14px;
+  background:var(--card);
+  cursor:pointer;
+  min-height:48px;
+  transition:border-color .15s,box-shadow .15s,background .15s;
+}
+.product-select-field:hover{border-color:var(--ink3);background:var(--card2)}
+.product-select-field:active{transform:scale(.99)}
+
 /* ── PRODUCT PICKER ── */
-.pp-item{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer;transition:background .12s}
-.pp-item:active{background:var(--card2)}
+.pp-item{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:14px;cursor:pointer;transition:background .15s,transform .1s}
+.pp-item:hover{background:var(--card2)}
+.pp-item:active{background:var(--card2);transform:scale(.99)}
 .pp-item.disabled{opacity:.4;pointer-events:none}
-.pp-img{width:42px;height:42px;border-radius:9px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.pp-img{width:46px;height:46px;border-radius:12px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .pp-img img{width:100%;height:100%;object-fit:cover}
 .pp-img svg{color:var(--ink3);opacity:.4}
 .pp-info{flex:1;min-width:0}
@@ -589,7 +603,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx"></div>
         <div class="fg ffull">
           <label>Product</label>
-          <div id="fProductDisplay" onclick="openProductPicker()" style="display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--card2);cursor:pointer;min-height:44px">
+          <div id="fProductDisplay" onclick="openProductPicker()" class="product-select-field">
             <div id="fProductDisplayImg" style="width:32px;height:32px;border-radius:7px;background:var(--card);flex-shrink:0;display:none;overflow:hidden"></div>
             <span id="fProductDisplayText" style="flex:1;font-size:14px;color:var(--ink3)">Select product…</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
