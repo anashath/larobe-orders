@@ -1302,23 +1302,43 @@ function showTipStep() {
   document.getElementById('tipNextBtn').textContent = (_tipIndex === steps.length - 1) ? 'Done' : 'Next';
 
   var card = document.getElementById('tipCard');
+  card.style.transform = '';
+  var cardH = 150; // approximate card height for clamping
+  var cardW = 300;
+  var margin = 12;
+
   if (target) {
     var rect = target.getBoundingClientRect();
-    var cardTop = rect.bottom + 12;
-    if (cardTop + 140 > window.innerHeight) cardTop = Math.max(12, rect.top - 152);
-    card.style.top = cardTop + 'px';
-    var cardLeft = Math.min(Math.max(12, rect.left), window.innerWidth - 312);
-    card.style.left = cardLeft + 'px';
-    target.style.position = target.style.position || 'relative';
-    target.style.zIndex = '301';
-    target.style.boxShadow = '0 0 0 3px var(--blue), 0 0 0 9999px rgba(10,10,10,.55)';
-    target.style.borderRadius = target.style.borderRadius || '12px';
-    target.setAttribute('data-tip-highlighted', '1');
-  } else {
-    card.style.top = '40%';
-    card.style.left = '50%';
-    card.style.transform = 'translate(-50%,-50%)';
+    // Only highlight if the target is actually visible on screen
+    var isVisible = rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
+
+    if (isVisible) {
+      var cardTop = rect.bottom + margin;
+      // If placing below would go past viewport (accounting for bottom nav), place above instead
+      var bottomNavH = 70;
+      if (cardTop + cardH > window.innerHeight - bottomNavH) {
+        cardTop = rect.top - cardH - margin;
+      }
+      // Final clamp so the card always stays fully on-screen and reachable
+      cardTop = Math.max(margin + 50, Math.min(cardTop, window.innerHeight - cardH - bottomNavH));
+
+      var cardLeft = Math.min(Math.max(margin, rect.left), window.innerWidth - cardW - margin);
+
+      card.style.top = cardTop + 'px';
+      card.style.left = cardLeft + 'px';
+
+      target.style.position = target.style.position || 'relative';
+      target.style.boxShadow = '0 0 0 3px var(--blue), 0 0 0 9999px rgba(10,10,10,.55)';
+      target.style.borderRadius = target.style.borderRadius || '12px';
+      target.setAttribute('data-tip-highlighted', '1');
+      return;
+    }
   }
+
+  // Fallback: no target, not visible, or off-screen — center the card so it's always reachable
+  card.style.top = '50%';
+  card.style.left = '50%';
+  card.style.transform = 'translate(-50%,-50%)';
 }
 
 function clearTipHighlight() {
