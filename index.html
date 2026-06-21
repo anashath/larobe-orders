@@ -551,6 +551,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="d-item" id="dn-products" onclick="go('products')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>Products
     </button>
+    <button class="d-item" id="dn-archived" onclick="go('archived')" style="display:none">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></span>Archived
+    </button>
     <button class="d-item" id="dn-users" onclick="go('users')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>Users
     </button>
@@ -807,6 +810,15 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 
     <div id="prodList"><div class="empty"><div class="empty-t">Loading…</div></div></div>
   </div>
+</div>
+
+<!-- ARCHIVED PRODUCTS -->
+<div class="screen" id="sc-archived">
+  <div class="pg">
+    <div class="pg-title">Archived</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">Hidden products, moved out of the main catalogue</div>
+  </div>
+  <div id="archivedList" style="padding:0 16px 16px"></div>
 </div>
 
 <!-- USERS -->
@@ -1157,6 +1169,7 @@ function go(s) {
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
   if(s==='products') { renderProds(); }
+  if(s==='archived')  { renderArchivedProducts(); }
   if(s==='new')      { fillDrop(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
@@ -1388,7 +1401,7 @@ function renderProds() {
   const L=document.getElementById('prodList');
   var lbl = document.getElementById('prodCountLabel');
 
-  var visibleProducts = products.slice();
+  var visibleProducts = products.filter(function(p){ return p.active; });
   if (_prodSort === 'stock') {
     visibleProducts.sort(function(a,b){ return (b.stock_qty||0) - (a.stock_qty||0); });
   } else {
@@ -1411,7 +1424,7 @@ function renderProds() {
     if (bannerEl) bannerEl.style.display = 'none';
   }
 
-  if (lbl) lbl.textContent = products.length ? (products.length + ' ' + (products.length===1?'product':'products') + ' in catalogue') : 'Manage your bag catalogue, pricing & stock';
+  if (lbl) lbl.textContent = visibleProducts.length ? (visibleProducts.length + ' ' + (visibleProducts.length===1?'product':'products') + ' in catalogue') : 'Manage your bag catalogue, pricing & stock';
   if(!visibleProducts.length){
     L.innerHTML='<div class="empty"><div class="empty-t">' + (_prodStockFilter ? 'No items match this filter' : 'No products yet') + '</div>' + (_prodStockFilter ? '' : '<div class="empty-s">Add one above</div>') + '</div>';
     return;
@@ -1449,6 +1462,43 @@ function renderProds() {
   }).join('');
 
   if(editProdId){ const i=document.getElementById('pe-'+editProdId); if(i){i.focus();i.select();} }
+}
+
+function renderArchivedProducts() {
+  var list = document.getElementById('archivedList');
+  if (!list) return;
+  var archived = products.filter(function(p){ return !p.active; });
+
+  if (!archived.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-t">No archived products</div><div class="empty-s">Products you hide will appear here</div></div>';
+    return;
+  }
+
+  list.innerHTML = archived.map(function(p) {
+    var imgHtml = p.image_url
+      ? '<img src="' + p.image_url + '" alt="">'
+      : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
+
+    return '<div class="pcard">'
+      + '<div class="pcard-top off" style="cursor:default">'
+        + '<div class="pcard-img">' + imgHtml + '</div>'
+        + '<div class="pcard-info">'
+          + '<div class="pcard-name">' + esc(p.name) + (p.color ? ' <span class="pcard-color">— ' + esc(p.color) + '</span>' : '') + '</div>'
+          + '<div class="pcard-price-row"><span class="pcard-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</span></div>'
+          + '<div class="pcard-stock"><span class="pcard-stock-text">' + (p.stock_qty||0) + ' in stock · Hidden</span></div>'
+        + '</div>'
+        + '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();reactivateProduct(' + p.id + ')" style="padding:9px 14px;flex-shrink:0">Reactivate</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function reactivateProduct(id) {
+  var p = products.find(function(x){ return x.id === id; });
+  if (!p) return;
+  await togProd(id, false);
+  renderArchivedProducts();
+  toast(p.name + ' reactivated');
 }
 
 function toggleAddProdForm() {
@@ -1641,7 +1691,7 @@ function renderProdSheetBody() {
 
   // Active toggle
   html += '<div class="fg"><label>Status</label>'
-    + '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" style="padding:8px 16px;font-size:12px" onclick="toggleProdSheetActive()">' + (p.active?'Active — visible in orders':'Hidden — not visible in orders') + '</button>'
+    + '<button class="ptog ' + (p.active?'pt-on':'pt-off') + '" style="padding:8px 16px;font-size:12px" onclick="toggleProdSheetActive()">' + (p.active?'Active — visible in catalogue':'Archived — hidden from catalogue & orders') + '</button>'
     + '</div>';
 
   document.getElementById('prodSheetBody').innerHTML = html;
@@ -2562,6 +2612,8 @@ function applyRole(profile) {
   if (dashBtn) dashBtn.style.display = role==='admin' ? '' : 'none';
   var prodActBtn = document.getElementById('dn-productactivity');
   if (prodActBtn) prodActBtn.style.display = role==='admin' ? '' : 'none';
+  var archivedBtn = document.getElementById('dn-archived');
+  if (archivedBtn) archivedBtn.style.display = (role==='admin'||role==='order_collection') ? '' : 'none';
   go(role==='admin' ? 'dashboard' : 'orders');
 }
 
