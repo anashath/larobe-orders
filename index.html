@@ -71,6 +71,7 @@
 html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;-webkit-font-smoothing:antialiased}
 
+
 /* ── HEADER ── */
 .hdr{position:fixed;top:0;left:0;right:0;z-index:50;height:var(--hdr-h);padding-top:env(safe-area-inset-top);background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding-left:16px;padding-right:16px}
 .hdr-menu{background:none;border:none;cursor:pointer;padding:6px;margin:-6px;border-radius:8px;display:flex;flex-direction:column;gap:5px;transition:background .15s}
@@ -376,6 +377,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--card);padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;opacity:0;transition:all .2s;pointer-events:none;z-index:999;white-space:nowrap;box-shadow:var(--sh-md)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.err{background:var(--red);color:#fff}
+
+/* ── DESKTOP: center the app in a phone-width frame ── */
+@media (min-width: 640px) {
+  body{background:#D6DAE2}
+  [data-theme="dark"] body{background:#04060B}
+  .hdr{width:480px;left:50%;right:auto;margin-left:-240px}
+  .bnav{width:480px;left:50%;right:auto;margin-left:-240px}
+  .content{max-width:480px;margin:0 auto;box-shadow:0 0 50px rgba(0,0,0,.15)}
+  .drawer{left:50%;margin-left:-240px}
+  #loginScreen,#resetOverlay{background:#D6DAE2}
+  [data-theme="dark"] #loginScreen,[data-theme="dark"] #resetOverlay{background:#04060B}
+}
 </style>
 </head>
 <body>
