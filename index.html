@@ -753,7 +753,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="chip" onclick="setSalesRange('week',this)">This Week</button>
     <button class="chip" onclick="setSalesRange('month',this)">This Month</button>
     <button class="chip" onclick="setSalesRange('all',this)">All Time</button>
+    <button class="chip" id="salesCustomChip" onclick="openCustomRangePicker(this)">Custom</button>
   </div>
+  <div id="salesCustomLabel" style="display:none;padding:0 16px 10px;font-size:12px;color:var(--ink2);font-weight:500"></div>
   <div class="stats" style="grid-template-columns:repeat(2,1fr)">
     <div class="stat hi"><div class="stat-n" id="salesRevenue">0</div><div class="stat-l">Revenue (MVR)</div></div>
     <div class="stat"><div class="stat-n" id="salesGP">0</div><div class="stat-l">Gross Profit (MVR)</div></div>
@@ -894,6 +896,25 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <button class="s-x" onclick="closeProductPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="s-body" id="productPickerBody" style="max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══ CUSTOM DATE RANGE ══════════════════════════════════════════════════ -->
+<div class="s-mask" id="dateRangeMask" style="z-index:170">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Custom Range</div><div class="s-sub">Choose start and end dates</div></div>
+      <button class="s-x" onclick="closeCustomRangePicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <div class="fg"><label>From</label><input type="date" id="customRangeStart"></div>
+      <div class="fg"><label>To</label><input type="date" id="customRangeEnd"></div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeCustomRangePicker()">Cancel</button>
+      <button class="sfbtn sf-blue" onclick="applyCustomRange()">Apply</button>
+    </div>
   </div>
 </div>
 
@@ -2393,8 +2414,13 @@ function setSalesRange(range, btn) {
   _salesRange = range;
   document.querySelectorAll('#sc-sales .chip').forEach(function(b){ b.classList.remove('on'); });
   if (btn) btn.classList.add('on');
+  var labelEl = document.getElementById('salesCustomLabel');
+  if (labelEl) labelEl.style.display = 'none';
   loadSales();
 }
+
+var _customRangeStart = null;
+var _customRangeEnd = null;
 
 function salesDateBounds(range) {
   var now = new Date();
@@ -2413,11 +2439,50 @@ function salesDateBounds(range) {
     var d2 = new Date();
     start = d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-01';
     end = today();
+  } else if (range === 'custom' && _customRangeStart && _customRangeEnd) {
+    start = _customRangeStart;
+    end = _customRangeEnd;
   } else {
     start = '2000-01-01';
     end = today();
   }
   return { start: start, end: end };
+}
+
+function openCustomRangePicker(btn) {
+  document.getElementById('dateRangeMask').classList.add('open');
+  var startEl = document.getElementById('customRangeStart');
+  var endEl = document.getElementById('customRangeEnd');
+  if (!startEl.value) startEl.value = _customRangeStart || today();
+  if (!endEl.value) endEl.value = _customRangeEnd || today();
+}
+
+function closeCustomRangePicker() {
+  document.getElementById('dateRangeMask').classList.remove('open');
+}
+
+function applyCustomRange() {
+  var startEl = document.getElementById('customRangeStart');
+  var endEl = document.getElementById('customRangeEnd');
+  if (!startEl.value || !endEl.value) { toast('Select both dates', true); return; }
+  if (startEl.value > endEl.value) { toast('Start date must be before end date', true); return; }
+
+  _customRangeStart = startEl.value;
+  _customRangeEnd = endEl.value;
+  _salesRange = 'custom';
+
+  document.querySelectorAll('#sc-sales .chip').forEach(function(b){ b.classList.remove('on'); });
+  document.getElementById('salesCustomChip').classList.add('on');
+
+  var d1 = new Date(_customRangeStart);
+  var d2 = new Date(_customRangeEnd);
+  var fmt = function(d){ return d.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'}); };
+  var labelEl = document.getElementById('salesCustomLabel');
+  labelEl.textContent = fmt(d1) + ' — ' + fmt(d2);
+  labelEl.style.display = 'block';
+
+  closeCustomRangePicker();
+  loadSales();
 }
 
 async function loadSales() {
