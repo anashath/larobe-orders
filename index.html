@@ -2104,37 +2104,47 @@ async function addOrder() {
 }
 
 async function deductStock(order) {
-  if (!order.product_id || order.stock_deducted) return;
+  if (!order.product_id || order.stock_deducted) return false;
   var p = products.find(function(x){ return x.id === order.product_id; });
-  if (!p) return;
+  if (!p) return false;
 
   var newQty = Math.max(0, (p.stock_qty||0) - 1);
-  await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  var res1 = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
   p.stock_qty = newQty;
 
-  await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
+  var res2 = await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
+  if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
   order.stock_deducted = true;
 
-  await db.from('stock_movements').insert({
+  var res3 = await db.from('stock_movements').insert({
     product_id: p.id, order_id: order.id, change_qty: -1, reason: 'order_confirmed'
   });
+  if (res3.error) { console.error('Stock movement log failed:', res3.error); }
+
+  return true;
 }
 
 async function restoreStock(order) {
-  if (!order.product_id || !order.stock_deducted) return;
+  if (!order.product_id || !order.stock_deducted) return false;
   var p = products.find(function(x){ return x.id === order.product_id; });
-  if (!p) return;
+  if (!p) return false;
 
   var newQty = (p.stock_qty||0) + 1;
-  await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  var res1 = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
   p.stock_qty = newQty;
 
-  await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
+  var res2 = await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
+  if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
   order.stock_deducted = false;
 
-  await db.from('stock_movements').insert({
+  var res3 = await db.from('stock_movements').insert({
     product_id: p.id, order_id: order.id, change_qty: 1, reason: 'order_cancelled'
   });
+  if (res3.error) { console.error('Stock movement log failed:', res3.error); }
+
+  return true;
 }
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
