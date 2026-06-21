@@ -141,7 +141,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 
 /* ── STATS ── */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 14px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 14px;box-shadow:var(--sh)}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 14px;box-shadow:var(--sh);text-align:center}
 .stat-n{font-family:'Plus Jakarta Sans',sans-serif;font-size:28px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1}
 .stat-l{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-top:4px}
 .stat.hi .stat-n{color:var(--blue)}
@@ -611,6 +611,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="stats">
     <div class="stat" onclick="goToProductsFiltered('low')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
     <div class="stat" onclick="goToProductsFiltered('out')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
+    <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashTotalStock">0</div><div class="stat-l">Total Stock</div></div>
   </div>
 
   <!-- 7-day revenue trend -->
@@ -2921,6 +2922,9 @@ async function loadDashboard() {
 
   document.getElementById('dashLowStock').textContent = lowStock;
   document.getElementById('dashOutStock').textContent = outStock;
+
+  var totalStockUnits = products.filter(function(p){ return p.active; }).reduce(function(s,p){ return s + (p.stock_qty||0); }, 0);
+  document.getElementById('dashTotalStock').textContent = totalStockUnits.toLocaleString();
 
   // This month's revenue (delivered only)
   var d = new Date();
