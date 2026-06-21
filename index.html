@@ -922,7 +922,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="sheet" style="max-width:420px;margin:0 auto">
     <div class="s-grip"></div>
     <div class="s-hdr">
-      <div><div class="s-title">Custom Range</div><div class="s-sub">Choose start and end dates</div></div>
+      <div><div class="s-title" id="dateRangeTitle">Custom Range</div><div class="s-sub" id="dateRangeSub">Choose start and end dates</div></div>
       <button class="s-x" onclick="closeCustomRangePicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="s-body">
@@ -931,7 +931,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     </div>
     <div class="s-foot">
       <button class="sfbtn sf-ghost" onclick="closeCustomRangePicker()">Cancel</button>
-      <button class="sfbtn sf-blue" onclick="applyCustomRange()">Apply</button>
+      <button class="sfbtn sf-blue" id="dateRangeApplyBtn" onclick="applyCustomRange()">Apply</button>
     </div>
   </div>
 </div>
@@ -2550,19 +2550,36 @@ function exportSalesCSV() {
 
 function exportHistoryCSV() {
   if (!_histAllOrders || !_histAllOrders.length) { toast('No data to export', true); return; }
+  openHistoryExportPicker();
+}
 
+function buildHistoryRows(data) {
   var rows = [['Order #','Date','Time','Customer','Contact','Product','Price (MVR)','Status','Delivery','Payment Method','Payment Status']];
-
-  _histAllOrders.forEach(function(o) {
+  data.forEach(function(o) {
     rows.push([
       o.num, o.order_date, o.order_time||'', o.customer_name, o.contact||'', o.product,
       Number(o.price)||0, o.status, o.delivery, o.payment,
       o.payment_done ? 'Paid' : 'Unpaid'
     ]);
   });
+  return rows;
+}
 
-  downloadCSV('La_Robe_History_' + today() + '.csv', rows);
-  toast('Exported ' + _histAllOrders.length + ' orders');
+async function runHistoryExport(startDate, endDate) {
+  toast('Preparing export…');
+  const {data, error} = await db.from('orders')
+    .select('*')
+    .gte('order_date', startDate)
+    .lte('order_date', endDate)
+    .order('order_date', { ascending: false })
+    .order('num', { ascending: true });
+
+  if (error) { toast('Export error: ' + error.message, true); return; }
+  if (!data || !data.length) { toast('No orders in that range', true); return; }
+
+  var rows = buildHistoryRows(data);
+  downloadCSV('La_Robe_History_' + startDate + '_to_' + endDate + '.csv', rows);
+  toast('Exported ' + data.length + ' orders');
 }
 
 var _salesRange = 'today';
@@ -2607,12 +2624,30 @@ function salesDateBounds(range) {
   return { start: start, end: end };
 }
 
+var _rangePickerPurpose = 'sales';
+
 function openCustomRangePicker(btn) {
+  _rangePickerPurpose = 'sales';
+  document.getElementById('dateRangeTitle').textContent = 'Custom Range';
+  document.getElementById('dateRangeSub').textContent = 'Choose start and end dates';
+  document.getElementById('dateRangeApplyBtn').textContent = 'Apply';
   document.getElementById('dateRangeMask').classList.add('open');
   var startEl = document.getElementById('customRangeStart');
   var endEl = document.getElementById('customRangeEnd');
   if (!startEl.value) startEl.value = _customRangeStart || today();
   if (!endEl.value) endEl.value = _customRangeEnd || today();
+}
+
+function openHistoryExportPicker() {
+  _rangePickerPurpose = 'history_export';
+  document.getElementById('dateRangeTitle').textContent = 'Export History';
+  document.getElementById('dateRangeSub').textContent = 'Choose the date range to export';
+  document.getElementById('dateRangeApplyBtn').textContent = 'Export';
+  document.getElementById('dateRangeMask').classList.add('open');
+  var startEl = document.getElementById('customRangeStart');
+  var endEl = document.getElementById('customRangeEnd');
+  if (!startEl.value) startEl.value = today();
+  if (!endEl.value) endEl.value = today();
 }
 
 function closeCustomRangePicker() {
@@ -2624,6 +2659,12 @@ function applyCustomRange() {
   var endEl = document.getElementById('customRangeEnd');
   if (!startEl.value || !endEl.value) { toast('Select both dates', true); return; }
   if (startEl.value > endEl.value) { toast('Start date must be before end date', true); return; }
+
+  if (_rangePickerPurpose === 'history_export') {
+    closeCustomRangePicker();
+    runHistoryExport(startEl.value, endEl.value);
+    return;
+  }
 
   _customRangeStart = startEl.value;
   _customRangeEnd = endEl.value;
