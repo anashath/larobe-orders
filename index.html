@@ -1088,7 +1088,10 @@ function fillDrop() {
   }
 }
 
-function openProductPicker() {
+var _productPickerTarget = 'fProduct';
+
+function openProductPicker(target) {
+  _productPickerTarget = target || 'fProduct';
   document.getElementById('productPickerMask').classList.add('open');
   renderProductPicker();
 }
@@ -1124,10 +1127,17 @@ function renderProductPicker() {
 function selectProduct(productId) {
   var p = products.find(function(x){ return x.id === productId; });
   if (!p) return;
-  document.getElementById('fProduct').value = productId;
 
-  var imgWrap = document.getElementById('fProductDisplayImg');
-  var textEl = document.getElementById('fProductDisplayText');
+  var isEdit = _productPickerTarget === 'ep';
+  var hiddenId   = isEdit ? 'ep' : 'fProduct';
+  var imgId      = isEdit ? 'epProductDisplayImg' : 'fProductDisplayImg';
+  var textId     = isEdit ? 'epProductDisplayText' : 'fProductDisplayText';
+  var priceId    = isEdit ? 'epr' : 'fPrice';
+
+  document.getElementById(hiddenId).value = productId;
+
+  var imgWrap = document.getElementById(imgId);
+  var textEl = document.getElementById(textId);
 
   if (p.image_url) {
     imgWrap.innerHTML = '<img src="' + p.image_url + '" style="width:100%;height:100%;object-fit:cover">';
@@ -1139,7 +1149,7 @@ function selectProduct(productId) {
   textEl.textContent = p.name + (p.color ? ' — ' + p.color : '') + ' (' + (p.stock_qty||0) + ' in stock)';
   textEl.style.color = 'var(--ink)';
 
-  if (p.selling_price) document.getElementById('fPrice').value = p.selling_price;
+  if (p.selling_price) document.getElementById(priceId).value = p.selling_price;
 
   closeProductPicker();
 }
@@ -1716,13 +1726,23 @@ function enterEdit() {
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
   if(!o) return;
-  const po=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
+  var curProd = o.product_id ? products.find(function(x){return x.id===o.product_id;}) : null;
+  var curProdLabel = curProd ? (curProd.name + (curProd.color ? ' — ' + curProd.color : '') + ' (' + (curProd.stock_qty||0) + ' in stock)') : (o.product || 'Select product…');
+  var curProdImg = curProd && curProd.image_url ? '<img src="'+curProd.image_url+'" style="width:100%;height:100%;object-fit:cover">' : '';
   document.getElementById('sbody').innerHTML=`
     <div class="ewarn"><strong>Editing Order #${o.num}</strong><p>Changes are saved immediately. Verify all details before saving.</p></div>
     <div class="fgrid">
       <div class="fg"><label>Customer Name</label><input id="en" type="text" value="${esc(o.customer_name)}"></div>
       <div class="fg"><label>Contact</label><input id="ec" type="text" value="${esc(o.contact||'')}"></div>
-      <div class="fg ffull"><label>Product</label><select id="ep">${po}</select></div>
+      <div class="fg ffull">
+        <label>Product</label>
+        <div id="epProductDisplay" onclick="openProductPicker('ep')" class="product-select-field">
+          <div id="epProductDisplayImg" style="width:32px;height:32px;border-radius:7px;background:var(--card2);flex-shrink:0;overflow:hidden;display:${curProd&&curProd.image_url?'':'none'}">${curProdImg}</div>
+          <span id="epProductDisplayText" style="flex:1;font-size:14px;color:${curProd?'var(--ink)':'var(--ink3)'}">${esc(curProdLabel)}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="ep" value="${o.product_id||''}" data-fallback="${esc(o.product||'')}">
+      </div>
       <div class="fg"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
       <div class="fg"><label>Status</label>
         <select id="es">
@@ -1773,7 +1793,15 @@ function editSetPay(paid) {
 }
 async function saveEdit() {
   const g=id=>{ const e=document.getElementById(id); return e?e.value:null; };
-  const epdEl=document.getElementById('epd'); const u={customer_name:g('en'),contact:g('ec'),product:g('ep'),price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno'),payment_done:epdEl?epdEl.value==='1':false};
+  const epdEl=document.getElementById('epd');
+  var epEl = document.getElementById('ep');
+  var newProductId = epEl && epEl.value ? parseInt(epEl.value) : null;
+  var productLabel = epEl ? epEl.getAttribute('data-fallback') : null;
+  if (newProductId) {
+    var newP = products.find(function(x){ return x.id === newProductId; });
+    if (newP) productLabel = newP.name + (newP.color ? ' - ' + newP.color : '');
+  }
+  const u={customer_name:g('en'),contact:g('ec'),product:productLabel,product_id:newProductId,price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno'),payment_done:epdEl?epdEl.value==='1':false};
   Object.keys(u).forEach(k=>u[k]===null&&delete u[k]);
   const {error}=await db.from('orders').update(u).eq('id',viewId);
   if(error){toast('Error: '+error.message,true);return;}
