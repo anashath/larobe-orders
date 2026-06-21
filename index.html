@@ -301,6 +301,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .sf-red    {background:var(--red-l);color:var(--red)}
 .sf-soft   {background:var(--blue-l);color:var(--blue)}
 .sf-pack   {background:var(--amber-l);color:var(--amber)}
+.sf-confirm{background:var(--blue-l);color:var(--blue)}
 .sf-deliver{background:var(--green-l);color:var(--green)}
 
 /* ── DETAIL ── */
@@ -865,6 +866,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="s-foot">
       <button class="sfbtn sf-red"     id="sdel"     style="display:none">Delete</button>
       <button class="sfbtn sf-soft"    id="sedit"    style="display:none" onclick="enterEdit()">Edit</button>
+      <button class="sfbtn sf-confirm" id="sconfirm" style="display:none" onclick="updateOrderStatus('confirmed')">Mark Confirmed</button>
       <button class="sfbtn sf-pack"    id="spack"    style="display:none" onclick="updateOrderStatus('packed')">Mark Packed</button>
       <button class="sfbtn sf-deliver" id="sdeliver" style="display:none" onclick="updateOrderStatus('delivered')">Mark Delivered</button>
       <button class="sfbtn sf-red"     id="scancel"  style="display:none" onclick="updateOrderStatus('cancelled')">Cancel Order</button>
@@ -1671,6 +1673,7 @@ function openSheet(id) {
   var role = _profile ? _profile.role : '';
   var sdel    = document.getElementById('sdel');
   var sedit   = document.getElementById('sedit');
+  var sconfirm= document.getElementById('sconfirm');
   var spack   = document.getElementById('spack');
   var sdelv   = document.getElementById('sdeliver');
   var scancel = document.getElementById('scancel');
@@ -1680,16 +1683,18 @@ function openSheet(id) {
   var isCancelled = _o && _o.status === 'cancelled';
 
   // Hide all first
-  [sdel, sedit, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
+  [sdel, sedit, sconfirm, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
 
   if (role === 'admin') {
     if (sdel)  sdel.style.display  = '';
     if (sedit) sedit.style.display = '';
+    if (sconfirm && _o && _o.status === 'pending') sconfirm.style.display = '';
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
     if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'order_collection') {
     if (sedit) sedit.style.display = '';
+    if (sconfirm && _o && _o.status === 'pending') sconfirm.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'packing') {
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
@@ -1769,7 +1774,17 @@ async function saveEdit() {
   const o=orders.find(x=>x.id===viewId)
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
-  if(o) Object.assign(o,u);
+  if(o) {
+    var prevStatus = o.status;
+    Object.assign(o,u);
+    // Trigger stock deduction/restoration if status changed via edit form too
+    if (['confirmed','packed','delivered'].indexOf(o.status) >= 0 && !o.stock_deducted) {
+      await deductStock(o);
+    }
+    if (o.status === 'cancelled' && o.stock_deducted) {
+      await restoreStock(o);
+    }
+  }
   render(); openSheet(viewId); toast('Saved ✓');
 }
 async function updateOrderStatus(newStatus) {
