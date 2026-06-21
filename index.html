@@ -1781,7 +1781,7 @@ async function saveEdit() {
     if (['confirmed','packed','delivered'].indexOf(o.status) >= 0 && !o.stock_deducted) {
       await deductStock(o);
     }
-    if (o.status === 'cancelled' && o.stock_deducted) {
+    if (['pending','cancelled'].indexOf(o.status) >= 0 && o.stock_deducted) {
       await restoreStock(o);
     }
   }
@@ -1800,8 +1800,8 @@ async function updateOrderStatus(newStatus) {
     if (['confirmed','packed','delivered'].indexOf(newStatus) >= 0 && !o.stock_deducted) {
       await deductStock(o);
     }
-    // Restore stock if order is cancelled after stock was deducted
-    if (newStatus === 'cancelled' && o.stock_deducted) {
+    // Restore stock if order moves back to pending or cancelled after stock was deducted
+    if (['pending','cancelled'].indexOf(newStatus) >= 0 && o.stock_deducted) {
       await restoreStock(o);
     }
   }
