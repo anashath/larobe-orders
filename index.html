@@ -749,7 +749,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       </div>
       <input type="hidden" id="copyDate">
     </div>
-    <div class="fg"><label>Filter</label><div style="display:flex;gap:8px"><button type="button" class="copy-flt-btn on" id="cflt-all" onclick="setCopyFlt(this,'all')">All Orders</button><button type="button" class="copy-flt-btn" id="cflt-pending" onclick="setCopyFlt(this,'pending')">Pending Only</button></div></div>
+    <div class="fg"><label>Filter</label><div style="display:flex;gap:8px"><button type="button" class="copy-flt-btn on" id="cflt-all" onclick="setCopyFlt(this,'all')">All Orders</button><button type="button" class="copy-flt-btn" id="cflt-pending" onclick="setCopyFlt(this,'pending')">Pending Only</button><button type="button" class="copy-flt-btn" id="cflt-packed" onclick="setCopyFlt(this,'packed')">Packed Only</button></div></div>
     <div class="copy-row"><span class="copy-cnt" id="copyCount"></span><button class="cpbtn" id="copyBtn" onclick="runCopy()">Copy as Text</button></div>
     <pre class="copy-pre" id="copyPre"></pre>
   </div>
@@ -2734,7 +2734,7 @@ function updateCopyCount() {
   var dateEl = document.getElementById('copyDate');
   if (!dateEl||!dateEl.value) return;
   var q = db.from('orders').select('*',{count:'exact',head:true}).eq('order_date',dateEl.value);
-  if (_copyFlt==='pending') q = q.eq('status','pending');
+  if (_copyFlt!=='all') q = q.eq('status',_copyFlt);
   q.then(function(res) {
     var el = document.getElementById('copyCount');
     if (!el) return;
@@ -2750,18 +2750,19 @@ function runCopy() {
   var btn = document.getElementById('copyBtn');
   btn.disabled=true; btn.textContent='Loading...';
   var q = db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
-  if (_copyFlt==='pending') q = q.eq('status','pending');
+  if (_copyFlt!=='all') q = q.eq('status',_copyFlt);
   q.then(function(res) {
     btn.disabled=false;
     if (res.error) { toast('Error: '+res.error.message,true); btn.textContent='Copy as Text'; return; }
     var data = res.data;
-    if (!data||!data.length) { toast(_copyFlt==='pending'?'No pending orders':'No orders on this date',true); btn.textContent='Copy as Text'; return; }
+    var fltLabel = _copyFlt==='pending' ? 'pending' : _copyFlt==='packed' ? 'packed' : null;
+    if (!data||!data.length) { toast(fltLabel ? 'No '+fltLabel+' orders' : 'No orders on this date',true); btn.textContent='Copy as Text'; return; }
     var parts=date.split('-');
     var dt=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
     var d=dt.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     var sep='----------------------------------';
     var lines=[];
-    lines.push('LA ROBE MALDIVES - '+d+(_copyFlt==='pending'?' - PENDING ONLY':''));
+    lines.push('LA ROBE MALDIVES - '+d+(fltLabel ? ' - '+fltLabel.toUpperCase()+' ONLY' : ''));
     lines.push(''); lines.push(sep);
     data.forEach(function(o) {
       lines.push('ORDER #'+o.num);
