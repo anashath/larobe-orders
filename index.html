@@ -754,6 +754,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 <!-- PRODUCTS -->
 <div class="screen" id="sc-products">
   <div class="pg"><div class="pg-title">Products</div><div style="font-size:13px;color:var(--ink3);margin-top:4px" id="prodCountLabel">Manage your bag catalogue, pricing & stock</div></div>
+  <div style="padding:0 16px 12px;display:flex;gap:6px">
+    <button class="chip on" id="prodSortStock" onclick="setProdSort('stock', this)">By Stock</button>
+    <button class="chip" id="prodSortRecent" onclick="setProdSort('recent', this)">Recently Added</button>
+  </div>
   <div id="prodFilterBanner" style="display:none;margin:0 16px 12px;padding:10px 14px;background:var(--blue-l);border-radius:999px;display:flex;align-items:center;gap:8px">
     <span id="prodFilterBannerText" style="flex:1;font-size:12px;font-weight:600;color:var(--blue)"></span>
     <button onclick="clearProductFilter()" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;padding:0">Clear</button>
@@ -1359,7 +1363,8 @@ function stockBadgeClass(qty, threshold) {
   return 'stock-ok';
 }
 
-var _prodStockFilter = null; // null | 'low' | 'out'
+var _prodStockFilter = null; // null | 'low' | 'out' | 'concern'
+var _prodSort = 'stock'; // 'stock' | 'recent'
 
 function goToProductsFiltered(filterType) {
   _prodStockFilter = filterType;
@@ -1371,22 +1376,35 @@ function clearProductFilter() {
   renderProds();
 }
 
+function setProdSort(mode, btn) {
+  _prodSort = mode;
+  document.querySelectorAll('#sc-products .chip').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  renderProds();
+}
+
 function renderProds() {
   const L=document.getElementById('prodList');
   var lbl = document.getElementById('prodCountLabel');
 
-  var visibleProducts = products;
+  var visibleProducts = products.slice();
+  if (_prodSort === 'stock') {
+    visibleProducts.sort(function(a,b){ return (b.stock_qty||0) - (a.stock_qty||0); });
+  } else {
+    visibleProducts.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });
+  }
+
   var bannerEl = document.getElementById('prodFilterBanner');
   var bannerTextEl = document.getElementById('prodFilterBannerText');
 
   if (_prodStockFilter === 'low') {
-    visibleProducts = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; });
+    visibleProducts = visibleProducts.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; });
     if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' low stock item' + (visibleProducts.length!==1?'s':''); bannerEl.style.display = 'flex'; }
   } else if (_prodStockFilter === 'out') {
-    visibleProducts = products.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; });
+    visibleProducts = visibleProducts.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; });
     if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' out of stock item' + (visibleProducts.length!==1?'s':''); bannerEl.style.display = 'flex'; }
   } else if (_prodStockFilter === 'concern') {
-    visibleProducts = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) <= th; });
+    visibleProducts = visibleProducts.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) <= th; });
     if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' item' + (visibleProducts.length!==1?'s':'') + ' needing attention'; bannerEl.style.display = 'flex'; }
   } else {
     if (bannerEl) bannerEl.style.display = 'none';
