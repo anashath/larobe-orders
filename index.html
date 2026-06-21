@@ -1641,7 +1641,11 @@ function setFlt(f,btn){flt=f;document.querySelectorAll('.chip').forEach(b=>b.cla
 
 /* SHEET */
 function openSheet(id) {
-  viewId=id; const o=orders.find(x=>x.id===id); if(!o) return;
+  viewId=id;
+  var o = orders.find(x=>x.id===id)
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===id))
+       || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===id));
+  if(!o) return;
   document.getElementById('stitle').textContent='Order #'+o.num;
   document.getElementById('ssub').textContent=(o.order_time||'')+' · '+(o.order_date||'');
   document.getElementById('sbody').innerHTML=`
@@ -1670,7 +1674,9 @@ function openSheet(id) {
   var spack   = document.getElementById('spack');
   var sdelv   = document.getElementById('sdeliver');
   var scancel = document.getElementById('scancel');
-  var _o = orders.find(function(x){return x.id===id;});
+  var _o = orders.find(function(x){return x.id===id;})
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){return x.id===id;}))
+       || (typeof _salesOrders !== 'undefined' && _salesOrders.find(function(x){return x.id===id;}));
   var isCancelled = _o && _o.status === 'cancelled';
 
   // Hide all first
@@ -1695,7 +1701,10 @@ function openSheet(id) {
 }
 function closeSheet(){var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.remove('open');viewId=null;}
 function enterEdit() {
-  const o=orders.find(x=>x.id===viewId); if(!o) return;
+  const o=orders.find(x=>x.id===viewId)
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
+       || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
+  if(!o) return;
   const po=products.map(p=>`<option value="${esc(p.name)}" ${p.name===o.product?'selected':''}>${esc(p.name)}</option>`).join('');
   document.getElementById('sbody').innerHTML=`
     <div class="ewarn"><strong>Editing Order #${o.num}</strong><p>Changes are saved immediately. Verify all details before saving.</p></div>
@@ -1757,14 +1766,19 @@ async function saveEdit() {
   Object.keys(u).forEach(k=>u[k]===null&&delete u[k]);
   const {error}=await db.from('orders').update(u).eq('id',viewId);
   if(error){toast('Error: '+error.message,true);return;}
-  const o=orders.find(x=>x.id===viewId); if(o) Object.assign(o,u);
+  const o=orders.find(x=>x.id===viewId)
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
+       || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
+  if(o) Object.assign(o,u);
   render(); openSheet(viewId); toast('Saved ✓');
 }
 async function updateOrderStatus(newStatus) {
   if (!viewId) return;
   const res = await db.from('orders').update({ status: newStatus }).eq('id', viewId);
   if (res.error) { toast('Error: ' + res.error.message, true); return; }
-  var o = orders.find(function(x){return x.id===viewId;});
+  var o = orders.find(function(x){return x.id===viewId;})
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){return x.id===viewId;}))
+       || (typeof _salesOrders !== 'undefined' && _salesOrders.find(function(x){return x.id===viewId;}));
   if (o) {
     o.status = newStatus;
     // Deduct stock when order becomes confirmed/packed/delivered (first time only)
@@ -2377,9 +2391,6 @@ function renderSales() {
         + '<div class="o-arr">›</div>'
         + '</div>';
     }).join('');
-    // Make these orders available to openSheet
-    var ids = _salesOrders.map(function(o){ return o.id; });
-    orders = orders.filter(function(o){ return ids.indexOf(o.id)<0; }).concat(_salesOrders);
   }
 }
 
@@ -2453,8 +2464,6 @@ function renderHistory(data) {
     html+='</div>';
   });
   list.innerHTML=html;
-  var ids=_histAllOrders.map(function(o){ return o.id; });
-  orders=orders.filter(function(o){ return ids.indexOf(o.id)<0; }).concat(_histAllOrders);
 }
 
 
