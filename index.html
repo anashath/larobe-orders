@@ -380,26 +380,30 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.err{background:var(--red);color:#fff}
 
-/* ── DESKTOP / WEB: fixed small centered column, no fancy bezel ── */
+/* ── DESKTOP / WEB: wider centered column ── */
 @media (min-width: 640px) {
   body{background:#DEDDD9}
   [data-theme="dark"] body{background:#000000}
 
-  .hdr{width:400px;left:50%;right:auto;margin-left:-200px}
-  .bnav{width:400px;left:50%;right:auto;margin-left:-200px}
-  .content{max-width:400px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.18)}
+  .hdr{width:720px;left:50%;right:auto;margin-left:-360px}
+  .bnav{width:720px;left:50%;right:auto;margin-left:-360px}
+  .content{max-width:720px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.18)}
 
   /* Drawer hides completely off-canvas (not just off its own edge) when closed */
-  .drawer{left:calc(50% - 200px);right:auto;transform:translateX(-150vw);transition:transform .26s cubic-bezier(.4,0,.2,1),visibility 0s}
+  .drawer{left:calc(50% - 360px);right:auto;transform:translateX(-150vw);transition:transform .26s cubic-bezier(.4,0,.2,1),visibility 0s}
   .drawer.open{transform:translateX(0)}
 
   /* Mask should only dim the app column area, positioned to match */
-  .d-mask{left:calc(50% - 200px);right:auto;width:400px}
+  .d-mask{left:calc(50% - 360px);right:auto;width:720px}
 
-  .s-mask .sheet{max-width:400px;margin:0 auto}
+  .s-mask .sheet{max-width:720px;margin:0 auto}
 
   #loginScreen,#resetOverlay{background:#DEDDD9}
   [data-theme="dark"] #loginScreen,[data-theme="dark"] #resetOverlay{background:#000000}
+
+  /* Wider screens get more breathing room in grids */
+  .stats{grid-template-columns:repeat(4,1fr)}
+  .pg-title{font-size:34px}
 }
 </style>
 </head>
