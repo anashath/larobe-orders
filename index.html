@@ -2746,9 +2746,7 @@ function renderDashLineChart(container, days) {
 
   var linePath = 'M' + points[0].x + ',' + points[0].y;
   for (var i = 1; i < points.length; i++) {
-    var midX = (points[i-1].x + points[i].x) / 2;
-    linePath += ' Q' + midX + ',' + points[i-1].y + ' ' + midX + ',' + ((points[i-1].y + points[i].y)/2);
-    linePath += ' Q' + midX + ',' + points[i].y + ' ' + points[i].x + ',' + points[i].y;
+    linePath += ' L' + points[i].x + ',' + points[i].y;
   }
 
   var areaPath = linePath + ' L' + points[n-1].x + ',' + (H-padBottom) + ' L' + points[0].x + ',' + (H-padBottom) + ' Z';
