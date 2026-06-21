@@ -575,7 +575,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 
   <!-- Low stock banner -->
-  <div id="dashStockBanner" style="display:none;margin:0 16px 14px;padding:13px 14px;background:var(--blue-l);border-radius:var(--r-lg);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="go('products')">
+  <div id="dashStockBanner" style="display:none;margin:0 16px 14px;padding:13px 14px;background:var(--blue-l);border-radius:var(--r-lg);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="goToProductsFiltered('concern')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     <div style="flex:1;font-size:13px;font-weight:600;color:var(--blue)" id="dashStockBannerText"></div>
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
@@ -588,8 +588,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashPending">0</div><div class="stat-l">Pending</div></div>
   </div>
   <div class="stats">
-    <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
-    <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
+    <div class="stat" onclick="goToProductsFiltered('low')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
+    <div class="stat" onclick="goToProductsFiltered('out')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
     <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashRevenueMonth">0</div><div class="stat-l">Revenue (Month)</div></div>
   </div>
 
@@ -717,6 +717,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 <!-- PRODUCTS -->
 <div class="screen" id="sc-products">
   <div class="pg"><div class="pg-title">Products</div><div style="font-size:13px;color:var(--ink3);margin-top:4px" id="prodCountLabel">Manage your bag catalogue, pricing & stock</div></div>
+  <div id="prodFilterBanner" style="display:none;margin:0 16px 12px;padding:10px 14px;background:var(--blue-l);border-radius:999px;display:flex;align-items:center;gap:8px">
+    <span id="prodFilterBannerText" style="flex:1;font-size:12px;font-weight:600;color:var(--blue)"></span>
+    <button onclick="clearProductFilter()" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;padding:0">Clear</button>
+  </div>
   <div class="prod-body" style="padding:0 16px 16px">
 
     <!-- ADD NEW PRODUCT TRIGGER -->
@@ -1318,13 +1322,46 @@ function stockBadgeClass(qty, threshold) {
   return 'stock-ok';
 }
 
+var _prodStockFilter = null; // null | 'low' | 'out'
+
+function goToProductsFiltered(filterType) {
+  _prodStockFilter = filterType;
+  go('products');
+}
+
+function clearProductFilter() {
+  _prodStockFilter = null;
+  renderProds();
+}
+
 function renderProds() {
   const L=document.getElementById('prodList');
   var lbl = document.getElementById('prodCountLabel');
-  if (lbl) lbl.textContent = products.length ? (products.length + ' ' + (products.length===1?'product':'products') + ' in catalogue') : 'Manage your bag catalogue, pricing & stock';
-  if(!products.length){ L.innerHTML='<div class="empty"><div class="empty-t">No products yet</div><div class="empty-s">Add one above</div></div>'; return; }
 
-  L.innerHTML = products.map(function(p) {
+  var visibleProducts = products;
+  var bannerEl = document.getElementById('prodFilterBanner');
+  var bannerTextEl = document.getElementById('prodFilterBannerText');
+
+  if (_prodStockFilter === 'low') {
+    visibleProducts = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; });
+    if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' low stock item' + (visibleProducts.length!==1?'s':''); bannerEl.style.display = 'flex'; }
+  } else if (_prodStockFilter === 'out') {
+    visibleProducts = products.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; });
+    if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' out of stock item' + (visibleProducts.length!==1?'s':''); bannerEl.style.display = 'flex'; }
+  } else if (_prodStockFilter === 'concern') {
+    visibleProducts = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) <= th; });
+    if (bannerEl) { bannerTextEl.textContent = 'Showing ' + visibleProducts.length + ' item' + (visibleProducts.length!==1?'s':'') + ' needing attention'; bannerEl.style.display = 'flex'; }
+  } else {
+    if (bannerEl) bannerEl.style.display = 'none';
+  }
+
+  if (lbl) lbl.textContent = products.length ? (products.length + ' ' + (products.length===1?'product':'products') + ' in catalogue') : 'Manage your bag catalogue, pricing & stock';
+  if(!visibleProducts.length){
+    L.innerHTML='<div class="empty"><div class="empty-t">' + (_prodStockFilter ? 'No items match this filter' : 'No products yet') + '</div>' + (_prodStockFilter ? '' : '<div class="empty-s">Add one above</div>') + '</div>';
+    return;
+  }
+
+  L.innerHTML = visibleProducts.map(function(p) {
     var stock = p.stock_qty || 0;
     var threshold = p.low_stock_threshold != null ? p.low_stock_threshold : 3;
     var stockClass = stockBadgeClass(stock, threshold);
