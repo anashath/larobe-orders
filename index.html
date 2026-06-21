@@ -2108,10 +2108,9 @@ async function deductStock(order) {
   var p = products.find(function(x){ return x.id === order.product_id; });
   if (!p) return false;
 
-  var newQty = Math.max(0, (p.stock_qty||0) - 1);
-  var res1 = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  var res1 = await db.rpc('adjust_stock', { p_product_id: p.id, p_change: -1 });
   if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
-  p.stock_qty = newQty;
+  p.stock_qty = Math.max(0, (p.stock_qty||0) - 1);
 
   var res2 = await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
   if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
@@ -2130,10 +2129,9 @@ async function restoreStock(order) {
   var p = products.find(function(x){ return x.id === order.product_id; });
   if (!p) return false;
 
-  var newQty = (p.stock_qty||0) + 1;
-  var res1 = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  var res1 = await db.rpc('adjust_stock', { p_product_id: p.id, p_change: 1 });
   if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
-  p.stock_qty = newQty;
+  p.stock_qty = (p.stock_qty||0) + 1;
 
   var res2 = await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
   if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
