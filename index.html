@@ -220,7 +220,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .pcard:active{transform:scale(.99)}
 .pcard-top{display:flex;gap:14px;padding:14px;cursor:pointer;align-items:center}
 .pcard-top.off{opacity:.42}
-.pcard-img{width:84px;height:84px;border-radius:12px;background:linear-gradient(145deg,var(--card2),var(--line));flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
+.pcard-img{width:112px;height:112px;border-radius:16px;background:linear-gradient(145deg,var(--card2),var(--line));flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
 .pcard-img img{width:100%;height:100%;object-fit:cover}
 .pcard-img svg{color:var(--ink3);opacity:.35}
 .pcard-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -381,7 +381,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .pp-item:hover{background:var(--card2)}
 .pp-item:active{background:var(--card2);transform:scale(.99)}
 .pp-item.disabled{opacity:.4;pointer-events:none}
-.pp-img{width:46px;height:46px;border-radius:12px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.pp-img{width:58px;height:58px;border-radius:13px;background:var(--card2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .pp-img img{width:100%;height:100%;object-fit:cover}
 .pp-img svg{color:var(--ink3);opacity:.4}
 .pp-info{flex:1;min-width:0}
@@ -686,7 +686,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <!-- Photo upload -->
       <div class="fg">
         <label>Photo</label>
-        <div id="newProdPhotoPreview" style="width:100%;height:140px;border:1.5px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--card2);overflow:hidden;cursor:pointer" onclick="document.getElementById('newProdPhotoInput').click()">
+        <div id="newProdPhotoPreview" style="width:100%;height:200px;border:1.5px dashed var(--line);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;background:var(--card2);overflow:hidden;cursor:pointer" onclick="document.getElementById('newProdPhotoInput').click()">
           <div id="newProdPhotoPlaceholder" style="text-align:center;color:var(--ink3)">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 6px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
             <div style="font-size:12px;font-weight:600">Tap to add photo</div>
@@ -1105,7 +1105,7 @@ function renderProductPicker() {
     var outOfStock = stock <= 0;
     var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '">'
-      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
+      : '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
     return '<div class="pp-item' + (outOfStock?' disabled':'') + '" onclick="' + (outOfStock?'':'selectProduct(' + p.id + ')') + '">'
       + '<div class="pp-img">' + imgHtml + '</div>'
       + '<div class="pp-info">'
@@ -1198,7 +1198,7 @@ function renderProds() {
 
     var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '" alt="">'
-      : '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
+      : '<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
 
     var cardHtml = '<div class="pcard">'
       + '<div class="pcard-top' + (p.active?'':' off') + '" onclick="openProdSheet(' + p.id + ')">'
@@ -1364,7 +1364,7 @@ function renderProdSheetBody() {
 
   // Photo
   html += '<div class="fg"><label>Photo</label>'
-    + '<div id="prodSheetPhotoPreview" style="width:100%;height:150px;border:1.5px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--card2);overflow:hidden;cursor:pointer" onclick="document.getElementById(\'prodSheetPhotoInput\').click()">'
+    + '<div id="prodSheetPhotoPreview" style="width:100%;height:200px;border:1.5px dashed var(--line);border-radius:var(--r-lg);display:flex;align-items:center;justify-content:center;background:var(--card2);overflow:hidden;cursor:pointer" onclick="document.getElementById(\'prodSheetPhotoInput\').click()">'
     + imgHtml
     + '</div>'
     + '<input type="file" id="prodSheetPhotoInput" accept="image/*" style="display:none" onchange="previewProdSheetPhoto(this)">'
