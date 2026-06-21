@@ -392,10 +392,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);font-s
   .hdr{width:400px;left:50%;right:auto;margin-left:-200px}
   .bnav{width:400px;left:50%;right:auto;margin-left:-200px}
   .content{max-width:400px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.18)}
-  .drawer{left:50%;margin-left:-200px}
+
+  /* Drawer must sit flush against the left edge of the centered 400px column */
+  .drawer{left:calc(50% - 200px);right:auto;transform:translateX(-100%)}
+  .drawer.open{transform:translateX(0)}
+
+  /* Mask should only dim the app column area, positioned to match */
+  .d-mask{left:calc(50% - 200px);right:auto;width:400px}
 
   .s-mask .sheet{max-width:400px;margin:0 auto}
-  .d-mask{max-width:400px;margin:0 auto;left:50%;transform:translateX(-50%)}
 
   #loginScreen,#resetOverlay{background:#C9CDD6}
   [data-theme="dark"] #loginScreen,[data-theme="dark"] #resetOverlay{background:#03050A}
