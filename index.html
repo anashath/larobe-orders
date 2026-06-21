@@ -302,6 +302,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .sf-soft   {background:var(--blue-l);color:var(--blue)}
 .sf-pack   {background:var(--amber-l);color:var(--amber)}
 .sf-confirm{background:var(--blue-l);color:var(--blue)}
+.sf-revoke {background:var(--red-l);color:var(--red)}
 .sf-deliver{background:var(--green-l);color:var(--green)}
 
 /* ── DETAIL ── */
@@ -866,7 +867,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="s-foot">
       <button class="sfbtn sf-red"     id="sdel"     style="display:none">Delete</button>
       <button class="sfbtn sf-soft"    id="sedit"    style="display:none" onclick="enterEdit()">Edit</button>
-      <button class="sfbtn sf-confirm" id="sconfirm" style="display:none" onclick="updateOrderStatus('confirmed')">Mark Confirmed</button>
+      <button class="sfbtn sf-confirm" id="sconfirm" style="display:none" onclick="updateOrderStatus('confirmed')">Order Complete</button>
+      <button class="sfbtn sf-revoke" id="srevoke" style="display:none" onclick="revokeOrder()">Revoke</button>
       <button class="sfbtn sf-pack"    id="spack"    style="display:none" onclick="updateOrderStatus('packed')">Mark Packed</button>
       <button class="sfbtn sf-deliver" id="sdeliver" style="display:none" onclick="updateOrderStatus('delivered')">Mark Delivered</button>
       <button class="sfbtn sf-red"     id="scancel"  style="display:none" onclick="updateOrderStatus('cancelled')">Cancel Order</button>
@@ -1674,6 +1676,7 @@ function openSheet(id) {
   var sdel    = document.getElementById('sdel');
   var sedit   = document.getElementById('sedit');
   var sconfirm= document.getElementById('sconfirm');
+  var srevoke = document.getElementById('srevoke');
   var spack   = document.getElementById('spack');
   var sdelv   = document.getElementById('sdeliver');
   var scancel = document.getElementById('scancel');
@@ -1681,20 +1684,23 @@ function openSheet(id) {
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){return x.id===id;}))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(function(x){return x.id===id;}));
   var isCancelled = _o && _o.status === 'cancelled';
+  var isRevokable = _o && ['confirmed','packed','delivered'].indexOf(_o.status) >= 0;
 
   // Hide all first
-  [sdel, sedit, sconfirm, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
+  [sdel, sedit, sconfirm, srevoke, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
 
   if (role === 'admin') {
     if (sdel)  sdel.style.display  = '';
     if (sedit) sedit.style.display = '';
     if (sconfirm && _o && _o.status === 'pending') sconfirm.style.display = '';
+    if (srevoke && isRevokable) srevoke.style.display = '';
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
     if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'order_collection') {
     if (sedit) sedit.style.display = '';
     if (sconfirm && _o && _o.status === 'pending') sconfirm.style.display = '';
+    if (srevoke && isRevokable) srevoke.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'packing') {
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
@@ -1807,6 +1813,12 @@ async function updateOrderStatus(newStatus) {
   }
   closeSheet(); render();
   toast('Status updated to ' + newStatus);
+}
+
+async function revokeOrder() {
+  if (!viewId) return;
+  if (!await showConfirm('Revoke Order', 'This will move the order back to Pending and restore stock if it was deducted.', {confirmLabel:'Revoke', danger:true})) return;
+  await updateOrderStatus('pending');
 }
 
 async function delOrder(id) {
