@@ -3213,11 +3213,15 @@ function downloadCSV(filename, rows) {
 }
 
 function exportSalesCSV() {
-  if (!_salesOrders || !_salesOrders.length) { toast('No data to export', true); return; }
+  var bounds = salesDateBounds(_salesRange);
+  openCalendarRange('Export Sales', 'Choose the date range to export', bounds.start, bounds.end, function(start, end) {
+    runSalesExport(start, end);
+  });
+}
 
+function buildSalesRows(data) {
   var rows = [['Order #','Date','Customer','Contact','Product','Price (MVR)','Cost Price (MVR)','Gross Profit (MVR)','Delivery','Payment Method','Payment Status']];
-
-  _salesOrders.forEach(function(o) {
+  data.forEach(function(o) {
     var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
     var cost = p ? Number(p.cost_price)||0 : 0;
     var price = Number(o.price)||0;
@@ -3227,10 +3231,24 @@ function exportSalesCSV() {
       o.payment_done ? 'Paid' : 'Unpaid'
     ]);
   });
+  return rows;
+}
 
-  var bounds = salesDateBounds(_salesRange);
-  downloadCSV('La_Robe_Sales_' + bounds.start + '_to_' + bounds.end + '.csv', rows);
-  toast('Exported ' + _salesOrders.length + ' orders');
+async function runSalesExport(startDate, endDate) {
+  toast('Preparing export…');
+  const {data, error} = await db.from('orders')
+    .select('*')
+    .eq('status', 'delivered')
+    .gte('order_date', startDate)
+    .lte('order_date', endDate)
+    .order('order_date', { ascending: false });
+
+  if (error) { toast('Export error: ' + error.message, true); return; }
+  if (!data || !data.length) { toast('No delivered orders in that range', true); return; }
+
+  var rows = buildSalesRows(data);
+  downloadCSV('La_Robe_Sales_' + startDate + '_to_' + endDate + '.csv', rows);
+  toast('Exported ' + data.length + ' orders');
 }
 
 function exportHistoryCSV() {
