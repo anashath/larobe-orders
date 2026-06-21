@@ -1626,6 +1626,16 @@ async function loadOrders() {
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
 }
+async function logActivity(orderId, action) {
+  try {
+    var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
+    var userId = _session ? _session.user.id : null;
+    await db.from('order_activity').insert({
+      order_id: orderId, user_id: userId, user_name: userName, action: action
+    });
+  } catch(e) { console.error('Activity log failed:', e); }
+}
+
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
   const productId=parseInt(document.getElementById('fProduct').value);
@@ -1664,6 +1674,10 @@ async function addOrder() {
   btn.disabled=false; btn.textContent='Record Order';
   if(error){toast('Error: '+error.message,true);return;}
   if(data&&data.length) orders.unshift(data[0]);
+
+  if (data && data.length) {
+    await logActivity(data[0].id, 'created');
+  }
 
   // If order is created already-confirmed, deduct stock immediately
   if (data && data.length && ['confirmed','packed','delivered'].indexOf(data[0].status) >= 0) {
@@ -1828,6 +1842,7 @@ async function bulkConfirmOrders() {
     await db.from('orders').update({ status: 'confirmed' }).eq('id', id);
     o.status = 'confirmed';
     if (!o.stock_deducted) await deductStock(o);
+    await logActivity(id, 'confirmed (bulk)');
   }
 
   exitSelectMode();
@@ -1862,8 +1877,10 @@ function openSheet(id) {
       <div class="det-row"><span class="det-lbl">Delivery</span><span class="det-val">${esc(o.delivery)}</span></div>
       <div class="det-row"><span class="det-lbl">Date</span><span class="det-val dim">${o.order_date||''} ${o.order_time||''}</span></div>
     </div>
-    ${o.notes?`<div class="det-note">${esc(o.notes)}</div>`:''}`;
+    ${o.notes?`<div class="det-note">${esc(o.notes)}</div>`:''}
+    <div id="orderActivityTimeline" style="margin-top:14px"></div>`;
   document.getElementById('ssave').style.display='none';
+  loadOrderActivity(id);
   // Role-based buttons
   var role = _profile ? _profile.role : '';
   var sdel    = document.getElementById('sdel');
@@ -1903,6 +1920,59 @@ function openSheet(id) {
   document.getElementById('sdel').onclick=function(){delOrder(id);};
   var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.add('open');
 }
+async function loadOrderActivity(orderId) {
+  var container = document.getElementById('orderActivityTimeline');
+  if (!container) return;
+
+  const {data, error} = await db.from('order_activity')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data || !data.length) { container.innerHTML = ''; return; }
+
+  var actionLabels = {
+    created: 'Order created',
+    confirmed: 'Confirmed',
+    'confirmed (bulk)': 'Confirmed (bulk action)',
+    'confirmed (via edit)': 'Confirmed (via edit)',
+    packed: 'Marked as Packed',
+    'packed (via edit)': 'Marked as Packed (via edit)',
+    delivered: 'Marked as Delivered',
+    'delivered (via edit)': 'Marked as Delivered (via edit)',
+    cancelled: 'Cancelled',
+    'cancelled (via edit)': 'Cancelled (via edit)',
+    revoked: 'Revoked to Pending',
+    'pending (via edit)': 'Set to Pending (via edit)',
+    edited: 'Details edited',
+    deleted: 'Deleted'
+  };
+
+  var html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Activity</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:0">';
+
+  data.forEach(function(a, i) {
+    var isLast = i === data.length - 1;
+    var dt = new Date(a.created_at);
+    var timeStr = dt.toLocaleString('en-US', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit' });
+    var label = actionLabels[a.action] || a.action;
+
+    html += '<div style="display:flex;gap:10px">'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
+        + '<div style="width:8px;height:8px;border-radius:50%;background:var(--blue);margin-top:5px"></div>'
+        + (isLast ? '' : '<div style="width:1.5px;flex:1;background:var(--line);margin-top:2px"></div>')
+      + '</div>'
+      + '<div style="padding-bottom:' + (isLast?'0':'14') + 'px;flex:1">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(label) + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:1px">' + esc(a.user_name||'Unknown') + ' · ' + timeStr + '</div>'
+      + '</div>'
+      + '</div>';
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 function closeSheet(){var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.remove('open');viewId=null;}
 function enterEdit() {
   const o=orders.find(x=>x.id===viewId)
@@ -2001,11 +2071,21 @@ async function saveEdit() {
     if (['pending','cancelled'].indexOf(o.status) >= 0 && o.stock_deducted) {
       await restoreStock(o);
     }
+    if (prevStatus !== o.status) {
+      await logActivity(viewId, o.status + ' (via edit)');
+    } else {
+      await logActivity(viewId, 'edited');
+    }
   }
   render(); openSheet(viewId); toast('Saved ✓');
 }
-async function updateOrderStatus(newStatus) {
+async function updateOrderStatus(newStatus, activityLabel) {
   if (!viewId) return;
+  var thisOrderId = viewId;
+  var wasConfirmedOrLater = false;
+  var prevOrder = orders.find(function(x){return x.id===viewId;});
+  if (prevOrder) wasConfirmedOrLater = ['confirmed','packed','delivered'].indexOf(prevOrder.status) >= 0;
+
   const res = await db.from('orders').update({ status: newStatus }).eq('id', viewId);
   if (res.error) { toast('Error: ' + res.error.message, true); return; }
   var o = orders.find(function(x){return x.id===viewId;})
@@ -2022,6 +2102,10 @@ async function updateOrderStatus(newStatus) {
       await restoreStock(o);
     }
   }
+
+  var label = activityLabel || (newStatus === 'pending' && wasConfirmedOrLater ? 'revoked' : newStatus);
+  await logActivity(thisOrderId, label);
+
   closeSheet(); render();
   toast('Status updated to ' + newStatus);
 }
@@ -2034,6 +2118,7 @@ async function revokeOrder() {
 
 async function delOrder(id) {
   if(!await showConfirm('Delete Order', 'This order will be permanently removed.', {confirmLabel:'Delete', danger:true}))return;
+  await logActivity(id, 'deleted');
   await db.from('orders').delete().eq('id',id);
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
 }
