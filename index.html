@@ -1216,6 +1216,29 @@ function go(s) {
 /* UTILS */
 function today() { return new Date().toISOString().slice(0,10); }
 function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── VALIDATION HELPERS ── */
+function isValidPhone(s) {
+  if (!s) return false;
+  var cleaned = s.replace(/[\s\-]/g, '');
+  // Accept optional + then 7-15 digits (covers Maldivian local 7-digit numbers and international formats)
+  return /^\+?\d{7,15}$/.test(cleaned);
+}
+
+function isValidEmail(s) {
+  if (!s) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
+function isPositiveNumber(v) {
+  var n = parseFloat(v);
+  return !isNaN(n) && n > 0;
+}
+
+function isNonNegativeNumber(v) {
+  var n = parseFloat(v);
+  return !isNaN(n) && n >= 0;
+}
 let _tt;
 var _confirmResolve = null;
 
@@ -1707,10 +1730,16 @@ async function logProductActivity(productId, productName, action, fieldName, old
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
   const color=document.getElementById('newProdColor').value.trim();
-  const stock=parseInt(document.getElementById('newProdStock').value)||0;
-  const cost = parseFloat(document.getElementById('newProdCost').value) || 0;
-  const price = parseFloat(document.getElementById('newProdPrice').value) || 0;
+  const stockRaw = document.getElementById('newProdStock').value;
+  const costRaw = document.getElementById('newProdCost').value;
+  const priceRaw = document.getElementById('newProdPrice').value;
+  const stock=parseInt(stockRaw)||0;
+  const cost = parseFloat(costRaw) || 0;
+  const price = parseFloat(priceRaw) || 0;
   if(!n){toast('Enter a product name',true);return;}
+  if(stockRaw && !isNonNegativeNumber(stockRaw)){toast('Stock quantity cannot be negative',true);return;}
+  if(costRaw && !isNonNegativeNumber(costRaw)){toast('Cost price cannot be negative',true);return;}
+  if(priceRaw && !isNonNegativeNumber(priceRaw)){toast('Selling price cannot be negative',true);return;}
 
   const {data,error}=await db.from('products').insert({
     name:n, color:color||null, stock_qty:stock, active:true, cost_price:cost, selling_price:price, price:price
@@ -1764,9 +1793,12 @@ function closeRestockPrompt() {
 }
 
 async function confirmRestock() {
-  var qty = parseInt(document.getElementById('restockQty').value) || 0;
-  var cost = parseFloat(document.getElementById('restockCost').value) || 0;
+  var qtyRaw = document.getElementById('restockQty').value;
+  var costRaw = document.getElementById('restockCost').value;
+  var qty = parseInt(qtyRaw) || 0;
+  var cost = parseFloat(costRaw) || 0;
   if (qty <= 0) { toast('Enter a quantity greater than 0', true); return; }
+  if (costRaw && !isNonNegativeNumber(costRaw)) { toast('Cost price cannot be negative', true); return; }
 
   var p = products.find(function(x){ return x.id === _restockProductId; });
   if (!p) { toast('Product not found', true); return; }
@@ -1884,9 +1916,15 @@ async function saveProdFromSheet() {
   if (!p) return;
   var name = document.getElementById('ps-name').value.trim();
   var color = document.getElementById('ps-color').value.trim();
-  var cost = parseFloat(document.getElementById('ps-cost').value) || 0;
-  var price = parseFloat(document.getElementById('ps-price').value) || 0;
-  var stock = parseInt(document.getElementById('ps-stock').value) || 0;
+  var costRaw = document.getElementById('ps-cost').value;
+  var priceRaw = document.getElementById('ps-price').value;
+  var stockRaw = document.getElementById('ps-stock').value;
+  if (costRaw && !isNonNegativeNumber(costRaw)) { toast('Cost price cannot be negative', true); return; }
+  if (priceRaw && !isNonNegativeNumber(priceRaw)) { toast('Selling price cannot be negative', true); return; }
+  if (stockRaw && !isNonNegativeNumber(stockRaw)) { toast('Stock quantity cannot be negative', true); return; }
+  var cost = parseFloat(costRaw) || 0;
+  var price = parseFloat(priceRaw) || 0;
+  var stock = parseInt(stockRaw) || 0;
   var threshold = parseInt(document.getElementById('ps-threshold').value);
   if (isNaN(threshold) || threshold < 0) threshold = 3;
   if (!name) { toast('Name cannot be empty', true); return; }
@@ -2012,8 +2050,12 @@ async function logActivity(orderId, action) {
 
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
+  const contact=document.getElementById('fContact').value.trim();
+  const priceVal=document.getElementById('fPrice').value;
   const productId=parseInt(document.getElementById('fProduct').value);
   if(!name||!productId){toast('Fill in name and product',true);return;}
+  if(contact && !isValidPhone(contact)){toast('Enter a valid phone number',true);return;}
+  if(!isPositiveNumber(priceVal)){toast('Enter a valid price greater than 0',true);return;}
 
   var p = products.find(function(x){ return x.id === productId; });
   if (!p) { toast('Product not found', true); return; }
@@ -2494,6 +2536,15 @@ function editSetPay(paid) {
 }
 async function saveEdit() {
   const g=id=>{ const e=document.getElementById(id); return e?e.value:null; };
+
+  var editName = g('en') ? g('en').trim() : '';
+  var editContact = g('ec') ? g('ec').trim() : '';
+  var editPrice = g('epr');
+
+  if (!editName) { toast('Customer name cannot be empty', true); return; }
+  if (editContact && !isValidPhone(editContact)) { toast('Enter a valid phone number', true); return; }
+  if (!isPositiveNumber(editPrice)) { toast('Enter a valid price greater than 0', true); return; }
+
   const epdEl=document.getElementById('epd');
   var epEl = document.getElementById('ep');
   var newProductId = epEl && epEl.value ? parseInt(epEl.value) : null;
@@ -2614,6 +2665,7 @@ function doLogin() {
   var btn   = document.getElementById('loginBtn');
   var err   = document.getElementById('loginErr');
   if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
+  if (!isValidEmail(email)) { err.textContent = 'Enter a valid email address.'; return; }
   btn.disabled = true; btn.textContent = 'Signing in...'; err.textContent = '';
   db.auth.signInWithPassword({ email: email, password: pass }).then(function(res) {
     btn.disabled = false; btn.textContent = 'Sign In';
@@ -2703,6 +2755,7 @@ function doReset() {
   var btn = document.getElementById('resetBtn');
   var msg = document.getElementById('resetMsg');
   if (!email) { msg.style.color = 'var(--red)'; msg.textContent = 'Please enter your email.'; return; }
+  if (!isValidEmail(email)) { msg.style.color = 'var(--red)'; msg.textContent = 'Enter a valid email address.'; return; }
   btn.disabled = true; btn.textContent = 'Sending...';
   msg.textContent = ''; msg.style.color = 'var(--green)';
   db.auth.resetPasswordForEmail(email, {
@@ -2862,6 +2915,7 @@ function createUser() {
   var pass  = document.getElementById('nuPass').value;
   var role  = document.getElementById('nuRole').value;
   if (!name||!email||!pass) { toast('Fill in all fields', true); return; }
+  if (!isValidEmail(email)) { toast('Enter a valid email address', true); return; }
   if (pass.length < 6) { toast('Password min 6 characters', true); return; }
   var btn = document.getElementById('createUserBtn');
   btn.disabled=true; btn.textContent='Creating...';
