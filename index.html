@@ -378,6 +378,12 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .product-select-field:hover{border-color:var(--ink3);background:var(--card2)}
 .product-select-field:active{transform:scale(.99)}
 
+/* ── BULK SELECTION ── */
+.osel-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.osel-box.on{background:var(--blue);border-color:var(--blue)}
+.osel-box.disabled{opacity:.3;background:var(--card2)}
+.osel-dim{opacity:.45}
+
 /* ── PRODUCT PICKER ── */
 .pp-item{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:14px;cursor:pointer;transition:background .15s,transform .1s}
 .pp-item:hover{background:var(--card2)}
@@ -1672,6 +1678,10 @@ function renderPayDone() {
   no.className  = 'epd-btn ' + (!_payDone ? 'epd-on-red'  : 'epd-off');
 }
 function setPayDone(val) { _payDone=val; renderPayDone(); }
+var _selectMode = false;
+var _selectedIds = [];
+var _longPressTimer = null;
+
 function render() {
   const L=document.getElementById('olist');
   const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
@@ -1682,7 +1692,19 @@ function render() {
       var sc = o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
       var swatch = 'swatch-' + o.status;
       var pc = o.payment_done ? 'pay-done' : 'pay-pend';
-      return '<div class="orow ' + swatch + '" onclick="openSheet(' + o.id + ')">'
+      var isSelectable = o.status === 'pending';
+      var isChecked = _selectedIds.indexOf(o.id) >= 0;
+      var rowClick = _selectMode
+        ? (isSelectable ? "toggleSelect(" + o.id + ")" : "")
+        : "openSheet(" + o.id + ")";
+      var pressHandlers = !_selectMode
+        ? 'onmousedown="startLongPress(' + o.id + ',' + isSelectable + ')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(' + o.id + ',' + isSelectable + ')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()"'
+        : '';
+      var checkboxHtml = _selectMode
+        ? '<div class="osel-box ' + (isChecked?'on':'') + (isSelectable?'':' disabled') + '">' + (isChecked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '') + '</div>'
+        : '';
+      return '<div class="orow ' + swatch + (_selectMode && !isSelectable ? ' osel-dim' : '') + '" ' + pressHandlers + ' onclick="' + rowClick + '">'
+        + checkboxHtml
         + '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>'
         + '<div class="o-info">'
           + '<div class="o-name">' + esc(o.customer_name) + '</div>'
@@ -1694,7 +1716,7 @@ function render() {
           + '<span class="badge ' + sc + '">' + o.status + '</span>'
           + '<span class="' + pc + '">' + (o.payment_done?'Paid':'Unpaid') + '</span>'
         + '</div>'
-        + '<div class="o-arr">›</div>'
+        + (_selectMode ? '' : '<div class="o-arr">›</div>')
         + '</div>';
     }).join('');
   }
@@ -1703,6 +1725,70 @@ function render() {
   document.getElementById('stTotal').textContent=orders.length;
   document.getElementById('stPend').textContent=pend;
   document.getElementById('stRev').textContent=rev.toLocaleString();
+  renderBulkBar();
+}
+
+function startLongPress(id, isSelectable) {
+  if (!isSelectable) return;
+  _longPressTimer = setTimeout(function() {
+    _selectMode = true;
+    _selectedIds = [id];
+    render();
+    if (navigator.vibrate) navigator.vibrate(15);
+  }, 480);
+}
+
+function cancelLongPress() {
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+}
+
+function toggleSelect(id) {
+  var idx = _selectedIds.indexOf(id);
+  if (idx >= 0) { _selectedIds.splice(idx, 1); }
+  else { _selectedIds.push(id); }
+  if (_selectedIds.length === 0) _selectMode = false;
+  render();
+}
+
+function exitSelectMode() {
+  _selectMode = false;
+  _selectedIds = [];
+  render();
+}
+
+function renderBulkBar() {
+  var existing = document.getElementById('bulkBar');
+  if (existing) existing.remove();
+  if (!_selectMode || !_selectedIds.length) return;
+
+  var bar = document.createElement('div');
+  bar.id = 'bulkBar';
+  bar.style.cssText = 'position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px);left:16px;right:16px;max-width:368px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:999px;padding:10px 8px 10px 18px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh-lg);z-index:70';
+  bar.innerHTML = '<span style="flex:1;font-size:13px;font-weight:600">' + _selectedIds.length + ' selected</span>'
+    + '<button onclick="exitSelectMode()" style="background:none;border:none;color:var(--bg);opacity:0.7;font-size:13px;font-weight:600;padding:8px 10px;cursor:pointer">Cancel</button>'
+    + '<button onclick="bulkConfirmOrders()" style="background:var(--blue);border:none;color:#fff;font-size:13px;font-weight:700;padding:9px 16px;border-radius:999px;cursor:pointer">Confirm All</button>';
+
+  var contentEl = document.querySelector('.content');
+  (contentEl ? contentEl.parentElement : document.body).appendChild(bar);
+}
+
+async function bulkConfirmOrders() {
+  var ids = _selectedIds.slice();
+  if (!ids.length) return;
+  if (!await showConfirm('Confirm Orders', 'Mark ' + ids.length + ' order' + (ids.length!==1?'s':'') + ' as confirmed? Stock will be deducted for each.', {confirmLabel:'Confirm All'})) return;
+
+  for (var i = 0; i < ids.length; i++) {
+    var id = ids[i];
+    var o = orders.find(function(x){ return x.id === id; });
+    if (!o) continue;
+    await db.from('orders').update({ status: 'confirmed' }).eq('id', id);
+    o.status = 'confirmed';
+    if (!o.stock_deducted) await deductStock(o);
+  }
+
+  exitSelectMode();
+  render();
+  toast(ids.length + ' order' + (ids.length!==1?'s':'') + ' confirmed');
 }
 function setFlt(f,btn){flt=f;document.querySelectorAll('.chip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');render();}
 
