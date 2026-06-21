@@ -515,6 +515,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <button class="hdr-menu" onclick="openD()"><span></span><span></span></button>
   <div class="hdr-brand">La <em>Robe</em></div>
   <div class="hdr-right">
+    <button id="helpBtn" onclick="replayScreenTips()" style="width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);background:var(--card2);color:var(--ink3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">?</button>
     <div class="hdr-dot" id="sdot"></div>
     <div class="hdr-theme">
       <button id="tl" class="on" onclick="setTheme('light')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
@@ -904,6 +905,13 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     </div>
   </div>
   <div class="fcard" style="margin:0 16px 12px">
+    <div class="fcard-hdr">Help</div>
+    <div class="s-row" onclick="resetAllTips()" style="cursor:pointer">
+      <div><div class="s-lbl">Show Tips Again</div><div class="s-hint">Replay the quick guide on every screen</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+  <div class="fcard" style="margin:0 16px 12px">
     <div class="fcard-hdr">Status</div>
     <div class="s-row"><div><div class="s-lbl">Sync</div><div class="s-hint" id="ssync">Checking…</div></div><div class="hdr-dot" id="sdot2"></div></div>
     <div class="s-row"><div><div class="s-lbl">Version</div><div class="s-hint">La Robe Orders v2.0</div></div></div>
@@ -1096,6 +1104,24 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 </div>
 
+<!-- ═══ CONTEXTUAL TIPS OVERLAY ══════════════════════════════════════════════ -->
+<div id="tipOverlay" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(10,10,10,.55)">
+  <div id="tipCard" style="position:absolute;max-width:300px;background:var(--card);border-radius:var(--r-lg);padding:16px;box-shadow:var(--sh-lg)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">!</div>
+      <div id="tipTitle" style="font-size:13px;font-weight:700;color:var(--ink)"></div>
+    </div>
+    <div id="tipText" style="font-size:12.5px;color:var(--ink2);line-height:1.5;margin-bottom:12px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span id="tipProgress" style="font-size:11px;color:var(--ink3);font-weight:600"></span>
+      <div style="display:flex;gap:8px">
+        <button onclick="skipTips()" style="background:none;border:none;color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;padding:6px 4px">Skip</button>
+        <button onclick="nextTip()" id="tipNextBtn" style="background:var(--ink);color:var(--bg);border:none;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;padding:7px 16px">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1177,6 +1203,7 @@ function go(s) {
   if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
   if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
+  maybeShowTips(s);
   if(s==='settings') updSett();
   if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
   if(s==='copy')     { initCopy(); }
@@ -1191,6 +1218,134 @@ function today() { return new Date().toISOString().slice(0,10); }
 function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 let _tt;
 var _confirmResolve = null;
+
+var TIPS_CONFIG = {
+  orders: [
+    { selector: '.chips', title: 'Filter Orders', text: 'Tap these chips to filter today\'s orders by status. Tap "Today" to reset and see everything.' },
+    { selector: '.olist', title: 'Quick Actions', text: 'Tap any order to view details. Long-press a Pending order to select multiple and confirm them all at once.' },
+    { selector: '.nb-fab', title: 'New Order', text: 'Tap the + button anytime to record a new order.' }
+  ],
+  products: [
+    { selector: '#addProdTrigger', title: 'Add a Product', text: 'Tap here to add a new product with photo, price, and starting stock.' },
+    { selector: '#prodSortStock', title: 'Sort Products', text: 'Switch between sorting by stock level or by when it was added.' },
+    { selector: '.pcard-top', title: 'Edit Anytime', text: 'Tap any product to edit its details, restock it, or hide it from the catalogue.' }
+  ],
+  dashboard: [
+    { selector: '.stats', title: 'Your Daily Pulse', text: 'These cards update live — tap Low Stock or Out of Stock to jump straight to the affected products.' },
+    { selector: '#dashActionItems', title: 'Needs Attention', text: 'This list shows exactly what\'s waiting on you — orders to confirm, pack, or deliver.' }
+  ],
+  sales: [
+    { selector: '.chips', title: 'Pick a Range', text: 'Choose a preset range or tap Custom to pick exact dates.' },
+    { selector: 'button[onclick="exportSalesCSV()"]', title: 'Export Anytime', text: 'Tap Export to download a CSV for any date range — handy for bookkeeping.' }
+  ],
+  history: [
+    { selector: '#histSearch', title: 'Search Past Orders', text: 'Search by customer name or product across your entire order history.' }
+  ],
+  new: [
+    { selector: '#fProductDisplay', title: 'Pick a Product', text: 'Tap here to browse your catalogue with photos and live stock — the price fills in automatically.' }
+  ]
+};
+
+var _tipScreen = null;
+var _tipIndex = 0;
+
+function getSeenTips() {
+  try { return JSON.parse(localStorage.getItem('lr_tips_seen') || '{}'); } catch(e) { return {}; }
+}
+
+function markTipsSeen(screen) {
+  var seen = getSeenTips();
+  seen[screen] = true;
+  try { localStorage.setItem('lr_tips_seen', JSON.stringify(seen)); } catch(e) {}
+}
+
+function maybeShowTips(screen) {
+  if (!TIPS_CONFIG[screen]) return;
+  var seen = getSeenTips();
+  if (seen[screen]) return;
+  setTimeout(function() { startTips(screen); }, 400);
+}
+
+function replayScreenTips() {
+  var screen = null;
+  document.querySelectorAll('.screen.on').forEach(function(el) {
+    screen = el.id.replace('sc-', '');
+  });
+  if (screen && TIPS_CONFIG[screen]) {
+    startTips(screen);
+  } else {
+    toast('No tips available for this screen');
+  }
+}
+
+function resetAllTips() {
+  try { localStorage.removeItem('lr_tips_seen'); } catch(e) {}
+  toast('Tips will show again on each screen');
+}
+
+function startTips(screen) {
+  _tipScreen = screen;
+  _tipIndex = 0;
+  document.getElementById('tipOverlay').style.display = 'block';
+  showTipStep();
+}
+
+function showTipStep() {
+  var steps = TIPS_CONFIG[_tipScreen];
+  if (!steps || _tipIndex >= steps.length) { skipTips(); return; }
+  var step = steps[_tipIndex];
+  var target = document.querySelector(step.selector);
+
+  document.getElementById('tipTitle').textContent = step.title;
+  document.getElementById('tipText').textContent = step.text;
+  document.getElementById('tipProgress').textContent = (_tipIndex+1) + ' of ' + steps.length;
+  document.getElementById('tipNextBtn').textContent = (_tipIndex === steps.length - 1) ? 'Done' : 'Next';
+
+  var card = document.getElementById('tipCard');
+  if (target) {
+    var rect = target.getBoundingClientRect();
+    var cardTop = rect.bottom + 12;
+    if (cardTop + 140 > window.innerHeight) cardTop = Math.max(12, rect.top - 152);
+    card.style.top = cardTop + 'px';
+    var cardLeft = Math.min(Math.max(12, rect.left), window.innerWidth - 312);
+    card.style.left = cardLeft + 'px';
+    target.style.position = target.style.position || 'relative';
+    target.style.zIndex = '301';
+    target.style.boxShadow = '0 0 0 3px var(--blue), 0 0 0 9999px rgba(10,10,10,.55)';
+    target.style.borderRadius = target.style.borderRadius || '12px';
+    target.setAttribute('data-tip-highlighted', '1');
+  } else {
+    card.style.top = '40%';
+    card.style.left = '50%';
+    card.style.transform = 'translate(-50%,-50%)';
+  }
+}
+
+function clearTipHighlight() {
+  document.querySelectorAll('[data-tip-highlighted]').forEach(function(el) {
+    el.style.boxShadow = '';
+    el.style.zIndex = '';
+    el.removeAttribute('data-tip-highlighted');
+  });
+}
+
+function nextTip() {
+  clearTipHighlight();
+  _tipIndex++;
+  var steps = TIPS_CONFIG[_tipScreen];
+  if (!steps || _tipIndex >= steps.length) { skipTips(); return; }
+  showTipStep();
+}
+
+function skipTips() {
+  clearTipHighlight();
+  document.getElementById('tipOverlay').style.display = 'none';
+  var card = document.getElementById('tipCard');
+  card.style.transform = '';
+  if (_tipScreen) markTipsSeen(_tipScreen);
+  _tipScreen = null;
+  _tipIndex = 0;
+}
 
 function showConfirm(title, msg, opts) {
   opts = opts || {};
