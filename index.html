@@ -378,6 +378,15 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .product-select-field:hover{border-color:var(--ink3);background:var(--card2)}
 .product-select-field:active{transform:scale(.99)}
 
+/* ── DASHBOARD CHART ── */
+.dash-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.dash-bar{width:100%;max-width:28px;border-radius:6px 6px 3px 3px;background:var(--blue-l);transition:height .4s ease;position:relative;min-height:4px}
+.dash-bar.today{background:var(--blue)}
+.dash-bar-val{font-size:9.5px;font-weight:700;color:var(--ink3);margin-bottom:4px;white-space:nowrap}
+.dash-bar.today + .dash-bar-val,.dash-bar-col .dash-bar.today{color:var(--blue)}
+.dash-day-label{flex:1;text-align:center;font-size:10px;font-weight:600;color:var(--ink3)}
+.dash-day-label.today{color:var(--blue);font-weight:800}
+
 /* ── CALENDAR ── */
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cal-nav-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink2);display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -583,15 +592,43 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 
   <!-- Today's pulse -->
   <div class="stats">
-    <div class="stat hi"><div class="stat-n" id="dashOrdersToday">0</div><div class="stat-l">Orders Today</div></div>
-    <div class="stat hi"><div class="stat-n" id="dashRevenueToday">0</div><div class="stat-l">Revenue Today</div></div>
+    <div class="stat hi">
+      <div class="stat-n" id="dashOrdersToday">0</div>
+      <div class="stat-l">Orders Today</div>
+    </div>
+    <div class="stat hi">
+      <div class="stat-n" id="dashRevenueToday">0</div>
+      <div class="stat-l">Revenue Today</div>
+      <div id="dashRevenueCompare" style="font-size:10.5px;font-weight:700;margin-top:3px"></div>
+    </div>
     <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashPending">0</div><div class="stat-l">Pending</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashUnpaid">0</div><div class="stat-l">Unpaid</div></div>
+    <div class="stat"><div class="stat-n" id="dashAvgOrder">0</div><div class="stat-l">Avg Order (MVR)</div></div>
+    <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashRevenueMonth">0</div><div class="stat-l">Revenue (Month)</div></div>
   </div>
   <div class="stats">
     <div class="stat" onclick="goToProductsFiltered('low')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
     <div class="stat" onclick="goToProductsFiltered('out')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
-    <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashRevenueMonth">0</div><div class="stat-l">Revenue (Month)</div></div>
   </div>
+
+  <!-- 7-day revenue trend -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Last 7 Days</div>
+  </div>
+  <div style="padding:0 16px 16px">
+    <div class="fcard" style="margin:0">
+      <div id="dashChartWrap" style="display:flex;align-items:flex-end;gap:8px;height:90px;padding-top:4px"></div>
+      <div id="dashChartLabels" style="display:flex;gap:8px;margin-top:6px"></div>
+    </div>
+  </div>
+
+  <!-- Staff activity snapshot -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Team Activity Today</div>
+  </div>
+  <div style="padding:0 16px 16px" id="dashStaffActivity"></div>
 
   <!-- Action items -->
   <div class="pg" style="padding-bottom:6px">
@@ -2704,10 +2741,110 @@ async function loadDashboard() {
   var revenueToday = ordersToday.filter(function(o){ return o.status === 'delivered'; })
                                 .reduce(function(s,o){ return s + Number(o.price); }, 0);
   var pendingCount = (todayOrders||[]).filter(function(o){ return o.status === 'pending'; }).length;
+  var unpaidCount = ordersToday.filter(function(o){ return !o.payment_done; }).length;
+  var deliveredToday = ordersToday.filter(function(o){ return o.status === 'delivered'; });
+  var avgOrderToday = deliveredToday.length ? Math.round(revenueToday / deliveredToday.length) : 0;
 
   document.getElementById('dashOrdersToday').textContent = ordersToday.length;
   document.getElementById('dashRevenueToday').textContent = revenueToday.toLocaleString();
   document.getElementById('dashPending').textContent = pendingCount;
+  document.getElementById('dashUnpaid').textContent = unpaidCount;
+  document.getElementById('dashAvgOrder').textContent = avgOrderToday.toLocaleString();
+
+  // Yesterday comparison
+  var yDate = new Date();
+  yDate.setDate(yDate.getDate() - 1);
+  var yesterdayStr = yDate.getFullYear() + '-' + pad2(yDate.getMonth()+1) + '-' + pad2(yDate.getDate());
+  const {data: yesterdayOrders} = await db.from('orders').select('price,status').eq('order_date', yesterdayStr).eq('status','delivered');
+  var revenueYesterday = (yesterdayOrders||[]).reduce(function(s,o){ return s + Number(o.price); }, 0);
+
+  var compareEl = document.getElementById('dashRevenueCompare');
+  if (compareEl) {
+    if (revenueYesterday > 0) {
+      var pctChange = Math.round(((revenueToday - revenueYesterday) / revenueYesterday) * 100);
+      var up = pctChange >= 0;
+      compareEl.innerHTML = '<span style="color:' + (up?'var(--green)':'var(--red)') + '">' + (up?'↑':'↓') + ' ' + Math.abs(pctChange) + '% vs yesterday</span>';
+    } else if (revenueToday > 0) {
+      compareEl.innerHTML = '<span style="color:var(--green)">↑ vs yesterday (0)</span>';
+    } else {
+      compareEl.textContent = '';
+    }
+  }
+
+  // 7-day revenue trend chart
+  var chartStart = new Date();
+  chartStart.setDate(chartStart.getDate() - 6);
+  var chartStartStr = chartStart.getFullYear() + '-' + pad2(chartStart.getMonth()+1) + '-' + pad2(chartStart.getDate());
+  const {data: weekOrders} = await db.from('orders').select('price,order_date,status')
+    .eq('status','delivered').gte('order_date', chartStartStr).lte('order_date', todayDate);
+
+  var dayTotals = {};
+  (weekOrders||[]).forEach(function(o) {
+    if (!dayTotals[o.order_date]) dayTotals[o.order_date] = 0;
+    dayTotals[o.order_date] += Number(o.price);
+  });
+
+  var chartDays = [];
+  for (var i = 6; i >= 0; i--) {
+    var dd = new Date();
+    dd.setDate(dd.getDate() - i);
+    var dStr = dd.getFullYear() + '-' + pad2(dd.getMonth()+1) + '-' + pad2(dd.getDate());
+    chartDays.push({ dateStr: dStr, label: dd.toLocaleDateString('en-US',{weekday:'short'}).charAt(0), value: dayTotals[dStr] || 0, isToday: dStr === todayDate });
+  }
+
+  var maxVal = Math.max.apply(null, chartDays.map(function(d){ return d.value; }).concat([1]));
+  var chartWrapEl = document.getElementById('dashChartWrap');
+  var chartLabelsEl = document.getElementById('dashChartLabels');
+  if (chartWrapEl && chartLabelsEl) {
+    chartWrapEl.innerHTML = chartDays.map(function(d) {
+      var heightPct = Math.max(6, Math.round((d.value / maxVal) * 100));
+      return '<div class="dash-bar-col">'
+        + (d.value > 0 ? '<div class="dash-bar-val">' + (d.value>=1000?(d.value/1000).toFixed(1)+'k':d.value) + '</div>' : '')
+        + '<div class="dash-bar' + (d.isToday?' today':'') + '" style="height:' + heightPct + '%"></div>'
+        + '</div>';
+    }).join('');
+    chartLabelsEl.innerHTML = chartDays.map(function(d) {
+      return '<div class="dash-day-label' + (d.isToday?' today':'') + '">' + d.label + '</div>';
+    }).join('');
+  }
+
+  // Staff activity today
+  const {data: activityToday} = await db.from('order_activity')
+    .select('user_name,action')
+    .gte('created_at', todayDate + 'T00:00:00')
+    .lte('created_at', todayDate + 'T23:59:59');
+
+  var staffEl = document.getElementById('dashStaffActivity');
+  if (staffEl) {
+    if (!activityToday || !activityToday.length) {
+      staffEl.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-t">No activity yet today</div></div>';
+    } else {
+      var staffCounts = {};
+      activityToday.forEach(function(a) {
+        var name = a.user_name || 'Unknown';
+        if (!staffCounts[name]) staffCounts[name] = { confirmed:0, packed:0, delivered:0, other:0 };
+        if (a.action === 'confirmed' || a.action === 'confirmed (bulk)' || a.action === 'confirmed (via edit)') staffCounts[name].confirmed++;
+        else if (a.action === 'packed' || a.action === 'packed (via edit)') staffCounts[name].packed++;
+        else if (a.action === 'delivered' || a.action === 'delivered (via edit)') staffCounts[name].delivered++;
+        else staffCounts[name].other++;
+      });
+
+      staffEl.innerHTML = Object.keys(staffCounts).map(function(name) {
+        var c = staffCounts[name];
+        var parts = [];
+        if (c.confirmed) parts.push(c.confirmed + ' confirmed');
+        if (c.packed) parts.push(c.packed + ' packed');
+        if (c.delivered) parts.push(c.delivered + ' delivered');
+        if (!parts.length && c.other) parts.push(c.other + ' action' + (c.other!==1?'s':''));
+        var initial = name.charAt(0).toUpperCase();
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px">'
+          + '<div style="width:28px;height:28px;border-radius:50%;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + initial + '</div>'
+          + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--ink)">' + esc(name) + '</div>'
+          + '<div style="font-size:11px;color:var(--ink3)">' + parts.join(' · ') + '</div>'
+          + '</div>';
+      }).join('');
+    }
+  }
 
   // Stock levels across all products
   var lowStock = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; }).length;
