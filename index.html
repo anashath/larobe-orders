@@ -923,6 +923,23 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 </div>
 
+<!-- ═══ CONFIRM DIALOG ══════════════════════════════════════════════════════ -->
+<div class="s-mask" id="confirmMask" style="z-index:200">
+  <div class="sheet" style="max-width:340px;margin:0 auto;border-radius:24px">
+    <div class="s-body" style="padding:24px 22px 20px;text-align:center">
+      <div id="confirmIcon" style="width:52px;height:52px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div id="confirmTitle" style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">Are you sure?</div>
+      <div id="confirmMsg" style="font-size:13px;color:var(--ink2);line-height:1.5">This action cannot be undone.</div>
+    </div>
+    <div class="s-foot" style="border-top:1px solid var(--line)">
+      <button class="sfbtn sf-ghost" style="flex:1;border-radius:999px" onclick="closeConfirm(false)">Cancel</button>
+      <button class="sfbtn" id="confirmActionBtn" style="flex:1;border-radius:999px;background:var(--ink);color:#fff" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1014,6 +1031,29 @@ function go(s) {
 function today() { return new Date().toISOString().slice(0,10); }
 function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 let _tt;
+var _confirmResolve = null;
+
+function showConfirm(title, msg, opts) {
+  opts = opts || {};
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  var btn = document.getElementById('confirmActionBtn');
+  btn.textContent = opts.confirmLabel || 'Confirm';
+  btn.style.background = opts.danger ? 'var(--blue)' : 'var(--ink)';
+  var icon = document.getElementById('confirmIcon');
+  icon.style.background = opts.danger ? 'var(--blue-l)' : 'var(--card2)';
+  icon.style.color = opts.danger ? 'var(--blue)' : 'var(--ink2)';
+  document.getElementById('confirmMask').classList.add('open');
+  return new Promise(function(resolve) {
+    _confirmResolve = resolve;
+  });
+}
+
+function closeConfirm(result) {
+  document.getElementById('confirmMask').classList.remove('open');
+  if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+}
+
 function toast(m,err) {
   const e=document.getElementById('toast'); e.textContent=m; e.className='on'+(err?' err':'');
   clearTimeout(_tt); _tt=setTimeout(()=>e.className='',2800);
@@ -1398,7 +1438,7 @@ async function saveProdFromSheet() {
 async function delProdFromSheet() {
   var p = products.find(function(x){ return x.id === _prodSheetId; });
   if (!p) return;
-  if (!confirm('Delete "' + p.name + '"? This cannot be undone.')) return;
+  if (!await showConfirm('Delete Product', 'Delete "' + p.name + '"? This cannot be undone.', {confirmLabel:'Delete', danger:true})) return;
   await db.from('products').delete().eq('id', p.id);
   products = products.filter(function(x){ return x.id !== p.id; });
   fillDrop(); renderProds();
@@ -1428,7 +1468,7 @@ async function togProd(id,cur) {
   fillDrop(); renderProds(); toast(p.active?'Shown in dropdown':'Hidden');
 }
 async function delProd(id) {
-  if(!confirm('Delete?'))return;
+  if(!await showConfirm('Delete Product', 'This product will be permanently removed.', {confirmLabel:'Delete', danger:true}))return;
   await db.from('products').delete().eq('id',id);
   products=products.filter(p=>p.id!==id); fillDrop(); renderProds(); toast('Deleted');
 }
@@ -1741,7 +1781,7 @@ async function updateOrderStatus(newStatus) {
 }
 
 async function delOrder(id) {
-  if(!confirm('Delete this order?'))return;
+  if(!await showConfirm('Delete Order', 'This order will be permanently removed.', {confirmLabel:'Delete', danger:true}))return;
   await db.from('orders').delete().eq('id',id);
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
 }
@@ -2015,9 +2055,9 @@ function handleUserActive(btn) {
   setUserActive(btn, uid, active);
 }
 
-function setUserActive(btn, uid, active) {
+async function setUserActive(btn, uid, active) {
   if (!_profile || _profile.role !== 'admin') { toast('Admin only', true); return; }
-  if (!confirm((active?'Activate':'Deactivate')+' this user?')) return;
+  if (!await showConfirm(active?'Activate User':'Deactivate User', 'Are you sure you want to ' + (active?'activate':'deactivate') + ' this user account?', {confirmLabel:active?'Activate':'Deactivate', danger:!active})) return;
   if (btn) { btn.disabled=true; btn.textContent='...'; }
   db.from('profiles').update({ is_active: active }).eq('id', uid).select()
     .then(function(res) {
