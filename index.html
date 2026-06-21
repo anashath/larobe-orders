@@ -619,8 +619,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
   <div style="padding:0 16px 16px">
     <div class="fcard" style="margin:0">
-      <div id="dashChartWrap" style="display:flex;align-items:flex-end;gap:8px;height:90px;padding-top:4px"></div>
-      <div id="dashChartLabels" style="display:flex;gap:8px;margin-top:6px"></div>
+      <div id="dashChartWrap" style="position:relative;height:100px"></div>
+      <div id="dashChartLabels" style="display:flex;gap:0;margin-top:6px"></div>
     </div>
   </div>
 
@@ -2732,6 +2732,50 @@ function fallbackCopy(text,btn,count) {
 }
 
 /* ── HISTORY ── */
+function renderDashLineChart(container, days) {
+  var W = 320, H = 100, padTop = 22, padBottom = 8, padX = 6;
+  var maxVal = Math.max.apply(null, days.map(function(d){ return d.value; }).concat([1]));
+  var n = days.length;
+  var stepX = (W - padX*2) / (n - 1);
+
+  var points = days.map(function(d, i) {
+    var x = padX + i * stepX;
+    var y = padTop + (1 - (d.value / maxVal)) * (H - padTop - padBottom);
+    return { x: x, y: y, value: d.value, isToday: d.isToday };
+  });
+
+  var linePath = 'M' + points[0].x + ',' + points[0].y;
+  for (var i = 1; i < points.length; i++) {
+    var midX = (points[i-1].x + points[i].x) / 2;
+    linePath += ' Q' + midX + ',' + points[i-1].y + ' ' + midX + ',' + ((points[i-1].y + points[i].y)/2);
+    linePath += ' Q' + midX + ',' + points[i].y + ' ' + points[i].x + ',' + points[i].y;
+  }
+
+  var areaPath = linePath + ' L' + points[n-1].x + ',' + (H-padBottom) + ' L' + points[0].x + ',' + (H-padBottom) + ' Z';
+
+  var dotsHtml = points.map(function(p) {
+    var r = p.isToday ? 4.5 : 3;
+    var fill = p.isToday ? 'var(--blue)' : 'var(--card)';
+    var stroke = 'var(--blue)';
+    var labelHtml = p.value > 0
+      ? '<text x="' + p.x + '" y="' + (p.y - 9) + '" text-anchor="middle" font-size="9" font-weight="700" fill="' + (p.isToday?'var(--blue)':'var(--ink3)') + '">' + (p.value>=1000?(p.value/1000).toFixed(1)+'k':p.value) + '</text>'
+      : '';
+    return labelHtml + '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+  }).join('');
+
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="100%" preserveAspectRatio="none" style="overflow:visible">'
+    + '<defs><linearGradient id="dashAreaGrad" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="var(--blue)" stop-opacity="0.18"/>'
+      + '<stop offset="100%" stop-color="var(--blue)" stop-opacity="0"/>'
+    + '</linearGradient></defs>'
+    + '<path d="' + areaPath + '" fill="url(#dashAreaGrad)"/>'
+    + '<path d="' + linePath + '" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'
+    + dotsHtml
+    + '</svg>';
+
+  container.innerHTML = svg;
+}
+
 async function loadDashboard() {
   var todayDate = today();
 
@@ -2792,19 +2836,12 @@ async function loadDashboard() {
     chartDays.push({ dateStr: dStr, label: dd.toLocaleDateString('en-US',{weekday:'short'}).charAt(0), value: dayTotals[dStr] || 0, isToday: dStr === todayDate });
   }
 
-  var maxVal = Math.max.apply(null, chartDays.map(function(d){ return d.value; }).concat([1]));
   var chartWrapEl = document.getElementById('dashChartWrap');
   var chartLabelsEl = document.getElementById('dashChartLabels');
   if (chartWrapEl && chartLabelsEl) {
-    chartWrapEl.innerHTML = chartDays.map(function(d) {
-      var heightPct = Math.max(6, Math.round((d.value / maxVal) * 100));
-      return '<div class="dash-bar-col">'
-        + (d.value > 0 ? '<div class="dash-bar-val">' + (d.value>=1000?(d.value/1000).toFixed(1)+'k':d.value) + '</div>' : '')
-        + '<div class="dash-bar' + (d.isToday?' today':'') + '" style="height:' + heightPct + '%"></div>'
-        + '</div>';
-    }).join('');
+    renderDashLineChart(chartWrapEl, chartDays);
     chartLabelsEl.innerHTML = chartDays.map(function(d) {
-      return '<div class="dash-day-label' + (d.isToday?' today':'') + '">' + d.label + '</div>';
+      return '<div class="dash-day-label' + (d.isToday?' today':'') + '" style="flex:1">' + d.label + '</div>';
     }).join('');
   }
 
