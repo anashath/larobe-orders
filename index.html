@@ -389,8 +389,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   .bnav{width:400px;left:50%;right:auto;margin-left:-200px}
   .content{max-width:400px;margin:0 auto;box-shadow:0 0 40px rgba(0,0,0,.18)}
 
-  /* Drawer must sit flush against the left edge of the centered 400px column */
-  .drawer{left:calc(50% - 200px);right:auto;transform:translateX(-100%)}
+  /* Drawer hides completely off-canvas (not just off its own edge) when closed */
+  .drawer{left:calc(50% - 200px);right:auto;transform:translateX(-150vw);transition:transform .26s cubic-bezier(.4,0,.2,1),visibility 0s}
   .drawer.open{transform:translateX(0)}
 
   /* Mask should only dim the app column area, positioned to match */
