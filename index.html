@@ -547,6 +547,13 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div style="font-size:13px;color:var(--ink3);margin-top:4px" id="dashGreeting">Here's how things are going</div>
   </div>
 
+  <!-- Low stock banner -->
+  <div id="dashStockBanner" style="display:none;margin:0 16px 14px;padding:13px 14px;background:var(--blue-l);border-radius:var(--r-lg);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="go('products')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div style="flex:1;font-size:13px;font-weight:600;color:var(--blue)" id="dashStockBannerText"></div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+
   <!-- Today's pulse -->
   <div class="stats">
     <div class="stat hi"><div class="stat-n" id="dashOrdersToday">0</div><div class="stat-l">Orders Today</div></div>
@@ -2267,6 +2274,23 @@ async function loadDashboard() {
   // Stock levels across all products
   var lowStock = products.filter(function(p){ var th=p.low_stock_threshold!=null?p.low_stock_threshold:3; return p.active && (p.stock_qty||0) > 0 && (p.stock_qty||0) <= th; }).length;
   var outStock = products.filter(function(p){ return p.active && (p.stock_qty||0) <= 0; }).length;
+
+  // Low stock banner
+  var bannerEl = document.getElementById('dashStockBanner');
+  var bannerTextEl = document.getElementById('dashStockBannerText');
+  if (bannerEl && bannerTextEl) {
+    var concernCount = lowStock + outStock;
+    if (concernCount > 0) {
+      var parts = [];
+      if (outStock > 0) parts.push(outStock + ' out of stock');
+      if (lowStock > 0) parts.push(lowStock + ' running low');
+      bannerTextEl.textContent = parts.join(' · ');
+      bannerEl.style.display = 'flex';
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  }
+
   document.getElementById('dashLowStock').textContent = lowStock;
   document.getElementById('dashOutStock').textContent = outStock;
 
