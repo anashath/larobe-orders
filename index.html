@@ -548,6 +548,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="d-item" id="dn-sales" onclick="go('sales')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>Sales
     </button>
+    <button class="d-item" id="dn-productactivity" onclick="go('productactivity')" style="display:none">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>Product Activity
+    </button>
     <button class="d-item" id="dn-settings" onclick="go('settings')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>Settings
     </button>
@@ -817,6 +820,18 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div style="font-size:14px;font-weight:700;color:var(--ink)">Delivered Orders</div>
   </div>
   <div class="olist" id="salesOrderList" style="padding-bottom:16px"></div>
+</div>
+
+<!-- PRODUCT ACTIVITY -->
+<div class="screen" id="sc-productactivity">
+  <div class="pg">
+    <div class="pg-title">Product Activity</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">Every change made to your catalogue</div>
+  </div>
+  <div style="padding:0 16px 8px">
+    <input type="text" id="prodActivitySearch" placeholder="Search by product or staff name…" oninput="filterProductActivity()" style="width:100%;border:1px solid var(--line);border-radius:999px;padding:11px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none">
+  </div>
+  <div id="prodActivityList" style="padding:0 16px 16px"></div>
 </div>
 
 <!-- SETTINGS -->
@@ -1101,12 +1116,14 @@ function go(s) {
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
+  if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
   if(s==='settings') updSett();
   if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
+  if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
 }
 
 /* UTILS */
@@ -1354,6 +1371,20 @@ function toggleAddProdForm() {
   }
 }
 
+async function logProductActivity(productId, productName, action, fieldName, oldValue, newValue) {
+  try {
+    var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
+    var userId = _session ? _session.user.id : null;
+    await db.from('product_activity').insert({
+      product_id: productId, product_name: productName,
+      user_id: userId, user_name: userName,
+      action: action, field_name: fieldName || null,
+      old_value: (oldValue===undefined||oldValue===null) ? null : String(oldValue),
+      new_value: (newValue===undefined||newValue===null) ? null : String(newValue)
+    });
+  } catch(e) { console.error('Product activity log failed:', e); }
+}
+
 async function addProd() {
   const n=document.getElementById('newProd').value.trim();
   const color=document.getElementById('newProdColor').value.trim();
@@ -1377,6 +1408,8 @@ async function addProd() {
       newProduct.image_url = url;
     }
   }
+
+  await logProductActivity(newProduct.id, newProduct.name, 'created', null, null, null);
 
   products.push(newProduct);
   document.getElementById('newProd').value='';
@@ -1426,12 +1459,16 @@ async function confirmRestock() {
   const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
 
+  var oldStock = p.stock_qty;
+  var oldCost = p.cost_price;
   p.stock_qty = newQty;
   if (cost > 0) p.cost_price = cost;
 
   await db.from('stock_movements').insert({
     product_id: p.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
   });
+  await logProductActivity(p.id, p.name, 'restocked', 'stock_qty', oldStock, newQty);
+  if (cost > 0 && cost !== oldCost) await logProductActivity(p.id, p.name, 'restocked', 'cost_price', oldCost, cost);
 
   closeRestockPrompt();
   renderProdSheetBody();
@@ -1535,15 +1572,31 @@ async function saveProdFromSheet() {
   if (isNaN(threshold) || threshold < 0) threshold = 3;
   if (!name) { toast('Name cannot be empty', true); return; }
 
+  // Capture old values for change logging
+  var oldVals = {
+    name: p.name, color: p.color, cost_price: p.cost_price, selling_price: p.selling_price,
+    stock_qty: p.stock_qty, low_stock_threshold: p.low_stock_threshold
+  };
+
   var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock, low_stock_threshold: threshold };
 
+  var photoChanged = false;
   if (_prodSheetPhotoFile) {
     var url = await uploadProductPhoto(_prodSheetPhotoFile, p.id);
-    if (url) updates.image_url = url;
+    if (url) { updates.image_url = url; photoChanged = true; }
   }
 
   const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
+
+  // Log each changed field individually
+  if (oldVals.name !== name) await logProductActivity(p.id, name, 'edited', 'name', oldVals.name, name);
+  if ((oldVals.color||'') !== (color||'')) await logProductActivity(p.id, name, 'edited', 'color', oldVals.color, color);
+  if (Number(oldVals.cost_price||0) !== cost) await logProductActivity(p.id, name, 'edited', 'cost_price', oldVals.cost_price, cost);
+  if (Number(oldVals.selling_price||0) !== price) await logProductActivity(p.id, name, 'edited', 'selling_price', oldVals.selling_price, price);
+  if (Number(oldVals.stock_qty||0) !== stock) await logProductActivity(p.id, name, 'edited', 'stock_qty', oldVals.stock_qty, stock);
+  if (Number(oldVals.low_stock_threshold!=null?oldVals.low_stock_threshold:3) !== threshold) await logProductActivity(p.id, name, 'edited', 'low_stock_threshold', oldVals.low_stock_threshold, threshold);
+  if (photoChanged) await logProductActivity(p.id, name, 'edited', 'photo', null, 'updated');
 
   p.name = name; p.color = color; p.cost_price = cost; p.selling_price = price; p.price = price; p.stock_qty = stock; p.low_stock_threshold = threshold;
   if (updates.image_url) p.image_url = updates.image_url;
@@ -1556,6 +1609,7 @@ async function delProdFromSheet() {
   var p = products.find(function(x){ return x.id === _prodSheetId; });
   if (!p) return;
   if (!await showConfirm('Delete Product', 'Delete "' + p.name + '"? This cannot be undone.', {confirmLabel:'Delete', danger:true})) return;
+  await logProductActivity(p.id, p.name, 'deleted', null, null, null);
   await db.from('products').delete().eq('id', p.id);
   products = products.filter(function(x){ return x.id !== p.id; });
   fillDrop(); renderProds();
@@ -1582,6 +1636,7 @@ async function togProd(id,cur) {
   const {error}=await db.from('products').update({active:!cur}).eq('id',id);
   if(error){toast('Error: '+error.message,true);return;}
   const p=products.find(x=>x.id===id); if(p) p.active=!cur;
+  if (p) await logProductActivity(p.id, p.name, p.active ? 'activated' : 'deactivated', 'active', cur, !cur);
   fillDrop(); renderProds(); toast(p.active?'Shown in dropdown':'Hidden');
 }
 async function delProd(id) {
@@ -1973,6 +2028,80 @@ async function loadOrderActivity(orderId) {
   container.innerHTML = html;
 }
 
+var _prodActivityAll = [];
+
+async function loadProductActivity() {
+  var list = document.getElementById('prodActivityList');
+  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
+
+  const {data, error} = await db.from('product_activity')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(300);
+
+  if (error) { list.innerHTML = '<div class="empty"><div class="empty-t">Error loading</div></div>'; return; }
+  _prodActivityAll = data || [];
+  renderProductActivity(_prodActivityAll);
+}
+
+function filterProductActivity() {
+  var q = (document.getElementById('prodActivitySearch').value || '').toLowerCase();
+  if (!q) { renderProductActivity(_prodActivityAll); return; }
+  var filtered = _prodActivityAll.filter(function(a) {
+    return (a.product_name||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+  });
+  renderProductActivity(filtered);
+}
+
+function renderProductActivity(data) {
+  var list = document.getElementById('prodActivityList');
+  if (!data.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-t">No activity recorded yet</div></div>';
+    return;
+  }
+
+  var actionConfig = {
+    created:      { label: 'created', color: 'var(--green)', bg: 'var(--green-l)' },
+    edited:       { label: 'edited',  color: 'var(--blue)',  bg: 'var(--blue-l)' },
+    restocked:    { label: 'restocked', color: 'var(--blue)', bg: 'var(--blue-l)' },
+    activated:    { label: 'activated', color: 'var(--green)', bg: 'var(--green-l)' },
+    deactivated:  { label: 'deactivated', color: 'var(--amber)', bg: 'var(--amber-l)' },
+    deleted:      { label: 'deleted', color: 'var(--red)', bg: 'var(--red-l)' }
+  };
+
+  var fieldLabels = {
+    name: 'Name', color: 'Color', cost_price: 'Cost Price', selling_price: 'Selling Price',
+    stock_qty: 'Stock', low_stock_threshold: 'Low Stock Alert', photo: 'Photo', active: 'Status'
+  };
+
+  list.innerHTML = data.map(function(a) {
+    var cfg = actionConfig[a.action] || { label: a.action, color: 'var(--ink2)', bg: 'var(--card2)' };
+    var dt = new Date(a.created_at);
+    var timeStr = dt.toLocaleString('en-US', { day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' });
+
+    var detail = '';
+    if (a.field_name) {
+      var fieldLabel = fieldLabels[a.field_name] || a.field_name;
+      if (a.field_name === 'active') {
+        detail = fieldLabel + ': ' + (a.new_value === 'true' ? 'Active' : 'Hidden');
+      } else if (a.field_name === 'photo') {
+        detail = 'Photo updated';
+      } else {
+        detail = fieldLabel + ': ' + (a.old_value||'—') + ' → ' + (a.new_value||'—');
+      }
+    }
+
+    return '<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">'
+      + '<div style="width:36px;height:36px;border-radius:10px;background:' + cfg.bg + ';color:' + cfg.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;text-transform:uppercase">' + cfg.label.slice(0,2) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(a.product_name||'Unknown product') + ' <span style="color:' + cfg.color + ';font-weight:700">' + cfg.label + '</span></div>'
+        + (detail ? '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + esc(detail) + '</div>' : '')
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:3px">' + esc(a.user_name||'Unknown') + ' · ' + timeStr + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
 function closeSheet(){var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.remove('open');viewId=null;}
 function enterEdit() {
   const o=orders.find(x=>x.id===viewId)
@@ -2338,6 +2467,8 @@ function applyRole(profile) {
   if (salesBtn) salesBtn.style.display = role==='admin' ? '' : 'none';
   var dashBtn = document.getElementById('dn-dashboard');
   if (dashBtn) dashBtn.style.display = role==='admin' ? '' : 'none';
+  var prodActBtn = document.getElementById('dn-productactivity');
+  if (prodActBtn) prodActBtn.style.display = role==='admin' ? '' : 'none';
   go(role==='admin' ? 'dashboard' : 'orders');
 }
 
