@@ -378,6 +378,24 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .product-select-field:hover{border-color:var(--ink3);background:var(--card2)}
 .product-select-field:active{transform:scale(.99)}
 
+/* ── CALENDAR ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.cal-nav-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cal-nav-btn:active{background:var(--line)}
+.cal-month-label{font-size:15px;font-weight:700;color:var(--ink)}
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:6px}
+.cal-weekdays span{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.04em}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink);border-radius:50%;cursor:pointer;position:relative;-webkit-user-select:none}
+.cal-day.muted{color:var(--ink3);font-weight:500}
+.cal-day.today{box-shadow:inset 0 0 0 1.5px var(--ink3)}
+.cal-day.selected{background:var(--blue);color:#fff}
+.cal-day.range-mid{background:var(--blue-l);border-radius:0}
+.cal-day.range-start{background:var(--blue);color:#fff;border-radius:50% 0 0 50%}
+.cal-day.range-end{background:var(--blue);color:#fff;border-radius:0 50% 50% 0}
+.cal-day.disabled{opacity:.3;pointer-events:none}
+.cal-day:active{transform:scale(.92)}
+
 /* ── BULK SELECTION ── */
 .osel-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .osel-box.on{background:var(--blue);border-color:var(--blue)}
@@ -679,7 +697,14 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 <div class="screen" id="sc-copy">
   <div class="pg"><div class="pg-title">Copy Day</div><div style="font-size:13px;color:var(--ink3);margin-top:4px">Export orders as plain text</div></div>
   <div class="copy-body">
-    <div class="fg"><label>Select Date</label><input type="date" id="copyDate"></div>
+    <div class="fg">
+      <label>Select Date</label>
+      <div id="copyDateDisplay" onclick="openCalendarSingle('copyDate','Select Date',function(v){ document.getElementById('copyDateText').textContent = formatDisplayDate(v); updateCopyCount(); })" class="product-select-field">
+        <span id="copyDateText" style="flex:1;font-size:14px;color:var(--ink)"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <input type="hidden" id="copyDate">
+    </div>
     <div class="fg"><label>Filter</label><div style="display:flex;gap:8px"><button type="button" class="copy-flt-btn on" id="cflt-all" onclick="setCopyFlt(this,'all')">All Orders</button><button type="button" class="copy-flt-btn" id="cflt-pending" onclick="setCopyFlt(this,'pending')">Pending Only</button></div></div>
     <div class="copy-row"><span class="copy-cnt" id="copyCount"></span><button class="cpbtn" id="copyBtn" onclick="runCopy()">Copy as Text</button></div>
     <pre class="copy-pre" id="copyPre"></pre>
@@ -917,21 +942,28 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 </div>
 
-<!-- ═══ CUSTOM DATE RANGE ══════════════════════════════════════════════════ -->
-<div class="s-mask" id="dateRangeMask" style="z-index:170">
-  <div class="sheet" style="max-width:420px;margin:0 auto">
+<!-- ═══ THEMED CALENDAR ══════════════════════════════════════════════════════ -->
+<div class="s-mask" id="calendarMask" style="z-index:180">
+  <div class="sheet" style="max-width:400px;margin:0 auto">
     <div class="s-grip"></div>
     <div class="s-hdr">
-      <div><div class="s-title" id="dateRangeTitle">Custom Range</div><div class="s-sub" id="dateRangeSub">Choose start and end dates</div></div>
-      <button class="s-x" onclick="closeCustomRangePicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div><div class="s-title" id="calTitle">Select Date</div><div class="s-sub" id="calSub"></div></div>
+      <button class="s-x" onclick="closeCalendar()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="s-body">
-      <div class="fg"><label>From</label><input type="date" id="customRangeStart"></div>
-      <div class="fg"><label>To</label><input type="date" id="customRangeEnd"></div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calChangeMonth(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <div class="cal-month-label" id="calMonthLabel"></div>
+        <button class="cal-nav-btn" onclick="calChangeMonth(1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+      <div class="cal-weekdays">
+        <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
     </div>
     <div class="s-foot">
-      <button class="sfbtn sf-ghost" onclick="closeCustomRangePicker()">Cancel</button>
-      <button class="sfbtn sf-blue" id="dateRangeApplyBtn" onclick="applyCustomRange()">Apply</button>
+      <button class="sfbtn sf-ghost" onclick="closeCalendar()">Cancel</button>
+      <button class="sfbtn sf-blue" id="calApplyBtn" onclick="calApply()">Select</button>
     </div>
   </div>
 </div>
@@ -2315,9 +2347,18 @@ function createUser() {
 /* ── COPY ── */
 var _copyFlt = 'all';
 
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return '';
+  var parts = dateStr.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  return d.toLocaleDateString('en-US', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+
 function initCopy() {
   var d = document.getElementById('copyDate');
   if (d && !d.value) d.value = today();
+  var textEl = document.getElementById('copyDateText');
+  if (textEl) textEl.textContent = formatDisplayDate(d.value);
   updateCopyCount();
 }
 
@@ -2505,6 +2546,149 @@ async function loadDashboard() {
   }
 }
 
+var _calMode = 'single'; // 'single' or 'range'
+var _calTarget = null;   // input element id to write result into (single mode)
+var _calViewYear, _calViewMonth;
+var _calSelectedDate = null;   // single mode
+var _calRangeStart = null;     // range mode
+var _calRangeEnd = null;       // range mode
+var _calOnApply = null;        // callback(value) for single, callback(start,end) for range
+
+function pad2(n) { return n < 10 ? '0'+n : ''+n; }
+function ymd(y,m,d) { return y + '-' + pad2(m+1) + '-' + pad2(d); }
+
+function openCalendarSingle(targetInputId, title, onApply) {
+  _calMode = 'single';
+  _calTarget = targetInputId;
+  _calOnApply = onApply || null;
+  var existing = document.getElementById(targetInputId).value;
+  var base = existing ? new Date(existing) : new Date();
+  _calViewYear = base.getFullYear();
+  _calViewMonth = base.getMonth();
+  _calSelectedDate = existing || null;
+  document.getElementById('calTitle').textContent = title || 'Select Date';
+  document.getElementById('calSub').textContent = 'Tap a date to select it';
+  document.getElementById('calApplyBtn').textContent = 'Select';
+  document.getElementById('calendarMask').classList.add('open');
+  renderCalendar();
+}
+
+function openCalendarRange(title, sub, startVal, endVal, onApply) {
+  _calMode = 'range';
+  _calOnApply = onApply || null;
+  _calRangeStart = startVal || null;
+  _calRangeEnd = endVal || null;
+  var base = _calRangeStart ? new Date(_calRangeStart) : new Date();
+  _calViewYear = base.getFullYear();
+  _calViewMonth = base.getMonth();
+  document.getElementById('calTitle').textContent = title || 'Select Range';
+  document.getElementById('calSub').textContent = sub || 'Tap start date, then end date';
+  document.getElementById('calApplyBtn').textContent = 'Apply';
+  document.getElementById('calendarMask').classList.add('open');
+  renderCalendar();
+}
+
+function closeCalendar() {
+  document.getElementById('calendarMask').classList.remove('open');
+}
+
+function calChangeMonth(delta) {
+  _calViewMonth += delta;
+  if (_calViewMonth < 0) { _calViewMonth = 11; _calViewYear--; }
+  if (_calViewMonth > 11) { _calViewMonth = 0; _calViewYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = monthNames[_calViewMonth] + ' ' + _calViewYear;
+
+  var firstDow = new Date(_calViewYear, _calViewMonth, 1).getDay();
+  var daysInMonth = new Date(_calViewYear, _calViewMonth + 1, 0).getDate();
+  var daysInPrevMonth = new Date(_calViewYear, _calViewMonth, 0).getDate();
+  var todayStr = today();
+
+  var cells = [];
+  // Leading days from previous month (muted, disabled)
+  for (var i = firstDow - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrevMonth - i, muted: true, disabled: true, dateStr: null });
+  }
+  // Current month days
+  for (var d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, muted: false, disabled: false, dateStr: ymd(_calViewYear, _calViewMonth, d) });
+  }
+  // Trailing days to complete the grid (muted, disabled)
+  var remainder = cells.length % 7;
+  if (remainder > 0) {
+    for (var t = 1; t <= 7 - remainder; t++) {
+      cells.push({ day: t, muted: true, disabled: true, dateStr: null });
+    }
+  }
+
+  var html = cells.map(function(c) {
+    var classes = ['cal-day'];
+    if (c.muted) classes.push('muted');
+    if (c.disabled) classes.push('disabled');
+    if (c.dateStr === todayStr) classes.push('today');
+
+    if (_calMode === 'single') {
+      if (c.dateStr === _calSelectedDate) classes.push('selected');
+    } else {
+      if (_calRangeStart && c.dateStr === _calRangeStart && (!_calRangeEnd || _calRangeStart === _calRangeEnd)) classes.push('selected');
+      else if (_calRangeStart && c.dateStr === _calRangeStart) classes.push('range-start');
+      else if (_calRangeEnd && c.dateStr === _calRangeEnd) classes.push('range-end');
+      else if (_calRangeStart && _calRangeEnd && c.dateStr > _calRangeStart && c.dateStr < _calRangeEnd) classes.push('range-mid');
+    }
+
+    var onclick = c.disabled ? '' : 'onclick="calPickDay(\'' + c.dateStr + '\')"';
+    return '<div class="' + classes.join(' ') + '" ' + onclick + '>' + c.day + '</div>';
+  }).join('');
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function calPickDay(dateStr) {
+  if (!dateStr) return;
+
+  if (_calMode === 'single') {
+    _calSelectedDate = dateStr;
+    renderCalendar();
+    return;
+  }
+
+  // Range mode: first tap sets start, second tap sets end (or restarts if tapped before start)
+  if (!_calRangeStart || (_calRangeStart && _calRangeEnd)) {
+    _calRangeStart = dateStr;
+    _calRangeEnd = null;
+  } else {
+    if (dateStr < _calRangeStart) {
+      _calRangeEnd = _calRangeStart;
+      _calRangeStart = dateStr;
+    } else {
+      _calRangeEnd = dateStr;
+    }
+  }
+  renderCalendar();
+}
+
+function calApply() {
+  if (_calMode === 'single') {
+    if (!_calSelectedDate) { toast('Select a date', true); return; }
+    var inputEl = document.getElementById(_calTarget);
+    if (inputEl) {
+      inputEl.value = _calSelectedDate;
+      inputEl.dispatchEvent(new Event('change'));
+    }
+    closeCalendar();
+    if (_calOnApply) _calOnApply(_calSelectedDate);
+  } else {
+    if (!_calRangeStart) { toast('Select a start date', true); return; }
+    var endDate = _calRangeEnd || _calRangeStart;
+    closeCalendar();
+    if (_calOnApply) _calOnApply(_calRangeStart, endDate);
+  }
+}
+
 function downloadCSV(filename, rows) {
   var csv = rows.map(function(row) {
     return row.map(function(cell) {
@@ -2624,64 +2808,27 @@ function salesDateBounds(range) {
   return { start: start, end: end };
 }
 
-var _rangePickerPurpose = 'sales';
-
 function openCustomRangePicker(btn) {
-  _rangePickerPurpose = 'sales';
-  document.getElementById('dateRangeTitle').textContent = 'Custom Range';
-  document.getElementById('dateRangeSub').textContent = 'Choose start and end dates';
-  document.getElementById('dateRangeApplyBtn').textContent = 'Apply';
-  document.getElementById('dateRangeMask').classList.add('open');
-  var startEl = document.getElementById('customRangeStart');
-  var endEl = document.getElementById('customRangeEnd');
-  if (!startEl.value) startEl.value = _customRangeStart || today();
-  if (!endEl.value) endEl.value = _customRangeEnd || today();
+  openCalendarRange('Custom Range', 'Tap start date, then end date', _customRangeStart, _customRangeEnd, function(start, end) {
+    _customRangeStart = start;
+    _customRangeEnd = end;
+    _salesRange = 'custom';
+
+    document.querySelectorAll('#sc-sales .chip').forEach(function(b){ b.classList.remove('on'); });
+    document.getElementById('salesCustomChip').classList.add('on');
+
+    var labelEl = document.getElementById('salesCustomLabel');
+    labelEl.textContent = formatDisplayDate(start) + ' — ' + formatDisplayDate(end);
+    labelEl.style.display = 'block';
+
+    loadSales();
+  });
 }
 
 function openHistoryExportPicker() {
-  _rangePickerPurpose = 'history_export';
-  document.getElementById('dateRangeTitle').textContent = 'Export History';
-  document.getElementById('dateRangeSub').textContent = 'Choose the date range to export';
-  document.getElementById('dateRangeApplyBtn').textContent = 'Export';
-  document.getElementById('dateRangeMask').classList.add('open');
-  var startEl = document.getElementById('customRangeStart');
-  var endEl = document.getElementById('customRangeEnd');
-  if (!startEl.value) startEl.value = today();
-  if (!endEl.value) endEl.value = today();
-}
-
-function closeCustomRangePicker() {
-  document.getElementById('dateRangeMask').classList.remove('open');
-}
-
-function applyCustomRange() {
-  var startEl = document.getElementById('customRangeStart');
-  var endEl = document.getElementById('customRangeEnd');
-  if (!startEl.value || !endEl.value) { toast('Select both dates', true); return; }
-  if (startEl.value > endEl.value) { toast('Start date must be before end date', true); return; }
-
-  if (_rangePickerPurpose === 'history_export') {
-    closeCustomRangePicker();
-    runHistoryExport(startEl.value, endEl.value);
-    return;
-  }
-
-  _customRangeStart = startEl.value;
-  _customRangeEnd = endEl.value;
-  _salesRange = 'custom';
-
-  document.querySelectorAll('#sc-sales .chip').forEach(function(b){ b.classList.remove('on'); });
-  document.getElementById('salesCustomChip').classList.add('on');
-
-  var d1 = new Date(_customRangeStart);
-  var d2 = new Date(_customRangeEnd);
-  var fmt = function(d){ return d.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'}); };
-  var labelEl = document.getElementById('salesCustomLabel');
-  labelEl.textContent = fmt(d1) + ' — ' + fmt(d2);
-  labelEl.style.display = 'block';
-
-  closeCustomRangePicker();
-  loadSales();
+  openCalendarRange('Export History', 'Choose the date range to export', today(), today(), function(start, end) {
+    runHistoryExport(start, end);
+  });
 }
 
 async function loadSales() {
