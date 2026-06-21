@@ -609,7 +609,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <div class="fcard-hdr">Customer & Product</div>
       <div class="fgrid">
         <div class="fg"><label>Customer Name</label><input type="text" id="fName" placeholder="Aminath Riyasha"></div>
-        <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx"></div>
+        <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx" onblur="lookupCustomer()"></div>
         <div class="fg ffull">
           <label>Product</label>
           <div id="fProductDisplay" onclick="openProductPicker()" class="product-select-field">
@@ -1159,6 +1159,31 @@ function selectProduct(productId) {
   if (p.selling_price) document.getElementById(priceId).value = p.selling_price;
 
   closeProductPicker();
+}
+
+async function lookupCustomer() {
+  var contactEl = document.getElementById('fContact');
+  var nameEl = document.getElementById('fName');
+  var contact = contactEl.value.trim();
+  if (!contact || contact.length < 4) return;
+
+  // Don't override a name the person already typed themselves
+  if (nameEl.value.trim()) return;
+
+  const {data, error} = await db.from('orders')
+    .select('customer_name, contact, created_at')
+    .eq('contact', contact)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error || !data || !data.length) return;
+
+  var match = data[0];
+  nameEl.value = match.customer_name;
+  nameEl.style.transition = 'background 0.3s';
+  nameEl.style.background = 'var(--blue-l)';
+  setTimeout(function(){ nameEl.style.background = ''; }, 1500);
+  toast('Welcome back, ' + match.customer_name + '!');
 }
 
 function onOrderProductChange() {
