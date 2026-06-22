@@ -719,20 +719,19 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="pg"><div class="pg-title">New Order</div></div>
   <div class="fwrap">
     <div class="fcard">
-      <div class="fcard-hdr">Customer & Product</div>
+      <div class="fcard-hdr">Customer & Items</div>
       <div class="fgrid">
         <div class="fg"><label>Customer Name</label><input type="text" id="fName" placeholder="Aminath Riyasha"></div>
         <div class="fg"><label>Contact</label><input type="tel" id="fContact" placeholder="+960 7xx xxxx" onblur="lookupCustomer()"></div>
         <div class="fg ffull">
-          <label>Product</label>
-          <div id="fProductDisplay" onclick="openProductPicker()" class="product-select-field">
-            <div id="fProductDisplayImg" style="width:32px;height:32px;border-radius:7px;background:var(--card);flex-shrink:0;display:none;overflow:hidden"></div>
-            <span id="fProductDisplayText" style="flex:1;font-size:14px;color:var(--ink3)">Select product…</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <input type="hidden" id="fProduct">
+          <label>Items</label>
+          <div id="fItemsList" style="margin-bottom:8px"></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('new-item')" style="width:100%">+ Add Item</button>
         </div>
-        <div class="fg"><label>Price (MVR)</label><input type="number" id="fPrice" placeholder="0" min="0" inputmode="numeric"></div>
+        <div class="fg ffull" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+          <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
+          <span style="font-size:18px;font-weight:700;color:var(--ink)" id="fItemsTotal">MVR 0</span>
+        </div>
         <div class="fg"><label>Status</label>
           <div id="fStatusDisplay" onclick="openOptionPicker('fStatus','fStatusDisplay','Order Status',[{value:'pending',label:'Pending'},{value:'confirmed',label:'Confirmed'},{value:'delivered',label:'Delivered'}])" class="product-select-field">
             <span style="flex:1;font-size:14px;color:var(--ink)">Pending</span>
@@ -1533,7 +1532,7 @@ var TIPS_CONFIG = {
     { selector: '#histSearch', title: 'Search Past Orders', text: 'Search by customer name or product across your entire order history.' }
   ],
   new: [
-    { selector: '#fProductDisplay', title: 'Pick a Product', text: 'Tap here to browse your catalogue with photos and live stock — the price fills in automatically.' }
+    { selector: 'button[onclick="openProductPicker(\'new-item\')"]', title: 'Add Items', text: 'Tap here to add a product — browse your catalogue with photos and live stock, and add as many items as the order needs.' }
   ]
 };
 
@@ -1694,25 +1693,59 @@ async function loadProds() {
   const {data}=await db.from('products').select('*').order('created_at');
   products=data||[]; fillDrop();
 }
+var _newOrderItems = []; // [{product_id, name, color, unit_price, unit_cost, quantity, stock_qty}]
+
 function fillDrop() {
-  // Product picker now renders directly from the products array — nothing to pre-fill.
-  // If the currently selected product became inactive/out of stock, clear the selection.
-  var cur = document.getElementById('fProduct').value;
-  if (cur) {
-    var p = products.find(function(x){ return String(x.id) === String(cur); });
-    if (!p || !p.active) {
-      document.getElementById('fProduct').value = '';
-      document.getElementById('fProductDisplayText').textContent = 'Select product…';
-      document.getElementById('fProductDisplayText').style.color = 'var(--ink3)';
-      document.getElementById('fProductDisplayImg').style.display = 'none';
-    }
-  }
+  renderNewOrderItems();
 }
 
-var _productPickerTarget = 'fProduct';
+function renderNewOrderItems() {
+  var el = document.getElementById('fItemsList');
+  if (!el) return;
+  if (!_newOrderItems.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items added yet</div></div>';
+  } else {
+    el.innerHTML = _newOrderItems.map(function(it, i) {
+      var lineTotal = it.unit_price * it.quantity;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card2);border-radius:var(--r);margin-bottom:6px">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(it.name) + (it.color?' — '+esc(it.color):'') + '</div>'
+          + '<div style="font-size:11px;color:var(--ink3)">MVR ' + it.unit_price.toLocaleString() + ' each</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+          + '<button type="button" onclick="changeNewItemQty(' + i + ',-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">−</button>'
+          + '<span style="font-size:13px;font-weight:700;min-width:16px;text-align:center">' + it.quantity + '</span>'
+          + '<button type="button" onclick="changeNewItemQty(' + i + ',1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">+</button>'
+        + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--ink);min-width:58px;text-align:right;flex-shrink:0">MVR ' + lineTotal.toLocaleString() + '</div>'
+        + '<button type="button" onclick="removeNewItem(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:2px;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+        + '</div>';
+    }).join('');
+  }
+  var total = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalEl = document.getElementById('fItemsTotal');
+  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString();
+}
+
+function changeNewItemQty(i, delta) {
+  var it = _newOrderItems[i];
+  if (!it) return;
+  var newQty = it.quantity + delta;
+  if (newQty < 1) { removeNewItem(i); return; }
+  if (newQty > it.stock_qty) { toast('Only ' + it.stock_qty + ' in stock', true); return; }
+  it.quantity = newQty;
+  renderNewOrderItems();
+}
+
+function removeNewItem(i) {
+  _newOrderItems.splice(i, 1);
+  renderNewOrderItems();
+}
+
+var _productPickerTarget = 'new-item';
 
 function openProductPicker(target) {
-  _productPickerTarget = target || 'fProduct';
+  _productPickerTarget = target || 'new-item';
   document.getElementById('productPickerMask').classList.add('open');
   renderProductPicker();
 }
@@ -1778,32 +1811,28 @@ function renderProductPicker() {
 function selectProduct(productId) {
   var p = products.find(function(x){ return x.id === productId; });
   if (!p) return;
+  if ((p.stock_qty||0) <= 0) { toast('Out of stock', true); return; }
 
-  var isEdit = _productPickerTarget === 'ep';
-  var hiddenId   = isEdit ? 'ep' : 'fProduct';
-  var imgId      = isEdit ? 'epProductDisplayImg' : 'fProductDisplayImg';
-  var textId     = isEdit ? 'epProductDisplayText' : 'fProductDisplayText';
-  var priceId    = isEdit ? 'epr' : 'fPrice';
+  var isEdit = _productPickerTarget === 'edit-item';
+  var targetList = isEdit ? _editOrderItems : _newOrderItems;
 
-  document.getElementById(hiddenId).value = productId;
-
-  var imgWrap = document.getElementById(imgId);
-  var textEl = document.getElementById(textId);
-
-  if (p.image_url) {
-    imgWrap.innerHTML = '<img src="' + p.image_url + '" style="width:100%;height:100%;object-fit:cover">';
-    imgWrap.style.display = '';
+  var existing = targetList.find(function(it){ return it.product_id === productId; });
+  if (existing) {
+    if (existing.quantity + 1 > (p.stock_qty||0)) { toast('Only ' + (p.stock_qty||0) + ' in stock', true); return; }
+    existing.quantity += 1;
   } else {
-    imgWrap.style.display = 'none';
+    targetList.push({
+      product_id: p.id,
+      name: p.name,
+      color: p.color || '',
+      unit_price: effectivePrice(p),
+      unit_cost: Number(p.cost_price) || 0,
+      quantity: 1,
+      stock_qty: p.stock_qty || 0
+    });
   }
 
-  var onPromo = isOnPromo(p);
-  textEl.textContent = p.name + (p.color ? ' — ' + p.color : '') + (onPromo ? ' · PROMO' : '') + ' (' + (p.stock_qty||0) + ' in stock)';
-  textEl.style.color = 'var(--ink)';
-
-  var price = effectivePrice(p);
-  if (price) document.getElementById(priceId).value = price;
-
+  if (isEdit) renderEditOrderItems(); else renderNewOrderItems();
   closeProductPicker();
 }
 
@@ -1873,13 +1902,6 @@ async function lookupCustomer() {
   toast('Welcome back, ' + match.customer_name + '!');
 }
 
-function onOrderProductChange() {
-  var productId = parseInt(document.getElementById('fProduct').value);
-  var priceInput = document.getElementById('fPrice');
-  var p = products.find(function(x){ return x.id === productId; });
-  if (!p) return;
-  if (p.selling_price) priceInput.value = p.selling_price;
-}
 var _newProdPhotoFile = null;
 
 function previewNewProdPhoto(input) {
@@ -2523,17 +2545,19 @@ async function logActivity(orderId, action) {
 async function addOrder() {
   const name=document.getElementById('fName').value.trim();
   const contact=document.getElementById('fContact').value.trim();
-  const priceVal=document.getElementById('fPrice').value;
-  const productId=parseInt(document.getElementById('fProduct').value);
-  if(!name||!productId){toast('Fill in name and product',true);return;}
+  if(!name){toast('Enter a customer name',true);return;}
+  if(!_newOrderItems.length){toast('Add at least one item',true);return;}
   if(contact && !isValidPhone(contact)){toast('Enter a valid phone number',true);return;}
-  if(!isPositiveNumber(priceVal)){toast('Enter a valid price greater than 0',true);return;}
 
-  var p = products.find(function(x){ return x.id === productId; });
-  if (!p) { toast('Product not found', true); return; }
-  if ((p.stock_qty||0) <= 0) { toast('This product is out of stock', true); return; }
+  for (var c = 0; c < _newOrderItems.length; c++) {
+    var ci = _newOrderItems[c];
+    var cp = products.find(function(x){ return x.id === ci.product_id; });
+    if (cp && ci.quantity > (cp.stock_qty||0)) { toast(ci.name + ' only has ' + (cp.stock_qty||0) + ' in stock', true); return; }
+  }
 
-  var productLabel = p.name + (p.color ? ' - ' + p.color : '');
+  var totalPrice = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalCost = _newOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
+  var productLabel = _newOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
   var orderDate = today();
@@ -2541,21 +2565,22 @@ async function addOrder() {
   // Order numbers are assigned client-side (max+1), which can collide if two orders
   // are submitted at nearly the same moment. Retry a few times on a unique-constraint
   // conflict (requires a UNIQUE(order_date, num) constraint on the orders table).
-  var data = null, error = null;
+  var data = null, error = null, num = 1;
   for (var attempt = 0; attempt < 5; attempt++) {
     var numRes = await db.from('orders')
       .select('num')
       .eq('order_date', orderDate)
       .order('num', { ascending: false })
       .limit(1);
-    var num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
+    num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
 
     var res = await db.from('orders').insert({
       num, customer_name:name,
-      contact:document.getElementById('fContact').value.trim(),
-      product:productLabel,
-      product_id:productId,
-      price:parseFloat(document.getElementById('fPrice').value)||0,
+      contact: contact,
+      product: productLabel,
+      product_id: _newOrderItems[0].product_id,
+      price: totalPrice,
+      total_cost: totalCost,
       status:document.getElementById('fStatus').value,
       delivery:document.getElementById('fDelivery').value,
       payment:document.getElementById('fPayment').value,
@@ -2572,55 +2597,79 @@ async function addOrder() {
 
   btn.disabled=false; btn.textContent='Record Order';
   if(error){toast('Error: '+error.message,true);return;}
-  if(data&&data.length) orders.unshift(data[0]);
+  if(!data||!data.length){toast('Error: order was not created',true);return;}
 
-  if (data && data.length) {
-    await logActivity(data[0].id, 'created');
-  }
+  var newOrder = data[0];
+
+  var itemRows = _newOrderItems.map(function(it){
+    return {
+      order_id: newOrder.id, product_id: it.product_id,
+      product_name: it.name + (it.color?' - '+it.color:''),
+      unit_price: it.unit_price, unit_cost: it.unit_cost,
+      quantity: it.quantity, line_total: it.unit_price * it.quantity
+    };
+  });
+  const itemsRes = await db.from('order_items').insert(itemRows);
+  if (itemsRes.error) { toast('Order saved, but items failed to save: ' + itemsRes.error.message, true); }
+
+  orders.unshift(newOrder);
+  await logActivity(newOrder.id, 'created');
 
   // If order is created already-confirmed, deduct stock immediately
-  if (data && data.length && ['confirmed','packed','delivered'].indexOf(data[0].status) >= 0) {
-    await deductStock(data[0]);
+  if (['confirmed','packed','delivered'].indexOf(newOrder.status) >= 0) {
+    await deductStock(newOrder);
   }
 
   render(); clearForm(); toast('Order #'+num+' recorded'); go('orders');
 }
 
-async function deductStock(order) {
-  if (!order.product_id || order.stock_deducted) return false;
-  var p = products.find(function(x){ return x.id === order.product_id; });
-  if (!p) return false;
+async function loadOrderItems(orderId) {
+  const {data, error} = await db.from('order_items').select('*').eq('order_id', orderId).order('id', {ascending:true});
+  if (error) { console.error('Load order items failed:', error); return []; }
+  return data || [];
+}
 
-  // Single atomic call: adjusts stock, flips orders.stock_deducted, and logs the
-  // movement all in one DB transaction (see process_stock_change in Supabase).
-  var res = await db.rpc('process_stock_change', {
-    p_product_id: p.id, p_order_id: order.id, p_change: -1, p_reason: 'order_confirmed'
-  });
-  if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
-  p.stock_qty = Math.max(0, (p.stock_qty||0) - 1);
+async function deductStock(order) {
+  if (order.stock_deducted) return false;
+  var items = await loadOrderItems(order.id);
+  if (!items.length) return false;
+
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (!it.product_id) continue;
+    var res = await db.rpc('process_stock_change', {
+      p_product_id: it.product_id, p_order_id: order.id, p_change: -it.quantity, p_reason: 'order_confirmed'
+    });
+    if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
+    var p = products.find(function(x){ return x.id === it.product_id; });
+    if (p) p.stock_qty = Math.max(0, (p.stock_qty||0) - it.quantity);
+  }
   order.stock_deducted = true;
   return true;
 }
 
 async function restoreStock(order) {
-  if (!order.product_id || !order.stock_deducted) return false;
-  var p = products.find(function(x){ return x.id === order.product_id; });
-  if (!p) return false;
+  if (!order.stock_deducted) return false;
+  var items = await loadOrderItems(order.id);
+  if (!items.length) return false;
 
-  var res = await db.rpc('process_stock_change', {
-    p_product_id: p.id, p_order_id: order.id, p_change: 1, p_reason: 'order_cancelled'
-  });
-  if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
-  p.stock_qty = (p.stock_qty||0) + 1;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (!it.product_id) continue;
+    var res = await db.rpc('process_stock_change', {
+      p_product_id: it.product_id, p_order_id: order.id, p_change: it.quantity, p_reason: 'order_cancelled'
+    });
+    if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
+    var p = products.find(function(x){ return x.id === it.product_id; });
+    if (p) p.stock_qty = (p.stock_qty||0) + it.quantity;
+  }
   order.stock_deducted = false;
   return true;
 }
 function clearForm() {
   ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fPrice').value=''; document.getElementById('fProduct').value='';
-  document.getElementById('fProductDisplayText').textContent = 'Select product…';
-  document.getElementById('fProductDisplayText').style.color = 'var(--ink3)';
-  document.getElementById('fProductDisplayImg').style.display = 'none';
+  _newOrderItems = [];
+  renderNewOrderItems();
   _payDone=false; renderPayDone();
 }
 function renderPayDone() {
@@ -2839,6 +2888,23 @@ async function bulkDeliverOrders() {
 function setFlt(f,btn){flt=f;document.querySelectorAll('.chip').forEach(b=>b.classList.remove('on'));btn.classList.add('on');render();}
 
 /* SHEET */
+async function loadDetItems(orderId, o) {
+  var items = await loadOrderItems(orderId);
+  if (viewId !== orderId) return; // sheet moved on to a different order before this resolved
+  var el = document.getElementById('detItemsList');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="det-row" style="border-bottom:none;padding:0"><span class="det-val dim">' + esc(o.product||'—') + '</span></div>';
+    return;
+  }
+  el.innerHTML = items.map(function(it) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">'
+      + '<span style="font-size:13px;color:var(--ink)">' + esc(it.product_name) + (it.quantity>1?' <span style="color:var(--ink3)">x'+it.quantity+'</span>':'') + '</span>'
+      + '<span style="font-size:13px;font-weight:600;color:var(--ink)">MVR ' + Number(it.line_total).toLocaleString() + '</span>'
+      + '</div>';
+  }).join('');
+}
+
 function openSheet(id) {
   viewId=id;
   var o = orders.find(x=>x.id===id)
@@ -2858,8 +2924,13 @@ function openSheet(id) {
     <div class="det-rows">
       <div class="det-row"><span class="det-lbl">Customer</span><span class="det-val">${esc(o.customer_name)}</span></div>
       <div class="det-row"><span class="det-lbl">Contact</span><span class="det-val ${o.contact?'':'dim'}">${o.contact?esc(o.contact):'—'}</span></div>
-      <div class="det-row"><span class="det-lbl">Product</span><span class="det-val">${esc(o.product)}</span></div>
-      <div class="det-row"><span class="det-lbl">Price</span><span class="det-val big">MVR ${Number(o.price).toLocaleString()}</span></div>
+    </div>
+    <div style="margin:12px 0">
+      <div class="det-lbl" style="display:block;margin-bottom:6px">Items</div>
+      <div id="detItemsList"><div class="empty" style="padding:10px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">Loading…</div></div></div>
+    </div>
+    <div class="det-rows">
+      <div class="det-row"><span class="det-lbl">Total</span><span class="det-val big">MVR ${Number(o.price).toLocaleString()}</span></div>
       <div class="det-row"><span class="det-lbl">Payment</span><span class="det-val">${esc(o.payment)}</span></div>
       <div class="det-row"><span class="det-lbl">Delivery</span><span class="det-val">${esc(o.delivery)}</span></div>
       <div class="det-row"><span class="det-lbl">Date</span><span class="det-val dim">${o.order_date||''} ${o.order_time||''}</span></div>
@@ -2868,6 +2939,7 @@ function openSheet(id) {
     <div id="orderActivityTimeline" style="margin-top:14px"></div>`;
   document.getElementById('ssave').style.display='none';
   loadOrderActivity(id);
+  loadDetItems(id, o);
   // Role-based buttons
   var role = _profile ? _profile.role : '';
   var sdel    = document.getElementById('sdel');
@@ -3034,14 +3106,14 @@ function renderProductActivity(data) {
 }
 
 function closeSheet(){var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.remove('open');viewId=null;}
-function enterEdit() {
+var _editOrderItems = [];
+var _editOrderItemsOriginal = []; // snapshot at load time, used to compute stock deltas on save
+
+async function enterEdit() {
   const o=orders.find(x=>x.id===viewId)
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
   if(!o) return;
-  var curProd = o.product_id ? products.find(function(x){return x.id===o.product_id;}) : null;
-  var curProdLabel = curProd ? (curProd.name + (curProd.color ? ' — ' + curProd.color : '') + ' (' + (curProd.stock_qty||0) + ' in stock)') : (o.product || 'Select product…');
-  var curProdImg = curProd && curProd.image_url ? '<img src="'+curProd.image_url+'" style="width:100%;height:100%;object-fit:cover">' : '';
   var statusLabels = {pending:'Pending',confirmed:'Confirmed',packed:'Packed',delivered:'Delivered',cancelled:'Cancelled'};
   var deliveryLabels = {'Hulhumale Phase 1':'Hulhumalé Phase 1','Hulhumale Phase 2':'Hulhumalé Phase 2','Male Delivery':'Malé Delivery','Harbour / Ferry':'Harbour / Ferry','Pickup':'Customer Pickup'};
   var paymentLabels = {'BML Transfer':'BML Transfer','Cash on Delivery':'Cash on Delivery','MIB Transfer':'MIB Transfer','Paid via Messenger':'Messenger'};
@@ -3054,15 +3126,14 @@ function enterEdit() {
       <div class="fg"><label>Customer Name</label><input id="en" type="text" value="${esc(o.customer_name)}"></div>
       <div class="fg"><label>Contact</label><input id="ec" type="text" value="${esc(o.contact||'')}"></div>
       <div class="fg ffull">
-        <label>Product</label>
-        <div id="epProductDisplay" onclick="openProductPicker('ep')" class="product-select-field">
-          <div id="epProductDisplayImg" style="width:32px;height:32px;border-radius:7px;background:var(--card2);flex-shrink:0;overflow:hidden;display:${curProd&&curProd.image_url?'':'none'}">${curProdImg}</div>
-          <span id="epProductDisplayText" style="flex:1;font-size:14px;color:${curProd?'var(--ink)':'var(--ink3)'}">${esc(curProdLabel)}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <input type="hidden" id="ep" value="${o.product_id||''}" data-fallback="${esc(o.product||'')}">
+        <label>Items</label>
+        <div id="eItemsList" style="margin-bottom:8px"><div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">Loading…</div></div></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('edit-item')" style="width:100%">+ Add Item</button>
       </div>
-      <div class="fg"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
+      <div class="fg ffull" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+        <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
+        <span style="font-size:18px;font-weight:700;color:var(--ink)" id="eItemsTotal">MVR 0</span>
+      </div>
       <div class="fg"><label>Status</label>
         <div id="esDisplay" onclick="openOptionPicker('es','esDisplay','Order Status',[{value:'pending',label:'Pending'},{value:'confirmed',label:'Confirmed'},{value:'packed',label:'Packed'},{value:'delivered',label:'Delivered'},{value:'cancelled',label:'Cancelled'}])" class="product-select-field">
           <span style="flex:1;font-size:14px;color:var(--ink)">${esc(esLabel)}</span>
@@ -3096,6 +3167,20 @@ function enterEdit() {
     </div>`;
   document.getElementById('ssave').style.display='';
   document.getElementById('sedit').style.display='none';
+
+  var loadedOrderId = viewId; // guard against the sheet being closed/reopened on a different order before this resolves
+  var items = await loadOrderItems(o.id);
+  if (viewId !== loadedOrderId) return;
+  _editOrderItemsOriginal = items.map(function(it){ return { product_id: it.product_id, quantity: it.quantity }; });
+  _editOrderItems = items.map(function(it){
+    var prod = it.product_id ? products.find(function(x){ return x.id === it.product_id; }) : null;
+    return {
+      product_id: it.product_id, name: it.product_name, color: '',
+      unit_price: Number(it.unit_price)||0, unit_cost: Number(it.unit_cost)||0,
+      quantity: it.quantity, stock_qty: prod ? (prod.stock_qty||0) : 0
+    };
+  });
+  renderEditOrderItems();
 }
 function editSetPay(paid) {
   document.getElementById('epd').value = paid ? '1' : '0';
@@ -3105,47 +3190,145 @@ function editSetPay(paid) {
   yes.className = 'epd-btn ' + (paid  ? 'epd-on-green' : 'epd-off');
   no.className  = 'epd-btn ' + (!paid ? 'epd-on-red'   : 'epd-off');
 }
+
+function renderEditOrderItems() {
+  var el = document.getElementById('eItemsList');
+  if (!el) return;
+  if (!_editOrderItems.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items — add at least one</div></div>';
+  } else {
+    el.innerHTML = _editOrderItems.map(function(it, i) {
+      var lineTotal = it.unit_price * it.quantity;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card2);border-radius:var(--r);margin-bottom:6px">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(it.name) + (it.color?' — '+esc(it.color):'') + '</div>'
+          + '<div style="font-size:11px;color:var(--ink3)">MVR ' + it.unit_price.toLocaleString() + ' each</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+          + '<button type="button" onclick="changeEditItemQty(' + i + ',-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">−</button>'
+          + '<span style="font-size:13px;font-weight:700;min-width:16px;text-align:center">' + it.quantity + '</span>'
+          + '<button type="button" onclick="changeEditItemQty(' + i + ',1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">+</button>'
+        + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--ink);min-width:58px;text-align:right;flex-shrink:0">MVR ' + lineTotal.toLocaleString() + '</div>'
+        + '<button type="button" onclick="removeEditItem(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:2px;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+        + '</div>';
+    }).join('');
+  }
+  var total = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalEl = document.getElementById('eItemsTotal');
+  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString();
+}
+
+function changeEditItemQty(i, delta) {
+  var it = _editOrderItems[i];
+  if (!it) return;
+  var newQty = it.quantity + delta;
+  if (newQty < 1) { removeEditItem(i); return; }
+  if (newQty > it.stock_qty) { toast('Only ' + it.stock_qty + ' in stock', true); return; }
+  it.quantity = newQty;
+  renderEditOrderItems();
+}
+
+function removeEditItem(i) {
+  _editOrderItems.splice(i, 1);
+  renderEditOrderItems();
+}
 async function saveEdit() {
   const g=id=>{ const e=document.getElementById(id); return e?e.value:null; };
 
   var editName = g('en') ? g('en').trim() : '';
   var editContact = g('ec') ? g('ec').trim() : '';
-  var editPrice = g('epr');
 
   if (!editName) { toast('Customer name cannot be empty', true); return; }
   if (editContact && !isValidPhone(editContact)) { toast('Enter a valid phone number', true); return; }
-  if (!isPositiveNumber(editPrice)) { toast('Enter a valid price greater than 0', true); return; }
+  if (!_editOrderItems.length) { toast('Order must have at least one item', true); return; }
 
-  const epdEl=document.getElementById('epd');
-  var epEl = document.getElementById('ep');
-  var newProductId = epEl && epEl.value ? parseInt(epEl.value) : null;
-  var productLabel = epEl ? epEl.getAttribute('data-fallback') : null;
-  if (newProductId) {
-    var newP = products.find(function(x){ return x.id === newProductId; });
-    if (newP) productLabel = newP.name + (newP.color ? ' - ' + newP.color : '');
-  }
-  const u={customer_name:g('en'),contact:g('ec'),product:productLabel,product_id:newProductId,price:parseFloat(g('epr'))||0,status:g('es'),delivery:g('ed'),payment:g('epy'),notes:g('eno'),payment_done:epdEl?epdEl.value==='1':false};
-  Object.keys(u).forEach(k=>u[k]===null&&delete u[k]);
-  const {error}=await db.from('orders').update(u).eq('id',viewId);
-  if(error){toast('Error: '+error.message,true);return;}
   const o=orders.find(x=>x.id===viewId)
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(x=>x.id===viewId));
-  if(o) {
-    var prevStatus = o.status;
-    Object.assign(o,u);
-    // Trigger stock deduction/restoration if status changed via edit form too
-    if (['confirmed','packed','delivered'].indexOf(o.status) >= 0 && !o.stock_deducted) {
-      await deductStock(o);
+  if (!o) return;
+
+  var newStatus = g('es');
+  var wasDeducted = !!o.stock_deducted;
+  var willBeDeducted = ['confirmed','packed','delivered'].indexOf(newStatus) >= 0;
+
+  // Reconcile stock per-product by comparing "what was actually deducted"
+  // against "what should be deducted now" — this single comparison correctly
+  // covers every combination: items changed while staying confirmed (partial
+  // delta), status reverting to pending/cancelled (target becomes 0 for every
+  // product regardless of the new item list), status newly advancing
+  // (nothing was deducted before, so the full new list gets deducted), or
+  // items + status changing in the same save.
+  var oldQty = {}, newQty = {};
+  if (wasDeducted) {
+    _editOrderItemsOriginal.forEach(function(it){ if(it.product_id) oldQty[it.product_id] = (oldQty[it.product_id]||0) + it.quantity; });
+  }
+  if (willBeDeducted) {
+    _editOrderItems.forEach(function(it){ if(it.product_id) newQty[it.product_id] = (newQty[it.product_id]||0) + it.quantity; });
+  }
+  var allProductIds = {};
+  Object.keys(oldQty).forEach(function(k){ allProductIds[k]=true; });
+  Object.keys(newQty).forEach(function(k){ allProductIds[k]=true; });
+
+  // Pre-check: don't apply anything if any further deduction would be impossible
+  for (var pidCheck in allProductIds) {
+    var deltaCheck = (newQty[pidCheck]||0) - (oldQty[pidCheck]||0);
+    if (deltaCheck > 0) {
+      var prodCheck = products.find(function(x){ return x.id === parseInt(pidCheck); });
+      if (prodCheck && deltaCheck > (prodCheck.stock_qty||0)) {
+        toast(prodCheck.name + ' only has ' + (prodCheck.stock_qty||0) + ' more in stock', true);
+        return;
+      }
     }
-    if (['pending','cancelled'].indexOf(o.status) >= 0 && o.stock_deducted) {
-      await restoreStock(o);
-    }
-    if (prevStatus !== o.status) {
-      await logActivity(viewId, o.status + ' (via edit)');
-    } else {
-      await logActivity(viewId, 'edited');
-    }
+  }
+
+  for (var pid in allProductIds) {
+    var delta = (newQty[pid]||0) - (oldQty[pid]||0);
+    if (delta === 0) continue;
+    var res = await db.rpc('process_stock_change', {
+      p_product_id: parseInt(pid), p_order_id: viewId, p_change: -delta,
+      p_reason: delta > 0 ? 'order_confirmed' : 'order_cancelled'
+    });
+    if (res.error) { toast('Stock update failed: ' + res.error.message, true); return; }
+    var prod = products.find(function(x){ return x.id === parseInt(pid); });
+    if (prod) prod.stock_qty = Math.max(0, (prod.stock_qty||0) - delta);
+  }
+
+  // Replace the order's line items with the current edited set
+  await db.from('order_items').delete().eq('order_id', viewId);
+  var itemRows = _editOrderItems.map(function(it){
+    return {
+      order_id: viewId, product_id: it.product_id,
+      product_name: it.name + (it.color?' - '+it.color:''),
+      unit_price: it.unit_price, unit_cost: it.unit_cost,
+      quantity: it.quantity, line_total: it.unit_price * it.quantity
+    };
+  });
+  const itemsRes = await db.from('order_items').insert(itemRows);
+  if (itemsRes.error) { toast('Items failed to save: ' + itemsRes.error.message, true); return; }
+
+  var totalPrice = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalCost = _editOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
+  var productLabel = _editOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
+
+  const epdEl=document.getElementById('epd');
+  const u={
+    customer_name: editName, contact: editContact,
+    product: productLabel, product_id: _editOrderItems[0].product_id,
+    price: totalPrice, total_cost: totalCost,
+    status: newStatus, delivery: g('ed'), payment: g('epy'), notes: g('eno'),
+    payment_done: epdEl?epdEl.value==='1':false,
+    stock_deducted: willBeDeducted
+  };
+  const {error}=await db.from('orders').update(u).eq('id',viewId);
+  if(error){toast('Error: '+error.message,true);return;}
+
+  var prevStatus = o.status;
+  Object.assign(o,u);
+  if (prevStatus !== newStatus) {
+    await logActivity(viewId, newStatus + ' (via edit)');
+  } else {
+    await logActivity(viewId, 'edited');
   }
   render(); openSheet(viewId); toast('Saved ✓');
 }
@@ -3695,8 +3878,7 @@ async function loadDashboard() {
   var todayDate = today();
 
   function orderCost(o) {
-    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
-    return p ? Number(p.cost_price)||0 : 0;
+    return Number(o.total_cost)||0;
   }
 
   // Today's orders + revenue
@@ -3886,13 +4068,21 @@ async function loadDashboard() {
     }).join('');
   }
 
-  // Top products this month
+  // Top products this month — aggregated from individual line items, so a
+  // multi-item order's products are each counted on their own rather than
+  // the whole order being grouped under one combined summary string.
+  var monthOrderIds = (monthOrders||[]).map(function(o){ return o.id; });
+  var monthItems = [];
+  if (monthOrderIds.length) {
+    const {data: miData} = await db.from('order_items').select('product_name,unit_price,unit_cost,quantity').in('order_id', monthOrderIds);
+    monthItems = miData || [];
+  }
   var productTotals = {};
-  (monthOrders||[]).forEach(function(o) {
-    var key = o.product || 'Unknown';
+  monthItems.forEach(function(it) {
+    var key = it.product_name || 'Unknown';
     if (!productTotals[key]) productTotals[key] = { qty: 0, profit: 0 };
-    productTotals[key].qty += 1;
-    productTotals[key].profit += (Number(o.price) - orderCost(o));
+    productTotals[key].qty += it.quantity;
+    productTotals[key].profit += (Number(it.unit_price) - Number(it.unit_cost)) * it.quantity;
   });
   var sorted = Object.keys(productTotals).map(function(k){ return { name: k, qty: productTotals[k].qty, profit: productTotals[k].profit }; })
     .sort(function(a,b){ return b.profit - a.profit; }).slice(0, 3);
@@ -4094,8 +4284,7 @@ function exportSalesCSV() {
 function buildSalesRows(data) {
   var rows = [['Order #','Date','Customer','Contact','Product','Price (MVR)','Cost Price (MVR)','Gross Profit (MVR)','Delivery','Payment Method','Payment Status']];
   data.forEach(function(o) {
-    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
-    var cost = p ? Number(p.cost_price)||0 : 0;
+    var cost = Number(o.total_cost)||0;
     var price = Number(o.price)||0;
     rows.push([
       o.num, o.order_date, o.customer_name, o.contact||'', o.product,
@@ -4283,13 +4472,12 @@ async function loadExpenses() {
   _allExpenses = expData || [];
 
   const {data: ordData} = await db.from('orders')
-    .select('price,product_id').eq('status','delivered')
+    .select('price,total_cost').eq('status','delivered')
     .gte('order_date', bounds.start).lte('order_date', bounds.end);
 
   var gp = 0;
   (ordData||[]).forEach(function(o) {
-    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
-    var cost = p ? Number(p.cost_price)||0 : 0;
+    var cost = Number(o.total_cost)||0;
     gp += (Number(o.price)||0) - cost;
   });
 
@@ -4527,31 +4715,38 @@ async function loadSales() {
 
   if (error) { toast('Error loading sales: ' + error.message, true); return; }
   _salesOrders = data || [];
-  renderSales();
+  await renderSales();
 }
 
-function renderSales() {
+async function renderSales() {
   var revenue = 0, gp = 0;
-  var productTotals = {}; // name -> {qty, revenue}
 
   _salesOrders.forEach(function(o) {
     var price = Number(o.price) || 0;
     revenue += price;
-
-    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
-    var cost = p ? Number(p.cost_price)||0 : 0;
-    gp += (price - cost);
-
-    var key = o.product || 'Unknown';
-    if (!productTotals[key]) productTotals[key] = { qty: 0, revenue: 0 };
-    productTotals[key].qty += 1;
-    productTotals[key].revenue += price;
+    gp += (price - (Number(o.total_cost)||0));
   });
 
   document.getElementById('salesRevenue').textContent = revenue.toLocaleString();
   document.getElementById('salesGP').textContent = gp.toLocaleString();
   document.getElementById('salesCount').textContent = _salesOrders.length;
   document.getElementById('salesMargin').textContent = revenue > 0 ? Math.round((gp/revenue)*100) + '%' : '0%';
+
+  // Top products — aggregated from individual line items, not the order-level
+  // summary string, so a multi-item order's products are each counted on their own.
+  var salesOrderIds = _salesOrders.map(function(o){ return o.id; });
+  var salesItems = [];
+  if (salesOrderIds.length) {
+    const {data: siData} = await db.from('order_items').select('product_name,unit_price,quantity').in('order_id', salesOrderIds);
+    salesItems = siData || [];
+  }
+  var productTotals = {};
+  salesItems.forEach(function(it) {
+    var key = it.product_name || 'Unknown';
+    if (!productTotals[key]) productTotals[key] = { qty: 0, revenue: 0 };
+    productTotals[key].qty += it.quantity;
+    productTotals[key].revenue += Number(it.unit_price) * it.quantity;
+  });
 
   // Top products
   var sorted = Object.keys(productTotals).map(function(k) {
