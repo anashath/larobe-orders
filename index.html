@@ -2564,7 +2564,12 @@ async function loadOrders() {
     var d = new Date();
     lbl.textContent = d.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
   }
-  const {data,error}=await db.from('orders').select('*').eq('order_date',date).order('num',{ascending:true});
+  // Today's orders, plus any still-outstanding order from an earlier date —
+  // an order that's pending/confirmed/packed is an active task regardless of
+  // which day it was created, so it shouldn't only be findable in History.
+  const {data,error}=await db.from('orders').select('*')
+    .or('order_date.eq.' + date + ',status.in.(pending,confirmed,packed)')
+    .order('order_date',{ascending:false}).order('num',{ascending:true});
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
 }
@@ -2793,6 +2798,7 @@ function render() {
   const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
   var _role = _profile ? _profile.role : '';
   var _isDeliveryRole = _role === 'delivery';
+  var _todayDate = today();
   if(!arr.length){
     L.innerHTML='<div class="empty"><div class="empty-ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div><div class="empty-t">'+(flt==='all'?'No orders yet today':'No '+flt+' orders')+'</div><div class="empty-s">'+(flt==='all'?'Tap the + button to create one':'')+'</div></div>';
   } else {
@@ -2818,7 +2824,7 @@ function render() {
         + '<div class="o-info">'
           + '<div class="o-name">' + esc(o.customer_name) + '</div>'
           + '<div class="o-prod">' + esc(o.product) + '</div>'
-          + '<div class="o-meta">' + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>'
+          + '<div class="o-meta">' + (o.order_date !== _todayDate ? '<span style="color:var(--amber);font-weight:700">' + formatDisplayDate(o.order_date) + '</span> · ' : '') + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>'
           + renderStatusStepper(o)
         + '</div>'
         + '<div class="o-right">'
