@@ -180,8 +180,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .ostep{display:flex;align-items:center;gap:5px;margin-top:7px}
 .ostep-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
 .ostep-dot.on{background:var(--ink);border-color:var(--ink)}
-.ostep-dot.next{cursor:pointer;border-style:dashed;border-color:var(--ink2)}
-.ostep-dot.next:active{transform:scale(.8)}
+.ostep-dot.next{border-style:dashed;border-color:var(--ink2)}
+.ostep-dot.next.tappable{cursor:pointer}
+.ostep-dot.next.tappable:active{transform:scale(.8)}
 .ostep-dot svg{display:none}
 .ostep-dot.on svg{display:block}
 .ostep-line{width:12px;height:1.5px;background:var(--line);flex-shrink:0}
@@ -2646,10 +2647,10 @@ function renderStatusStepper(o) {
   var labelMap = { pending:'Pending', confirmed:'Confirmed', packed:'Packed', delivered:'Delivered' };
   var curTint = tintMap[o.status];
 
-  // The immediate next stage is tappable to advance directly from the list,
-  // gated by the exact same role permissions as the buttons in the order
-  // detail sheet — and disabled entirely while in bulk-select mode, since
-  // the row's own click is repurposed for selection there.
+  // The next stage always shows a distinct dashed outline so anyone viewing
+  // the list can see what's coming next, regardless of their own permissions.
+  // Only the click handler itself is gated by role — same rules as the
+  // buttons in the order detail sheet.
   var nextStage = stages[idx + 1] || null;
   var canAdvance = false;
   if (!_selectMode && nextStage) {
@@ -2660,10 +2661,11 @@ function renderStatusStepper(o) {
   var html = '<div class="ostep">';
   for (var i = 0; i < stages.length; i++) {
     var done = i <= idx;
-    var isNext = canAdvance && (i === idx + 1);
+    var isNextStage = (i === idx + 1);
+    var isTappable = canAdvance && isNextStage;
     var ringStyle = (i === idx) ? ' style="box-shadow:0 0 0 3px ' + curTint + '"' : '';
-    var clickAttr = isNext ? ' onclick="event.stopPropagation();tapAdvanceStatus(' + o.id + ',\'' + stages[i] + '\')"' : '';
-    html += '<div class="ostep-dot' + (done?' on':'') + (isNext?' next':'') + '"' + ringStyle + clickAttr + '>'
+    var clickAttr = isTappable ? ' onclick="event.stopPropagation();tapAdvanceStatus(' + o.id + ',\'' + stages[i] + '\')"' : '';
+    html += '<div class="ostep-dot' + (done?' on':'') + (isNextStage?' next':'') + (isTappable?' tappable':'') + '"' + ringStyle + clickAttr + '>'
       + '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
       + '</div>';
     if (i < stages.length - 1) html += '<div class="ostep-line' + (i < idx ? ' on' : '') + '"></div>';
