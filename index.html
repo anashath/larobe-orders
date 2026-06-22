@@ -129,6 +129,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .nb-ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .nb.on .nb-ic svg{stroke:var(--blue)}
 .nb-lbl{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.nb-badge{position:absolute;top:0px;left:calc(50% + 7px);min-width:16px;height:16px;border-radius:8px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1}
+.d-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:18px;text-align:center}
 .nb-fab{position:relative}
 .nb-fab-ic{width:50px;height:50px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(236,95,61,.4);margin-top:-14px;transition:transform .15s,box-shadow .15s}
 .nb-fab-ic svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round}
@@ -560,8 +562,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="d-item" id="dn-dashboard" onclick="go('dashboard')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Dashboard
     </button>
-    <button class="d-item on" id="dn-orders" onclick="go('orders')">
+    <button class="d-item on" id="dn-orders" onclick="go('orders')" style="display:flex;align-items:center">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></span>Orders
+      <span class="d-badge" id="dnOrdersBadge" style="display:none">0</span>
     </button>
     <button class="d-item" id="dn-new" onclick="go('new')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>New Order
@@ -1156,6 +1159,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <button class="nb on" id="bn-orders" onclick="go('orders')">
     <span class="nb-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></span>
     <span class="nb-lbl">Orders</span>
+    <span class="nb-badge" id="bnOrdersBadge" style="display:none">0</span>
   </button>
   <button class="nb" id="bn-history" onclick="go('history')">
     <span class="nb-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>
@@ -3552,6 +3556,28 @@ document.addEventListener('keydown', function(e) {
 /* ── AUTH PROFILE ── */
 function _saveSession(session) {}
 
+async function updateOrdersBadge() {
+  if (!_profile) return;
+  var role = _profile.role;
+  var statuses;
+  // Mirrors the exact same role scope already used for the status stepper and
+  // bulk actions: admin sees everything outstanding, manager sees what they
+  // can confirm/pack, delivery sees what's ready to deliver.
+  if (role === 'admin') statuses = ['pending','confirmed','packed'];
+  else if (role === 'manager') statuses = ['pending','confirmed'];
+  else if (role === 'delivery') statuses = ['packed'];
+  else return;
+
+  const res = await db.from('orders').select('id', {count:'exact', head:true}).in('status', statuses);
+  if (res.error) { console.error('Orders badge count failed:', res.error); return; }
+  var count = res.count || 0;
+  var text = count > 99 ? '99+' : String(count);
+  var bn = document.getElementById('bnOrdersBadge');
+  var dn = document.getElementById('dnOrdersBadge');
+  if (bn) { bn.textContent = text; bn.style.display = count > 0 ? 'flex' : 'none'; }
+  if (dn) { dn.textContent = text; dn.style.display = count > 0 ? 'inline-block' : 'none'; }
+}
+
 function loadProfile(uid) {
   db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
     if (res.error || !res.data) { showLogin(); return; }
@@ -3566,6 +3592,7 @@ function loadProfile(uid) {
     if (_od) _od.value = today();
     loadProds();
     loadOrders();
+    updateOrdersBadge();
   }).catch(function() { showLogin(); });
 }
 
