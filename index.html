@@ -424,6 +424,16 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .pp-meta{font-size:11px;color:var(--ink3);margin-top:1px}
 .pp-price{font-size:12px;font-weight:700;color:var(--blue);flex-shrink:0}
 
+.opt-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px;border-radius:14px;cursor:pointer;transition:background .15s,transform .1s;font-size:14px;font-weight:600;color:var(--ink)}
+.opt-item:hover{background:var(--card2)}
+.opt-item:active{background:var(--card2);transform:scale(.99)}
+.opt-item+.opt-item{border-top:1px solid var(--line)}
+.opt-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.opt-item.sel .opt-check{border-color:var(--blue);background:var(--blue)}
+.opt-item.sel .opt-check svg{display:block}
+.opt-item:not(.sel) .opt-check svg{display:none}
+.opt-check svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+
 /* ── TOAST ── */
 #toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--card);padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;opacity:0;transition:all .2s;pointer-events:none;z-index:999;white-space:nowrap;box-shadow:var(--sh-md)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -692,15 +702,32 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
           <input type="hidden" id="fProduct">
         </div>
         <div class="fg"><label>Price (MVR)</label><input type="number" id="fPrice" placeholder="0" min="0" inputmode="numeric"></div>
-        <div class="fg"><label>Status</label><select id="fStatus"><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="delivered">Delivered</option></select></div>
+        <div class="fg"><label>Status</label>
+          <div id="fStatusDisplay" onclick="openOptionPicker('fStatus','fStatusDisplay','Order Status',[{value:'pending',label:'Pending'},{value:'confirmed',label:'Confirmed'},{value:'delivered',label:'Delivered'}])" class="product-select-field">
+            <span style="flex:1;font-size:14px;color:var(--ink)">Pending</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <input type="hidden" id="fStatus" value="pending">
+        </div>
       </div>
     </div>
     <div class="fcard">
       <div class="fcard-hdr">Delivery & Payment</div>
       <div class="fgrid">
-        <div class="fg"><label>Delivery</label><select id="fDelivery"><option value="Hulhumale Phase 1">Hulhumalé Phase 1</option>
-          <option value="Hulhumale Phase 2">Hulhumalé Phase 2</option><option value="Male Delivery">Malé Delivery</option><option value="Harbour / Ferry">Harbour / Ferry</option><option value="Pickup">Customer Pickup</option></select></div>
-        <div class="fg"><label>Payment Method</label><select id="fPayment"><option value="BML Transfer">BML Transfer</option><option value="Cash on Delivery">Cash on Delivery</option><option value="MIB Transfer">MIB Transfer</option><option value="Paid via Messenger">Messenger</option></select></div>
+        <div class="fg"><label>Delivery</label>
+          <div id="fDeliveryDisplay" onclick="openOptionPicker('fDelivery','fDeliveryDisplay','Delivery Area',[{value:'Hulhumale Phase 1',label:'Hulhumalé Phase 1'},{value:'Hulhumale Phase 2',label:'Hulhumalé Phase 2'},{value:'Male Delivery',label:'Malé Delivery'},{value:'Harbour / Ferry',label:'Harbour / Ferry'},{value:'Pickup',label:'Customer Pickup'}])" class="product-select-field">
+            <span style="flex:1;font-size:14px;color:var(--ink)">Hulhumalé Phase 1</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <input type="hidden" id="fDelivery" value="Hulhumale Phase 1">
+        </div>
+        <div class="fg"><label>Payment Method</label>
+          <div id="fPaymentDisplay" onclick="openOptionPicker('fPayment','fPaymentDisplay','Payment Method',[{value:'BML Transfer',label:'BML Transfer'},{value:'Cash on Delivery',label:'Cash on Delivery'},{value:'MIB Transfer',label:'MIB Transfer'},{value:'Paid via Messenger',label:'Messenger'}])" class="product-select-field">
+            <span style="flex:1;font-size:14px;color:var(--ink)">BML Transfer</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <input type="hidden" id="fPayment" value="BML Transfer">
+        </div>
         <div class="fg ffull">
           <label>Payment Received</label>
           <div style="display:flex;gap:8px">
@@ -872,12 +899,11 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       </div>
       <div class="fg">
         <label>Category</label>
-        <select id="expCategory">
-          <option value="Delivery">Delivery</option>
-          <option value="Rent">Rent</option>
-          <option value="Salaries">Salaries</option>
-          <option value="Other">Other</option>
-        </select>
+        <div id="expCategoryDisplay" onclick="openOptionPicker('expCategory','expCategoryDisplay','Category',[{value:'Delivery',label:'Delivery'},{value:'Rent',label:'Rent'},{value:'Salaries',label:'Salaries'},{value:'Other',label:'Other'}])" class="product-select-field">
+          <span style="flex:1;font-size:14px;color:var(--ink)">Delivery</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="expCategory" value="Delivery">
       </div>
       <div class="fg">
         <label>Amount (MVR)</label>
@@ -950,7 +976,13 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <div class="fg"><label>Full Name</label><input type="text" id="nuName" placeholder="Aminath Hassan"></div>
         <div class="fg"><label>Email</label><input type="email" id="nuEmail" placeholder="user@email.com"></div>
         <div class="fg"><label>Password</label><input type="password" id="nuPass" placeholder="Min 6 characters"></div>
-        <div class="fg"><label>Role</label><select id="nuRole"><option value="manager">Manager</option><option value="delivery">Delivery</option><option value="admin">Admin</option></select></div>
+        <div class="fg"><label>Role</label>
+          <div id="nuRoleDisplay" onclick="openOptionPicker('nuRole','nuRoleDisplay','Role',[{value:'manager',label:'Manager'},{value:'delivery',label:'Delivery'},{value:'admin',label:'Admin'}])" class="product-select-field">
+            <span style="flex:1;font-size:14px;color:var(--ink)">Manager</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <input type="hidden" id="nuRole" value="manager">
+        </div>
       </div>
       <div class="factions"><button class="btn btn-blue" onclick="createUser()" id="createUserBtn">Create User</button></div>
     </div>
@@ -1138,6 +1170,18 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <button class="s-x" onclick="closeProductPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="s-body" id="productPickerBody" style="max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══ GENERIC OPTION PICKER (Status, Delivery, Payment, Role, Category…) ════ -->
+<div class="s-mask" id="optPickerMask" style="z-index:165">
+  <div class="sheet">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title" id="optPickerTitle">Select</div><div class="s-sub">Tap an option to choose it</div></div>
+      <button class="s-x" onclick="closeOptionPicker()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body" id="optPickerBody" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -1634,6 +1678,42 @@ function selectProduct(productId) {
   if (p.selling_price) document.getElementById(priceId).value = p.selling_price;
 
   closeProductPicker();
+}
+
+var _optPicker = null; // { hiddenId, displayId, options:[{value,label}] }
+
+function openOptionPicker(hiddenId, displayId, title, options) {
+  _optPicker = { hiddenId: hiddenId, displayId: displayId, options: options };
+  document.getElementById('optPickerTitle').textContent = title;
+  document.getElementById('optPickerMask').classList.add('open');
+  renderOptionPicker();
+}
+
+function closeOptionPicker() {
+  document.getElementById('optPickerMask').classList.remove('open');
+}
+
+function renderOptionPicker() {
+  if (!_optPicker) return;
+  var body = document.getElementById('optPickerBody');
+  var currentVal = document.getElementById(_optPicker.hiddenId).value;
+  body.innerHTML = _optPicker.options.map(function(o) {
+    var isSel = o.value === currentVal;
+    return '<div class="opt-item' + (isSel ? ' sel' : '') + '" onclick="selectOptionPicker(\'' + o.value.replace(/'/g, "\\'") + '\')">'
+      + '<span>' + esc(o.label) + '</span>'
+      + '<span class="opt-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'
+      + '</div>';
+  }).join('');
+}
+
+function selectOptionPicker(value) {
+  if (!_optPicker) return;
+  var hidden = document.getElementById(_optPicker.hiddenId);
+  hidden.value = value;
+  var opt = _optPicker.options.find(function(o){ return o.value === value; });
+  var display = document.getElementById(_optPicker.displayId);
+  if (display) { display.textContent = opt ? opt.label : value; display.style.color = 'var(--ink)'; }
+  closeOptionPicker();
 }
 
 async function lookupCustomer() {
@@ -2607,6 +2687,12 @@ function enterEdit() {
   var curProd = o.product_id ? products.find(function(x){return x.id===o.product_id;}) : null;
   var curProdLabel = curProd ? (curProd.name + (curProd.color ? ' — ' + curProd.color : '') + ' (' + (curProd.stock_qty||0) + ' in stock)') : (o.product || 'Select product…');
   var curProdImg = curProd && curProd.image_url ? '<img src="'+curProd.image_url+'" style="width:100%;height:100%;object-fit:cover">' : '';
+  var statusLabels = {pending:'Pending',confirmed:'Confirmed',packed:'Packed',delivered:'Delivered',cancelled:'Cancelled'};
+  var deliveryLabels = {'Hulhumale Phase 1':'Hulhumalé Phase 1','Hulhumale Phase 2':'Hulhumalé Phase 2','Male Delivery':'Malé Delivery','Harbour / Ferry':'Harbour / Ferry','Pickup':'Customer Pickup'};
+  var paymentLabels = {'BML Transfer':'BML Transfer','Cash on Delivery':'Cash on Delivery','MIB Transfer':'MIB Transfer','Paid via Messenger':'Messenger'};
+  var esLabel = statusLabels[o.status] || o.status || 'Pending';
+  var edLabel = deliveryLabels[o.delivery] || o.delivery || 'Select…';
+  var epyLabel = paymentLabels[o.payment] || o.payment || 'Select…';
   document.getElementById('sbody').innerHTML=`
     <div class="ewarn"><strong>Editing Order #${o.num}</strong><p>Changes are saved immediately. Verify all details before saving.</p></div>
     <div class="fgrid">
@@ -2623,30 +2709,25 @@ function enterEdit() {
       </div>
       <div class="fg"><label>Price (MVR)</label><input id="epr" type="number" value="${o.price}" inputmode="numeric"></div>
       <div class="fg"><label>Status</label>
-        <select id="es">
-          <option value="pending"   ${o.status==='pending'  ?'selected':''}>Pending</option>
-          <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
-          <option value="packed"    ${o.status==='packed'   ?'selected':''}>Packed</option>
-          <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
-          <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
-        </select>
+        <div id="esDisplay" onclick="openOptionPicker('es','esDisplay','Order Status',[{value:'pending',label:'Pending'},{value:'confirmed',label:'Confirmed'},{value:'packed',label:'Packed'},{value:'delivered',label:'Delivered'},{value:'cancelled',label:'Cancelled'}])" class="product-select-field">
+          <span style="flex:1;font-size:14px;color:var(--ink)">${esc(esLabel)}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="es" value="${esc(o.status||'pending')}">
       </div>
       <div class="fg"><label>Delivery</label>
-        <select id="ed">
-          <option value="Hulhumale Phase 1" ${o.delivery==='Hulhumale Phase 1'?'selected':''}>Hulhumalé Phase 1</option>
-          <option value="Hulhumale Phase 2" ${o.delivery==='Hulhumale Phase 2'?'selected':''}>Hulhumalé Phase 2</option>
-          <option value="Male Delivery"   ${o.delivery==='Male Delivery'  ?'selected':''}>Malé Delivery</option>
-          <option value="Harbour / Ferry" ${o.delivery==='Harbour / Ferry'?'selected':''}>Harbour / Ferry</option>
-          <option value="Pickup"          ${o.delivery==='Pickup'         ?'selected':''}>Customer Pickup</option>
-        </select>
+        <div id="edDisplay" onclick="openOptionPicker('ed','edDisplay','Delivery Area',[{value:'Hulhumale Phase 1',label:'Hulhumalé Phase 1'},{value:'Hulhumale Phase 2',label:'Hulhumalé Phase 2'},{value:'Male Delivery',label:'Malé Delivery'},{value:'Harbour / Ferry',label:'Harbour / Ferry'},{value:'Pickup',label:'Customer Pickup'}])" class="product-select-field">
+          <span style="flex:1;font-size:14px;color:var(--ink)">${esc(edLabel)}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="ed" value="${esc(o.delivery||'')}">
       </div>
       <div class="fg"><label>Payment Method</label>
-        <select id="epy">
-          <option value="BML Transfer"       ${o.payment==='BML Transfer'      ?'selected':''}>BML Transfer</option>
-          <option value="Cash on Delivery"   ${o.payment==='Cash on Delivery'  ?'selected':''}>Cash on Delivery</option>
-          <option value="MIB Transfer"       ${o.payment==='MIB Transfer'      ?'selected':''}>MIB Transfer</option>
-          <option value="Paid via Messenger" ${o.payment==='Paid via Messenger'?'selected':''}>Messenger</option>
-        </select>
+        <div id="epyDisplay" onclick="openOptionPicker('epy','epyDisplay','Payment Method',[{value:'BML Transfer',label:'BML Transfer'},{value:'Cash on Delivery',label:'Cash on Delivery'},{value:'MIB Transfer',label:'MIB Transfer'},{value:'Paid via Messenger',label:'Messenger'}])" class="product-select-field">
+          <span style="flex:1;font-size:14px;color:var(--ink)">${esc(epyLabel)}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="epy" value="${esc(o.payment||'')}">
       </div>
       <div class="fg ffull">
         <label>Payment Received</label>
@@ -3833,6 +3914,7 @@ function openAddExpense() {
   document.getElementById('expDate').value = today();
   document.getElementById('expDateText').textContent = formatDisplayDate(today());
   document.getElementById('expCategory').value = 'Delivery';
+  document.getElementById('expCategoryDisplay').querySelector('span').textContent = 'Delivery';
   document.getElementById('expAmount').value = '';
   document.getElementById('expNote').value = '';
   document.getElementById('addExpenseMask').classList.add('open');
