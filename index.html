@@ -626,7 +626,11 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashPending">0</div><div class="stat-l">Pending</div></div>
   </div>
   <div class="stats">
-    <div class="stat" onclick="go('orders')" style="cursor:pointer"><div class="stat-n" id="dashUnpaid">0</div><div class="stat-l">Unpaid</div></div>
+    <div class="stat" onclick="go('orders')" style="cursor:pointer">
+      <div class="stat-n" id="dashUnpaid">0</div>
+      <div class="stat-l">Unpaid</div>
+      <div id="dashUnpaidSub" style="font-size:10.5px;font-weight:700;color:var(--red);margin-top:3px"></div>
+    </div>
     <div class="stat"><div class="stat-n" id="dashAvgOrder">0</div><div class="stat-l">Avg Order (MVR)</div></div>
     <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashRevenueMonth">0</div><div class="stat-l">Revenue (Month)</div></div>
   </div>
@@ -634,6 +638,16 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="stat" onclick="goToProductsFiltered('low')" style="cursor:pointer"><div class="stat-n" id="dashLowStock">0</div><div class="stat-l">Low Stock</div></div>
     <div class="stat" onclick="goToProductsFiltered('out')" style="cursor:pointer"><div class="stat-n" id="dashOutStock">0</div><div class="stat-l">Out of Stock</div></div>
     <div class="stat" onclick="go('products')" style="cursor:pointer"><div class="stat-n" id="dashTotalStock">0</div><div class="stat-l">Total Stock</div></div>
+  </div>
+
+  <!-- Profitability -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Profitability</div>
+  </div>
+  <div class="stats">
+    <div class="stat hi"><div class="stat-n" id="dashProfitToday">0</div><div class="stat-l">Gross Profit Today</div></div>
+    <div class="stat"><div class="stat-n" id="dashMarginToday">0%</div><div class="stat-l">Margin Today</div></div>
+    <div class="stat" onclick="go('sales')" style="cursor:pointer"><div class="stat-n" id="dashProfitMonth">0</div><div class="stat-l">Gross Profit (Month)</div></div>
   </div>
 
   <!-- 7-day revenue trend -->
@@ -646,6 +660,18 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <div id="dashChartLabels" style="display:flex;gap:0;margin-top:6px"></div>
     </div>
   </div>
+
+  <!-- Fulfillment speed -->
+  <div class="pg" style="padding-bottom:6px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Fulfillment Speed</div>
+    <div style="font-size:11.5px;color:var(--ink3);margin-top:2px">Average time per stage, last 30 days</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="dashTimeConfirm">—</div><div class="stat-l">To Confirm</div></div>
+    <div class="stat"><div class="stat-n" id="dashTimePack">—</div><div class="stat-l">To Pack</div></div>
+    <div class="stat"><div class="stat-n" id="dashTimeDeliver">—</div><div class="stat-l">To Deliver</div></div>
+  </div>
+  <div style="padding:0 16px 16px" id="dashBottleneck"></div>
 
   <!-- Staff activity snapshot -->
   <div class="pg" style="padding-bottom:6px">
@@ -3603,21 +3629,46 @@ function renderDashLineChart(container, days) {
 async function loadDashboard() {
   var todayDate = today();
 
+  function orderCost(o) {
+    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
+    return p ? Number(p.cost_price)||0 : 0;
+  }
+
   // Today's orders + revenue
   const {data: todayOrders} = await db.from('orders').select('*').eq('order_date', todayDate);
   var ordersToday = (todayOrders||[]).filter(function(o){ return o.status !== 'cancelled'; });
   var revenueToday = ordersToday.filter(function(o){ return o.status === 'delivered'; })
                                 .reduce(function(s,o){ return s + Number(o.price); }, 0);
   var pendingCount = (todayOrders||[]).filter(function(o){ return o.status === 'pending'; }).length;
-  var unpaidCount = ordersToday.filter(function(o){ return !o.payment_done; }).length;
   var deliveredToday = ordersToday.filter(function(o){ return o.status === 'delivered'; });
   var avgOrderToday = deliveredToday.length ? Math.round(revenueToday / deliveredToday.length) : 0;
+
+  var profitToday = deliveredToday.reduce(function(s,o){ return s + (Number(o.price) - orderCost(o)); }, 0);
+  var marginToday = revenueToday > 0 ? Math.round((profitToday / revenueToday) * 100) : 0;
+  document.getElementById('dashProfitToday').textContent = profitToday.toLocaleString();
+  document.getElementById('dashMarginToday').textContent = marginToday + '%';
 
   document.getElementById('dashOrdersToday').textContent = ordersToday.length;
   document.getElementById('dashRevenueToday').textContent = revenueToday.toLocaleString();
   document.getElementById('dashPending').textContent = pendingCount;
-  document.getElementById('dashUnpaid').textContent = unpaidCount;
   document.getElementById('dashAvgOrder').textContent = avgOrderToday.toLocaleString();
+
+  // Unpaid — all-time delivered-but-unpaid orders (actual outstanding receivables,
+  // not just today's), with total MVR value and how long the oldest has been waiting
+  const {data: unpaidOrders} = await db.from('orders').select('price,order_date')
+    .eq('status','delivered').eq('payment_done', false).order('order_date', {ascending:true});
+  var unpaidList = unpaidOrders || [];
+  var unpaidValue = unpaidList.reduce(function(s,o){ return s + Number(o.price); }, 0);
+  document.getElementById('dashUnpaid').textContent = unpaidList.length;
+  var unpaidSubEl = document.getElementById('dashUnpaidSub');
+  if (unpaidSubEl) {
+    if (unpaidList.length > 0) {
+      var oldestDays = Math.floor((new Date(todayDate) - new Date(unpaidList[0].order_date)) / 86400000);
+      unpaidSubEl.textContent = 'MVR ' + unpaidValue.toLocaleString() + (oldestDays > 0 ? ' · oldest ' + oldestDays + 'd' : ' · today');
+    } else {
+      unpaidSubEl.textContent = '';
+    }
+  }
 
   // Yesterday comparison
   var yDate = new Date();
@@ -3740,6 +3791,8 @@ async function loadDashboard() {
     .eq('status','delivered').gte('order_date', monthStart).lte('order_date', todayDate);
   var revenueMonth = (monthOrders||[]).reduce(function(s,o){ return s + Number(o.price); }, 0);
   document.getElementById('dashRevenueMonth').textContent = revenueMonth.toLocaleString();
+  var profitMonth = (monthOrders||[]).reduce(function(s,o){ return s + (Number(o.price) - orderCost(o)); }, 0);
+  document.getElementById('dashProfitMonth').textContent = profitMonth.toLocaleString();
 
   // Action items — orders waiting at each stage (all-time, not just today)
   const {data: allActive} = await db.from('orders').select('*').in('status', ['pending','confirmed','packed']);
@@ -3768,15 +3821,73 @@ async function loadDashboard() {
     }).join('');
   }
 
+  // Fulfillment speed — average time per stage over the last 30 days, computed
+  // from order_activity timestamps. Matches action labels loosely (e.g.
+  // 'confirmed (bulk)', 'packed (via edit)') so every path through the app counts.
+  var thirtyAgo = new Date(); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+  const {data: recentActivity} = await db.from('order_activity')
+    .select('order_id,action,created_at').gte('created_at', thirtyAgo.toISOString()).order('created_at', {ascending:true});
+
+  var stageTimes = {}; // order_id -> { created, confirmed, packed, delivered }
+  (recentActivity||[]).forEach(function(a) {
+    var stage = null;
+    if (a.action === 'created') stage = 'created';
+    else if (/^confirmed/.test(a.action)) stage = 'confirmed';
+    else if (/^packed/.test(a.action)) stage = 'packed';
+    else if (/^delivered/.test(a.action)) stage = 'delivered';
+    if (!stage) return;
+    if (!stageTimes[a.order_id]) stageTimes[a.order_id] = {};
+    if (!stageTimes[a.order_id][stage]) stageTimes[a.order_id][stage] = new Date(a.created_at).getTime();
+  });
+
+  var toConfirm = [], toPack = [], toDeliver = [];
+  Object.keys(stageTimes).forEach(function(oid) {
+    var s = stageTimes[oid];
+    if (s.created && s.confirmed && s.confirmed > s.created) toConfirm.push(s.confirmed - s.created);
+    if (s.confirmed && s.packed && s.packed > s.confirmed) toPack.push(s.packed - s.confirmed);
+    if (s.packed && s.delivered && s.delivered > s.packed) toDeliver.push(s.delivered - s.packed);
+  });
+
+  function avgMs(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0) / arr.length : null; }
+  function formatDur(ms) {
+    if (ms == null) return '—';
+    var mins = ms / 60000;
+    if (mins < 60) return Math.round(mins) + 'm';
+    var hrs = mins / 60;
+    if (hrs < 48) return hrs.toFixed(1) + 'h';
+    return (hrs/24).toFixed(1) + 'd';
+  }
+
+  var avgConfirmMs = avgMs(toConfirm), avgPackMs = avgMs(toPack), avgDeliverMs = avgMs(toDeliver);
+  document.getElementById('dashTimeConfirm').textContent = formatDur(avgConfirmMs);
+  document.getElementById('dashTimePack').textContent = formatDur(avgPackMs);
+  document.getElementById('dashTimeDeliver').textContent = formatDur(avgDeliverMs);
+
+  var bottleneckEl = document.getElementById('dashBottleneck');
+  if (bottleneckEl) {
+    var stagesWithData = [
+      { label: 'confirming orders', ms: avgConfirmMs },
+      { label: 'packing orders', ms: avgPackMs },
+      { label: 'delivering orders', ms: avgDeliverMs }
+    ].filter(function(s){ return s.ms != null; });
+    if (stagesWithData.length >= 2) {
+      stagesWithData.sort(function(a,b){ return b.ms - a.ms; });
+      bottleneckEl.innerHTML = '<div style="font-size:11.5px;color:var(--ink3);padding:0 2px">Slowest stage: <strong style="color:var(--ink)">' + stagesWithData[0].label + '</strong>, averaging ' + formatDur(stagesWithData[0].ms) + '</div>';
+    } else {
+      bottleneckEl.innerHTML = '';
+    }
+  }
+
   // Top products this month
   var productTotals = {};
   (monthOrders||[]).forEach(function(o) {
     var key = o.product || 'Unknown';
-    if (!productTotals[key]) productTotals[key] = 0;
-    productTotals[key] += 1;
+    if (!productTotals[key]) productTotals[key] = { qty: 0, profit: 0 };
+    productTotals[key].qty += 1;
+    productTotals[key].profit += (Number(o.price) - orderCost(o));
   });
-  var sorted = Object.keys(productTotals).map(function(k){ return { name: k, qty: productTotals[k] }; })
-    .sort(function(a,b){ return b.qty - a.qty; }).slice(0, 3);
+  var sorted = Object.keys(productTotals).map(function(k){ return { name: k, qty: productTotals[k].qty, profit: productTotals[k].profit }; })
+    .sort(function(a,b){ return b.profit - a.profit; }).slice(0, 3);
 
   var topEl = document.getElementById('dashTopProducts');
   if (!sorted.length) {
@@ -3786,7 +3897,7 @@ async function loadDashboard() {
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px">'
         + '<div style="width:24px;height:24px;border-radius:6px;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (i+1) + '</div>'
         + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--ink)">' + esc(item.name) + '</div>'
-        + '<div style="font-size:12px;color:var(--ink3)">' + item.qty + ' sold</div>'
+        + '<div style="font-size:12px;color:var(--ink3)">' + item.qty + ' sold · MVR ' + Math.round(item.profit).toLocaleString() + ' profit</div>'
         + '</div>';
     }).join('');
   }
