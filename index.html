@@ -2670,7 +2670,15 @@ function renderStatusStepper(o) {
       + '</div>';
     if (i < stages.length - 1) html += '<div class="ostep-line' + (i < idx ? ' on' : '') + '"></div>';
   }
-  html += '<span class="ostep-label" style="color:' + colorMap[o.status] + '">' + labelMap[o.status] + '</span></div>';
+  var labelText, labelColor;
+  if (nextStage) {
+    labelText = '→ ' + labelMap[nextStage];
+    labelColor = colorMap[nextStage];
+  } else {
+    labelText = labelMap[o.status];
+    labelColor = colorMap[o.status];
+  }
+  html += '<span class="ostep-label" style="color:' + labelColor + '">' + labelText + '</span></div>';
   return html;
 }
 
