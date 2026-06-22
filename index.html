@@ -336,8 +336,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .u-sub{font-size:11px;color:var(--ink3);margin-top:2px}
 .urole-badge{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:20px}
 .r-admin           {background:rgba(124,58,237,.1);color:var(--violet)}
-.r-order_collection{background:var(--blue-l);color:var(--blue)}
-.r-packing         {background:var(--amber-l);color:var(--amber)}
+.r-manager         {background:var(--blue-l);color:var(--blue)}
 .r-delivery        {background:var(--green-l);color:var(--green)}
 .r-inactive        {background:var(--red-l);color:var(--red)}
 .u-actions{display:flex;gap:6px}
@@ -561,6 +560,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     </button>
     <button class="d-item" id="dn-sales" onclick="go('sales')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>Sales
+    </button>
+    <button class="d-item" id="dn-expenses" onclick="go('expenses')" style="display:none">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>Expenses
     </button>
     <button class="d-item" id="dn-productactivity" onclick="go('productactivity')" style="display:none">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>Product Activity
@@ -814,6 +816,121 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 </div>
 
+<!-- EXPENSES -->
+<div class="screen" id="sc-expenses">
+  <div class="pg" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+    <div>
+      <div class="pg-title">Expenses</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px">Delivery, rent, salaries & other overhead</div>
+    </div>
+    <button onclick="openAddExpense()" style="flex-shrink:0;margin-top:4px;display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add
+    </button>
+  </div>
+
+  <div class="chips">
+    <button class="chip on" onclick="setExpenseRange('month',this)">This Month</button>
+    <button class="chip" onclick="setExpenseRange('week',this)">This Week</button>
+    <button class="chip" onclick="setExpenseRange('all',this)">All Time</button>
+    <button class="chip" id="expenseCustomChip" onclick="openExpenseRangePicker(this)">Custom</button>
+  </div>
+  <div id="expenseCustomLabel" style="display:none;padding:0 16px 10px;font-size:12px;color:var(--ink2);font-weight:500"></div>
+
+  <div class="stats">
+    <div class="stat hi"><div class="stat-n" id="expTotal">0</div><div class="stat-l">Total Expenses</div></div>
+    <div class="stat"><div class="stat-n" id="expGrossProfit">0</div><div class="stat-l">Gross Profit</div></div>
+    <div class="stat hi"><div class="stat-n" id="expNetProfit">0</div><div class="stat-l">Net Profit</div></div>
+  </div>
+
+  <div style="padding:0 16px 8px;display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Logged Expenses</div>
+    <button onclick="go('gstreport')" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+      GST Report
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div id="expenseList" style="padding:0 16px 16px"></div>
+</div>
+
+<!-- ADD EXPENSE SHEET -->
+<div class="s-mask" id="addExpenseMask">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Add Expense</div><div class="s-sub">Log a cost not tied to a specific order</div></div>
+      <button class="s-x" onclick="closeAddExpense()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <div class="fg">
+        <label>Date</label>
+        <div id="expDateDisplay" onclick="openCalendarSingle('expDate','Expense Date',function(v){ document.getElementById('expDateText').textContent = formatDisplayDate(v); })" class="product-select-field">
+          <span id="expDateText" style="flex:1;font-size:14px;color:var(--ink)"></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <input type="hidden" id="expDate">
+      </div>
+      <div class="fg">
+        <label>Category</label>
+        <select id="expCategory">
+          <option value="Delivery">Delivery</option>
+          <option value="Rent">Rent</option>
+          <option value="Salaries">Salaries</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Amount (MVR)</label>
+        <input id="expAmount" type="number" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="fg">
+        <label>Note (optional)</label>
+        <textarea id="expNote" rows="2" placeholder="e.g. Courier fee for 5 deliveries"></textarea>
+      </div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeAddExpense()">Cancel</button>
+      <button class="sfbtn sf-blue" onclick="saveExpense()">Save Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- GST REPORT -->
+<div class="screen" id="sc-gstreport">
+  <div class="pg">
+    <button onclick="go('expenses')" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;padding:0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Expenses
+    </button>
+    <div class="pg-title">GST Report</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">Informational only — for forecasting purposes</div>
+  </div>
+
+  <div class="chips">
+    <button class="chip on" onclick="setGstRange('month',this)">This Month</button>
+    <button class="chip" onclick="setGstRange('week',this)">This Week</button>
+    <button class="chip" onclick="setGstRange('all',this)">All Time</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat hi"><div class="stat-n" id="gstTotalSales">0</div><div class="stat-l">Total Sales (incl. GST)</div></div>
+    <div class="stat"><div class="stat-n" id="gstNetRevenue">0</div><div class="stat-l">Net of GST</div></div>
+    <div class="stat hi"><div class="stat-n" id="gstAmount">0</div><div class="stat-l">GST Portion</div></div>
+  </div>
+
+  <div class="fcard" style="margin:0 16px 12px">
+    <div class="fcard-hdr">GST Rate</div>
+    <div class="s-row" onclick="openGstRateEditor()" style="cursor:pointer">
+      <div><div class="s-lbl">Current Rate</div><div class="s-hint" id="gstRateDisplay">8%</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+
+  <div style="padding:0 16px;font-size:11.5px;color:var(--ink3);line-height:1.5">
+    This report is informational and does not file or remit GST. It estimates the GST portion already included in your sales prices, for your own forecasting.
+  </div>
+</div>
+
 <!-- ARCHIVED PRODUCTS -->
 <div class="screen" id="sc-archived">
   <div class="pg">
@@ -833,7 +950,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <div class="fg"><label>Full Name</label><input type="text" id="nuName" placeholder="Aminath Hassan"></div>
         <div class="fg"><label>Email</label><input type="email" id="nuEmail" placeholder="user@email.com"></div>
         <div class="fg"><label>Password</label><input type="password" id="nuPass" placeholder="Min 6 characters"></div>
-        <div class="fg"><label>Role</label><select id="nuRole"><option value="order_collection">Order Collection</option><option value="packing">Packing</option><option value="delivery">Delivery</option><option value="admin">Admin</option></select></div>
+        <div class="fg"><label>Role</label><select id="nuRole"><option value="manager">Manager</option><option value="delivery">Delivery</option><option value="admin">Admin</option></select></div>
       </div>
       <div class="factions"><button class="btn btn-blue" onclick="createUser()" id="createUserBtn">Create User</button></div>
     </div>
@@ -1180,9 +1297,8 @@ function go(s) {
     var role = _profile.role;
     if (role !== 'admin') {
       var allowed = {
-        order_collection: ['orders','new','history','copy'],
-        packing:          ['orders','history'],
-        delivery:         ['orders','history']
+        manager:  ['orders','new','history','copy','products','sales','expenses'],
+        delivery: ['orders','history']
       };
       var roleAllowed = allowed[role] || ['orders'];
       if (roleAllowed.indexOf(s) < 0) { s = 'orders'; }
@@ -1200,7 +1316,9 @@ function go(s) {
   if(s==='new')      { fillDrop(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
-  if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
+  if(s==='sales')    { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadSales(); else go('orders'); }
+  if(s==='expenses') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadExpenses(); else go('orders'); }
+  if(s==='gstreport') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadGstReport(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
   if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
   maybeShowTips(s);
@@ -1208,7 +1326,9 @@ function go(s) {
   if(s==='users')    { if(_profile&&_profile.role==='admin') loadUsers(); else go('orders'); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
-  if(s==='sales')    { if(_profile&&_profile.role==='admin') loadSales(); else go('orders'); }
+  if(s==='sales')    { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadSales(); else go('orders'); }
+  if(s==='expenses') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadExpenses(); else go('orders'); }
+  if(s==='gstreport') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadGstReport(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
   if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
 }
@@ -2331,13 +2451,12 @@ function openSheet(id) {
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
     if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
     if (scancel && !isCancelled) scancel.style.display = '';
-  } else if (role === 'order_collection') {
+  } else if (role === 'manager') {
     if (sedit) sedit.style.display = '';
     if (sconfirm && _o && _o.status === 'pending') sconfirm.style.display = '';
     if (srevoke && isRevokable) srevoke.style.display = '';
-    if (scancel && !isCancelled) scancel.style.display = '';
-  } else if (role === 'packing') {
     if (spack && _o && _o.status === 'confirmed') spack.style.display = '';
+    if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'delivery') {
     if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
   }
@@ -2825,10 +2944,9 @@ function applyRole(profile) {
   if (dui) { dui.style.display = 'flex'; dui.style.alignItems = 'center'; dui.style.justifyContent = 'space-between'; }
   if (dun) dun.textContent = name;
   var navMap = {
-    admin:            ['orders','new','history','copy','products','settings','users','sales'],
-    order_collection: ['orders','new','history','copy'],
-    packing:          ['orders','history'],
-    delivery:         ['orders','history']
+    admin:   ['orders','new','history','copy','products','settings','users','sales','expenses'],
+    manager: ['orders','new','history','copy','products','sales','expenses'],
+    delivery:['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
   ['orders','history','products','copy','settings'].forEach(function(s) {
@@ -2836,7 +2954,7 @@ function applyRole(profile) {
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
   });
   var newBtn = document.getElementById('bn-new');
-  if (newBtn) newBtn.style.display = (role==='admin'||role==='order_collection') ? '' : 'none';
+  if (newBtn) newBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   ['orders','new','history','copy','products','settings','users','sales'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
@@ -2844,23 +2962,25 @@ function applyRole(profile) {
   var usersBtn = document.getElementById('dn-users');
   if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
   var salesBtn = document.getElementById('dn-sales');
-  if (salesBtn) salesBtn.style.display = role==='admin' ? '' : 'none';
+  if (salesBtn) salesBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
+  var expensesBtn = document.getElementById('dn-expenses');
+  if (expensesBtn) expensesBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   var dashBtn = document.getElementById('dn-dashboard');
   if (dashBtn) dashBtn.style.display = role==='admin' ? '' : 'none';
   var prodActBtn = document.getElementById('dn-productactivity');
   if (prodActBtn) prodActBtn.style.display = role==='admin' ? '' : 'none';
   var archivedBtn = document.getElementById('dn-archived');
-  if (archivedBtn) archivedBtn.style.display = (role==='admin'||role==='order_collection') ? '' : 'none';
+  if (archivedBtn) archivedBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   go(role==='admin' ? 'dashboard' : 'orders');
 }
 
 function roleLabel(role) {
-  var map = { admin:'Admin', order_collection:'Order Collection', packing:'Packing', delivery:'Delivery' };
+  var map = { admin:'Admin', manager:'Manager', delivery:'Delivery' };
   return map[role] || role;
 }
 
-function canEdit()    { return _profile && (_profile.role==='admin'||_profile.role==='order_collection'); }
-function canPack()    { return _profile && (_profile.role==='admin'||_profile.role==='packing'); }
+function canEdit()    { return _profile && (_profile.role==='admin'||_profile.role==='manager'); }
+function canPack()    { return _profile && (_profile.role==='admin'||_profile.role==='manager'); }
 function canDeliver() { return _profile && (_profile.role==='admin'||_profile.role==='delivery'); }
 
 /* ── USERS ── */
@@ -3584,6 +3704,212 @@ function openCustomRangePicker(btn) {
 function openHistoryExportPicker() {
   openCalendarRange('Export History', 'Choose the date range to export', today(), today(), function(start, end) {
     runHistoryExport(start, end);
+  });
+}
+
+var _expenseRange = 'month';
+var _customExpenseStart = null;
+var _customExpenseEnd = null;
+var _allExpenses = [];
+var _gstRange = 'month';
+var GST_RATE = 8;
+
+function expenseDateBounds(range) {
+  var start, end = today();
+  if (range === 'week') {
+    var d = new Date();
+    var dow = d.getDay();
+    var monday = new Date(d);
+    monday.setDate(d.getDate() - ((dow + 6) % 7));
+    start = monday.toISOString().slice(0,10);
+  } else if (range === 'month') {
+    var d2 = new Date();
+    start = d2.getFullYear() + '-' + pad2(d2.getMonth()+1) + '-01';
+  } else if (range === 'custom' && _customExpenseStart && _customExpenseEnd) {
+    start = _customExpenseStart; end = _customExpenseEnd;
+  } else {
+    start = '2000-01-01';
+  }
+  return { start: start, end: end };
+}
+
+function setExpenseRange(range, btn) {
+  _expenseRange = range;
+  document.querySelectorAll('#sc-expenses .chip').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  var labelEl = document.getElementById('expenseCustomLabel');
+  if (labelEl) labelEl.style.display = 'none';
+  loadExpenses();
+}
+
+function openExpenseRangePicker(btn) {
+  var bounds = expenseDateBounds(_expenseRange);
+  openCalendarRange('Custom Range', 'Tap start date, then end date', bounds.start, bounds.end, function(start, end) {
+    _customExpenseStart = start;
+    _customExpenseEnd = end;
+    _expenseRange = 'custom';
+    document.querySelectorAll('#sc-expenses .chip').forEach(function(b){ b.classList.remove('on'); });
+    document.getElementById('expenseCustomChip').classList.add('on');
+    var labelEl = document.getElementById('expenseCustomLabel');
+    labelEl.textContent = formatDisplayDate(start) + ' — ' + formatDisplayDate(end);
+    labelEl.style.display = 'block';
+    loadExpenses();
+  });
+}
+
+async function loadExpenses() {
+  var bounds = expenseDateBounds(_expenseRange);
+
+  const {data: expData, error: expErr} = await db.from('expenses')
+    .select('*').gte('expense_date', bounds.start).lte('expense_date', bounds.end)
+    .order('expense_date', { ascending: false });
+  if (expErr) { toast('Error loading expenses: ' + expErr.message, true); return; }
+  _allExpenses = expData || [];
+
+  const {data: ordData} = await db.from('orders')
+    .select('price,product_id').eq('status','delivered')
+    .gte('order_date', bounds.start).lte('order_date', bounds.end);
+
+  var gp = 0;
+  (ordData||[]).forEach(function(o) {
+    var p = o.product_id ? products.find(function(x){ return x.id === o.product_id; }) : null;
+    var cost = p ? Number(p.cost_price)||0 : 0;
+    gp += (Number(o.price)||0) - cost;
+  });
+
+  var totalExpenses = _allExpenses.reduce(function(s,e){ return s + Number(e.amount); }, 0);
+  var netProfit = gp - totalExpenses;
+
+  document.getElementById('expTotal').textContent = totalExpenses.toLocaleString();
+  document.getElementById('expGrossProfit').textContent = gp.toLocaleString();
+  document.getElementById('expNetProfit').textContent = netProfit.toLocaleString();
+
+  renderExpenseList();
+}
+
+function renderExpenseList() {
+  var list = document.getElementById('expenseList');
+  if (!_allExpenses.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-t">No expenses logged</div><div class="empty-s">Tap Add to log one</div></div>';
+    return;
+  }
+  var catColors = { Delivery: 'var(--blue)', Rent: 'var(--red)', Salaries: 'var(--green)', Other: 'var(--ink2)' };
+  var catBg = { Delivery: 'var(--blue-l)', Rent: 'var(--red-l)', Salaries: 'var(--green-l)', Other: 'var(--card2)' };
+
+  list.innerHTML = _allExpenses.map(function(e) {
+    var color = catColors[e.category] || 'var(--ink2)';
+    var bg = catBg[e.category] || 'var(--card2)';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:8px">'
+      + '<div style="width:8px;height:36px;border-radius:4px;background:' + color + ';flex-shrink:0"></div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(e.category) + '</div>'
+        + (e.note ? '<div style="font-size:12px;color:var(--ink2);margin-top:1px">' + esc(e.note) + '</div>' : '')
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + formatDisplayDate(e.expense_date) + ' · ' + esc(e.user_name||'') + '</div>'
+      + '</div>'
+      + '<div style="font-size:14px;font-weight:700;color:var(--ink);flex-shrink:0">MVR ' + Number(e.amount).toLocaleString() + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function openAddExpense() {
+  document.getElementById('expDate').value = today();
+  document.getElementById('expDateText').textContent = formatDisplayDate(today());
+  document.getElementById('expCategory').value = 'Delivery';
+  document.getElementById('expAmount').value = '';
+  document.getElementById('expNote').value = '';
+  document.getElementById('addExpenseMask').classList.add('open');
+}
+
+function closeAddExpense() {
+  document.getElementById('addExpenseMask').classList.remove('open');
+}
+
+async function saveExpense() {
+  var date = document.getElementById('expDate').value || today();
+  var category = document.getElementById('expCategory').value;
+  var amountRaw = document.getElementById('expAmount').value;
+  var note = document.getElementById('expNote').value.trim();
+
+  if (!isPositiveNumber(amountRaw)) { toast('Enter a valid amount greater than 0', true); return; }
+
+  var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
+  var userId = _session ? _session.user.id : null;
+
+  const {error} = await db.from('expenses').insert({
+    expense_date: date, category: category, amount: parseFloat(amountRaw),
+    note: note || null, user_id: userId, user_name: userName
+  });
+
+  if (error) { toast('Error: ' + error.message, true); return; }
+
+  closeAddExpense();
+  toast('Expense logged');
+  loadExpenses();
+}
+
+function gstDateBounds(range) {
+  var start, end = today();
+  if (range === 'week') {
+    var d = new Date();
+    var dow = d.getDay();
+    var monday = new Date(d);
+    monday.setDate(d.getDate() - ((dow + 6) % 7));
+    start = monday.toISOString().slice(0,10);
+  } else if (range === 'month') {
+    var d2 = new Date();
+    start = d2.getFullYear() + '-' + pad2(d2.getMonth()+1) + '-01';
+  } else {
+    start = '2000-01-01';
+  }
+  return { start: start, end: end };
+}
+
+function setGstRange(range, btn) {
+  _gstRange = range;
+  document.querySelectorAll('#sc-gstreport .chip').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  loadGstReport();
+}
+
+async function loadGstReport() {
+  await loadGstRate();
+  var bounds = gstDateBounds(_gstRange);
+  const {data, error} = await db.from('orders')
+    .select('price').eq('status','delivered')
+    .gte('order_date', bounds.start).lte('order_date', bounds.end);
+
+  if (error) { toast('Error loading report: ' + error.message, true); return; }
+
+  var totalSales = (data||[]).reduce(function(s,o){ return s + Number(o.price); }, 0);
+  var netRevenue = totalSales / (1 + GST_RATE/100);
+  var gstAmount = totalSales - netRevenue;
+
+  document.getElementById('gstTotalSales').textContent = totalSales.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('gstNetRevenue').textContent = netRevenue.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('gstAmount').textContent = gstAmount.toLocaleString(undefined,{maximumFractionDigits:0});
+}
+
+async function loadGstRate() {
+  const {data} = await db.from('app_settings').select('value').eq('key','gst_rate').single();
+  if (data && data.value) {
+    GST_RATE = parseFloat(data.value) || 8;
+    var el = document.getElementById('gstRateDisplay');
+    if (el) el.textContent = GST_RATE + '%';
+  }
+}
+
+function openGstRateEditor() {
+  if (!_profile || _profile.role !== 'admin') { toast('Admin only', true); return; }
+  var newRate = prompt('Enter new GST rate (%)', GST_RATE);
+  if (newRate === null) return;
+  var n = parseFloat(newRate);
+  if (isNaN(n) || n < 0) { toast('Enter a valid rate', true); return; }
+  db.from('app_settings').update({ value: String(n) }).eq('key','gst_rate').then(function(res) {
+    if (res.error) { toast('Error: ' + res.error.message, true); return; }
+    GST_RATE = n;
+    document.getElementById('gstRateDisplay').textContent = n + '%';
+    toast('GST rate updated to ' + n + '%');
+    loadGstReport();
   });
 }
 
