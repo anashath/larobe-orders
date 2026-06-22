@@ -1381,7 +1381,10 @@ function go(s) {
         delivery: ['orders','history']
       };
       var roleAllowed = allowed[role] || ['orders'];
-      if (roleAllowed.indexOf(s) < 0) { s = 'orders'; }
+      if (roleAllowed.indexOf(s) < 0) {
+        toast('You don\'t have access to that section', true);
+        s = 'orders';
+      }
     }
   }
   closeD();
