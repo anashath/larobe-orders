@@ -5132,7 +5132,8 @@ var PULL_MAX = 90;
 // Add more screens here later — key is the screen id (without 'sc-' prefix),
 // value is the function that actually re-fetches from the database.
 var _pullRefreshMap = {
-  orders: loadOrders
+  orders: loadOrders,
+  history: loadHistory
 };
 
 (function() {
