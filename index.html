@@ -180,6 +180,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .ostep{display:flex;align-items:center;gap:5px;margin-top:7px}
 .ostep-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
 .ostep-dot.on{background:var(--ink);border-color:var(--ink)}
+.ostep-dot.next{cursor:pointer;border-style:dashed;border-color:var(--ink2)}
+.ostep-dot.next:active{transform:scale(.8)}
 .ostep-dot svg{display:none}
 .ostep-dot.on svg{display:block}
 .ostep-line{width:12px;height:1.5px;background:var(--line);flex-shrink:0}
@@ -2644,17 +2646,48 @@ function renderStatusStepper(o) {
   var labelMap = { pending:'Pending', confirmed:'Confirmed', packed:'Packed', delivered:'Delivered' };
   var curTint = tintMap[o.status];
 
+  // The immediate next stage is tappable to advance directly from the list,
+  // gated by the exact same role permissions as the buttons in the order
+  // detail sheet — and disabled entirely while in bulk-select mode, since
+  // the row's own click is repurposed for selection there.
+  var nextStage = stages[idx + 1] || null;
+  var canAdvance = false;
+  if (!_selectMode && nextStage) {
+    if (nextStage === 'confirmed' || nextStage === 'packed') canAdvance = canPack();
+    else if (nextStage === 'delivered') canAdvance = canDeliver();
+  }
+
   var html = '<div class="ostep">';
   for (var i = 0; i < stages.length; i++) {
     var done = i <= idx;
+    var isNext = canAdvance && (i === idx + 1);
     var ringStyle = (i === idx) ? ' style="box-shadow:0 0 0 3px ' + curTint + '"' : '';
-    html += '<div class="ostep-dot' + (done?' on':'') + '"' + ringStyle + '>'
+    var clickAttr = isNext ? ' onclick="event.stopPropagation();tapAdvanceStatus(' + o.id + ',\'' + stages[i] + '\')"' : '';
+    html += '<div class="ostep-dot' + (done?' on':'') + (isNext?' next':'') + '"' + ringStyle + clickAttr + '>'
       + '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
       + '</div>';
     if (i < stages.length - 1) html += '<div class="ostep-line' + (i < idx ? ' on' : '') + '"></div>';
   }
   html += '<span class="ostep-label" style="color:' + colorMap[o.status] + '">' + labelMap[o.status] + '</span></div>';
   return html;
+}
+
+function tapAdvanceStatus(orderId, toStatus) {
+  var o = orders.find(function(x){ return x.id === orderId; })
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){ return x.id === orderId; }));
+  if (!o) return;
+  // Re-check permission directly (defense in depth, in case of a stale render)
+  if ((toStatus === 'confirmed' || toStatus === 'packed') && !canPack()) { toast('Not allowed', true); return; }
+  if (toStatus === 'delivered' && !canDeliver()) { toast('Not allowed', true); return; }
+
+  var labelMap = { confirmed: 'Confirmed', packed: 'Packed', delivered: 'Delivered' };
+  showConfirm('Update Status', 'Mark order #' + o.num + ' as ' + labelMap[toStatus] + '?', { confirmLabel: 'Mark ' + labelMap[toStatus] }).then(function(ok) {
+    if (!ok) return;
+    viewId = orderId;
+    updateOrderStatus(toStatus).then(function() {
+      if (typeof _histAllOrders !== 'undefined' && _histAllOrders.length) renderHistory(_histAllOrders);
+    });
+  });
 }
 
 function render() {
