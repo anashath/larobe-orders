@@ -4522,9 +4522,9 @@ async function loadExpenses() {
   var totalExpenses = _allExpenses.reduce(function(s,e){ return s + Number(e.amount); }, 0);
   var netProfit = gp - totalExpenses;
 
-  document.getElementById('expTotal').textContent = totalExpenses.toLocaleString();
-  document.getElementById('expGrossProfit').textContent = gp.toLocaleString();
-  document.getElementById('expNetProfit').textContent = netProfit.toLocaleString();
+  document.getElementById('expTotal').textContent = totalExpenses.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('expGrossProfit').textContent = gp.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('expNetProfit').textContent = netProfit.toLocaleString(undefined,{maximumFractionDigits:0});
 
   renderExpenseList();
 }
@@ -4765,8 +4765,8 @@ async function renderSales() {
     gp += (price - (Number(o.total_cost)||0));
   });
 
-  document.getElementById('salesRevenue').textContent = revenue.toLocaleString();
-  document.getElementById('salesGP').textContent = gp.toLocaleString();
+  document.getElementById('salesRevenue').textContent = revenue.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('salesGP').textContent = gp.toLocaleString(undefined,{maximumFractionDigits:0});
   document.getElementById('salesCount').textContent = _salesOrders.length;
   document.getElementById('salesMargin').textContent = revenue > 0 ? Math.round((gp/revenue)*100) + '%' : '0%';
 
@@ -4799,7 +4799,7 @@ async function renderSales() {
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px">'
         + '<div style="width:24px;height:24px;border-radius:6px;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (i+1) + '</div>'
         + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(item.name) + '</div><div style="font-size:11px;color:var(--ink3)">' + item.qty + ' sold</div></div>'
-        + '<div style="font-size:13px;font-weight:700;color:var(--blue)">MVR ' + item.revenue.toLocaleString() + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--blue)">MVR ' + item.revenue.toLocaleString(undefined,{maximumFractionDigits:0}) + '</div>'
         + '</div>';
     }).join('');
   }
