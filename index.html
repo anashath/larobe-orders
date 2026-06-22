@@ -4594,6 +4594,20 @@ function closeAddExpense() {
   document.getElementById('addExpenseMask').classList.remove('open');
 }
 
+async function logExpenseActivity(expenseId, category, action, fieldName, oldValue, newValue) {
+  try {
+    var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
+    var userId = _session ? _session.user.id : null;
+    await db.from('expense_activity').insert({
+      expense_id: expenseId, expense_category: category,
+      user_id: userId, user_name: userName,
+      action: action, field_name: fieldName || null,
+      old_value: (oldValue===undefined||oldValue===null) ? null : String(oldValue),
+      new_value: (newValue===undefined||newValue===null) ? null : String(newValue)
+    });
+  } catch(e) { console.error('Expense activity log failed:', e); }
+}
+
 async function saveExpense() {
   var date = document.getElementById('expDate').value || today();
   var category = document.getElementById('expCategory').value;
@@ -4603,10 +4617,19 @@ async function saveExpense() {
   if (!isPositiveNumber(amountRaw)) { toast('Enter a valid amount greater than 0', true); return; }
 
   if (_editingExpenseId) {
+    var oldExp = _allExpenses.find(function(x){ return x.id === _editingExpenseId; });
     const {error} = await db.from('expenses').update({
       expense_date: date, category: category, amount: parseFloat(amountRaw), note: note || null
     }).eq('id', _editingExpenseId);
     if (error) { toast('Error: ' + error.message, true); return; }
+
+    if (oldExp) {
+      if (oldExp.expense_date !== date) await logExpenseActivity(_editingExpenseId, category, 'edited', 'date', oldExp.expense_date, date);
+      if (oldExp.category !== category) await logExpenseActivity(_editingExpenseId, category, 'edited', 'category', oldExp.category, category);
+      if (Number(oldExp.amount) !== parseFloat(amountRaw)) await logExpenseActivity(_editingExpenseId, category, 'edited', 'amount', oldExp.amount, amountRaw);
+      if ((oldExp.note||'') !== note) await logExpenseActivity(_editingExpenseId, category, 'edited', 'note', oldExp.note, note);
+    }
+
     closeAddExpense();
     toast('Expense updated');
     loadExpenses();
@@ -4616,12 +4639,14 @@ async function saveExpense() {
   var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
   var userId = _session ? _session.user.id : null;
 
-  const {error} = await db.from('expenses').insert({
+  const {data, error} = await db.from('expenses').insert({
     expense_date: date, category: category, amount: parseFloat(amountRaw),
     note: note || null, user_id: userId, user_name: userName
-  });
+  }).select();
 
   if (error) { toast('Error: ' + error.message, true); return; }
+
+  if (data && data.length) await logExpenseActivity(data[0].id, category, 'created');
 
   closeAddExpense();
   toast('Expense logged');
@@ -4631,8 +4656,10 @@ async function saveExpense() {
 async function deleteExpenseFromEdit() {
   if (!_editingExpenseId) return;
   if (!await showConfirm('Delete Expense', 'This expense will be permanently removed.', {confirmLabel:'Delete', danger:true})) return;
+  var oldExp = _allExpenses.find(function(x){ return x.id === _editingExpenseId; });
   const {error} = await db.from('expenses').delete().eq('id', _editingExpenseId);
   if (error) { toast('Error: ' + error.message, true); return; }
+  await logExpenseActivity(_editingExpenseId, oldExp?oldExp.category:null, 'deleted', null, null, oldExp?('MVR '+oldExp.amount+' on '+oldExp.expense_date):null);
   closeAddExpense();
   toast('Expense deleted');
   loadExpenses();
