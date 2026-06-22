@@ -728,7 +728,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
           <div id="fItemsList" style="margin-bottom:8px"></div>
           <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('new-item')" style="width:100%">+ Add Item</button>
         </div>
-        <div class="fg ffull" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+        <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
           <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
           <span style="font-size:18px;font-weight:700;color:var(--ink)" id="fItemsTotal">MVR 0</span>
         </div>
@@ -2610,7 +2610,6 @@ async function addOrder() {
     };
   });
   const itemsRes = await db.from('order_items').insert(itemRows);
-  if (itemsRes.error) { toast('Order saved, but items failed to save: ' + itemsRes.error.message, true); }
 
   orders.unshift(newOrder);
   await logActivity(newOrder.id, 'created');
@@ -2620,7 +2619,12 @@ async function addOrder() {
     await deductStock(newOrder);
   }
 
-  render(); clearForm(); toast('Order #'+num+' recorded'); go('orders');
+  render(); clearForm(); go('orders');
+  if (itemsRes.error) {
+    toast('Order #'+num+' recorded, but items failed to save: ' + itemsRes.error.message, true);
+  } else {
+    toast('Order #'+num+' recorded');
+  }
 }
 
 async function loadOrderItems(orderId) {
@@ -3130,7 +3134,7 @@ async function enterEdit() {
         <div id="eItemsList" style="margin-bottom:8px"><div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">Loading…</div></div></div>
         <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('edit-item')" style="width:100%">+ Add Item</button>
       </div>
-      <div class="fg ffull" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+      <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
         <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
         <span style="font-size:18px;font-weight:700;color:var(--ink)" id="eItemsTotal">MVR 0</span>
       </div>
