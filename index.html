@@ -769,9 +769,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="pg" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
     <div>
       <div class="pg-title">History</div>
-      <div style="font-size:13px;color:var(--ink3);margin-top:4px">All past orders grouped by date</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px" id="histSubtitle">All past orders grouped by date</div>
     </div>
-    <button onclick="exportHistoryCSV()" style="flex-shrink:0;margin-top:4px;display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--card);border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer">
+    <button id="histExportBtn" onclick="exportHistoryCSV()" style="flex-shrink:0;margin-top:4px;display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--card);border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export
     </button>
@@ -3337,6 +3337,8 @@ function applyRole(profile) {
   });
   var dnSettingsBtn = document.getElementById('dn-settings');
   if (dnSettingsBtn) dnSettingsBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
+  var histExportBtn = document.getElementById('histExportBtn');
+  if (histExportBtn) histExportBtn.style.display = (role==='delivery') ? 'none' : '';
   var usersBtn = document.getElementById('dn-users');
   if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
   var salesBtn = document.getElementById('dn-sales');
@@ -4047,6 +4049,7 @@ async function runSalesExport(startDate, endDate) {
 }
 
 function exportHistoryCSV() {
+  if (_profile && _profile.role === 'delivery') { toast('Not available for your role', true); return; }
   if (!_histAllOrders || !_histAllOrders.length) { toast('No data to export', true); return; }
   openHistoryExportPicker();
 }
@@ -4526,8 +4529,18 @@ function loadHistory() {
   var list = document.getElementById('histList');
   if (!list) return;
   list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
-  db.from('orders').select('*').lt('order_date',today())
-    .order('order_date',{ascending:false}).order('num',{ascending:true})
+  var query = db.from('orders').select('*').lt('order_date', today());
+  var subtitleEl = document.getElementById('histSubtitle');
+  // Delivery role only needs recent context, not the full order history
+  if (_profile && _profile.role === 'delivery') {
+    var d = new Date(); d.setDate(d.getDate() - 3);
+    var cutoff = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+    query = query.gte('order_date', cutoff);
+    if (subtitleEl) subtitleEl.textContent = 'Last 3 days of past orders';
+  } else if (subtitleEl) {
+    subtitleEl.textContent = 'All past orders grouped by date';
+  }
+  query.order('order_date',{ascending:false}).order('num',{ascending:true})
     .then(function(res) {
       if (res.error) { list.innerHTML='<div class="empty"><div class="empty-t">Error</div></div>'; return; }
       _histAllOrders = res.data||[];
