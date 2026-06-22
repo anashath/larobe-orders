@@ -1334,7 +1334,16 @@ function go(s) {
 }
 
 /* UTILS */
-function today() { return new Date().toISOString().slice(0,10); }
+function today() {
+  // Use LOCAL date components (device timezone), not UTC — toISOString() converts
+  // to UTC and can shift the calendar date by a day around midnight in Maldives (UTC+5)
+  // or when the device's timezone differs (e.g. while traveling).
+  var d = new Date();
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
 function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ── VALIDATION HELPERS ── */
@@ -2185,27 +2194,38 @@ async function addOrder() {
 
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
   var orderDate = today();
-  var numRes = await db.from('orders')
-    .select('num')
-    .eq('order_date', orderDate)
-    .order('num', { ascending: false })
-    .limit(1);
-  var num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
 
-  const {data,error}=await db.from('orders').insert({
-    num, customer_name:name,
-    contact:document.getElementById('fContact').value.trim(),
-    product:productLabel,
-    product_id:productId,
-    price:parseFloat(document.getElementById('fPrice').value)||0,
-    status:document.getElementById('fStatus').value,
-    delivery:document.getElementById('fDelivery').value,
-    payment:document.getElementById('fPayment').value,
-    notes:document.getElementById('fNotes').value.trim(),
-    order_date:orderDate,
-    order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'}),
-    payment_done:_payDone
-  }).select();
+  // Order numbers are assigned client-side (max+1), which can collide if two orders
+  // are submitted at nearly the same moment. Retry a few times on a unique-constraint
+  // conflict (requires a UNIQUE(order_date, num) constraint on the orders table).
+  var data = null, error = null;
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var numRes = await db.from('orders')
+      .select('num')
+      .eq('order_date', orderDate)
+      .order('num', { ascending: false })
+      .limit(1);
+    var num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
+
+    var res = await db.from('orders').insert({
+      num, customer_name:name,
+      contact:document.getElementById('fContact').value.trim(),
+      product:productLabel,
+      product_id:productId,
+      price:parseFloat(document.getElementById('fPrice').value)||0,
+      status:document.getElementById('fStatus').value,
+      delivery:document.getElementById('fDelivery').value,
+      payment:document.getElementById('fPayment').value,
+      notes:document.getElementById('fNotes').value.trim(),
+      order_date:orderDate,
+      order_time:new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'}),
+      payment_done:_payDone
+    }).select();
+
+    data = res.data; error = res.error;
+    if (!error) break;
+    if (error.code !== '23505') break; // not a duplicate-number conflict — stop retrying
+  }
 
   btn.disabled=false; btn.textContent='Record Order';
   if(error){toast('Error: '+error.message,true);return;}
@@ -2228,19 +2248,14 @@ async function deductStock(order) {
   var p = products.find(function(x){ return x.id === order.product_id; });
   if (!p) return false;
 
-  var res1 = await db.rpc('adjust_stock', { p_product_id: p.id, p_change: -1 });
-  if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
-  p.stock_qty = Math.max(0, (p.stock_qty||0) - 1);
-
-  var res2 = await db.from('orders').update({ stock_deducted: true }).eq('id', order.id);
-  if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
-  order.stock_deducted = true;
-
-  var res3 = await db.from('stock_movements').insert({
-    product_id: p.id, order_id: order.id, change_qty: -1, reason: 'order_confirmed'
+  // Single atomic call: adjusts stock, flips orders.stock_deducted, and logs the
+  // movement all in one DB transaction (see process_stock_change in Supabase).
+  var res = await db.rpc('process_stock_change', {
+    p_product_id: p.id, p_order_id: order.id, p_change: -1, p_reason: 'order_confirmed'
   });
-  if (res3.error) { console.error('Stock movement log failed:', res3.error); }
-
+  if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
+  p.stock_qty = Math.max(0, (p.stock_qty||0) - 1);
+  order.stock_deducted = true;
   return true;
 }
 
@@ -2249,19 +2264,12 @@ async function restoreStock(order) {
   var p = products.find(function(x){ return x.id === order.product_id; });
   if (!p) return false;
 
-  var res1 = await db.rpc('adjust_stock', { p_product_id: p.id, p_change: 1 });
-  if (res1.error) { toast('Stock update failed: ' + res1.error.message, true); return false; }
-  p.stock_qty = (p.stock_qty||0) + 1;
-
-  var res2 = await db.from('orders').update({ stock_deducted: false }).eq('id', order.id);
-  if (res2.error) { toast('Order update failed: ' + res2.error.message, true); return false; }
-  order.stock_deducted = false;
-
-  var res3 = await db.from('stock_movements').insert({
-    product_id: p.id, order_id: order.id, change_qty: 1, reason: 'order_cancelled'
+  var res = await db.rpc('process_stock_change', {
+    p_product_id: p.id, p_order_id: order.id, p_change: 1, p_reason: 'order_cancelled'
   });
-  if (res3.error) { console.error('Stock movement log failed:', res3.error); }
-
+  if (res.error) { toast('Stock update failed: ' + res.error.message, true); return false; }
+  p.stock_qty = (p.stock_qty||0) + 1;
+  order.stock_deducted = false;
   return true;
 }
 function clearForm() {
@@ -2744,6 +2752,10 @@ async function revokeOrder() {
 
 async function delOrder(id) {
   if(!await showConfirm('Delete Order', 'This order will be permanently removed.', {confirmLabel:'Delete', danger:true}))return;
+  var o = orders.find(function(x){ return x.id === id; });
+  if (o && o.stock_deducted) {
+    await restoreStock(o);
+  }
   await logActivity(id, 'deleted');
   await db.from('orders').delete().eq('id',id);
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
@@ -2801,10 +2813,6 @@ function doLogin() {
       return;
     }
     if (res.data && res.data.user) {
-      // Save credentials for auto-login on next open
-      try {
-        localStorage.setItem('lr_creds', JSON.stringify({ e: email, p: pass }));
-      } catch(ex) {}
       _session = res.data.session;
       loadProfile(res.data.user.id);
     }
@@ -2905,7 +2913,7 @@ function doReset() {
 }
 
 function doLogout() {
-  try { localStorage.removeItem('lr_creds'); } catch(e) {}
+  try { localStorage.removeItem('lr_creds'); } catch(e) {} // clears any old cached credentials from before this fix
   db.auth.signOut();
 }
 
@@ -3047,13 +3055,23 @@ function createUser() {
   if (pass.length < 6) { toast('Password min 6 characters', true); return; }
   var btn = document.getElementById('createUserBtn');
   btn.disabled=true; btn.textContent='Creating...';
-  db.auth.signUp({ email:email, password:pass, options:{ data:{ full_name:name, role:role } } })
+  // IMPORTANT: use a separate, non-persisting Supabase client to sign up the new
+  // staff member. supabase-js's signUp() authenticates as the new user in whichever
+  // client instance makes the call — using the main `db` client here would silently
+  // replace the admin's own active session with the new staff member's session.
+  var tempClient = supabase.createClient(SB_URL, SB_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  });
+  tempClient.auth.signUp({ email:email, password:pass, options:{ data:{ full_name:name, role:role } } })
     .then(function(res) {
       btn.disabled=false; btn.textContent='Create User';
       if (res.error) { toast('Error: '+res.error.message, true); return; }
       if (!res.data||!res.data.user) { toast('User may already exist', true); return; }
+      // Upsert the profile row using the MAIN client — i.e. still authenticated as
+      // the admin — so this is covered by the admin-only insert policy on profiles.
       db.from('profiles').upsert({ id:res.data.user.id, full_name:name, role:role, is_active:true })
-        .then(function() {
+        .then(function(pres) {
+          if (pres.error) { toast('Error: '+pres.error.message, true); return; }
           document.getElementById('nuName').value='';
           document.getElementById('nuEmail').value='';
           document.getElementById('nuPass').value='';
@@ -4065,25 +4083,17 @@ function renderHistory(data) {
 
 
 function _autoLogin() {
-  // Try saved credentials for silent re-login
-  var saved = null;
-  try { saved = JSON.parse(localStorage.getItem('lr_creds') || 'null'); } catch(e) {}
-
-  if (saved && saved.e && saved.p) {
-    db.auth.signInWithPassword({ email: saved.e, password: saved.p })
-      .then(function(res) {
-        if (res.data && res.data.user) {
-          _session = res.data.session;
-          loadProfile(res.data.user.id);
-        } else {
-          // Saved creds failed — clear and show login
-          try { localStorage.removeItem('lr_creds'); } catch(e) {}
-        }
-      })
-      .catch(function() {});
-  }
-  // Whether or not we have saved creds, login screen stays visible
-  // until loadProfile calls hideLogin()
+  // Supabase's client already persists the session (persistSession:true,
+  // autoRefreshToken:true in the createClient config above), so on reload we just
+  // restore that existing session — no need to ever store or re-send the password.
+  db.auth.getSession().then(function(res) {
+    var session = res.data && res.data.session;
+    if (session && session.user) {
+      _session = session;
+      loadProfile(session.user.id);
+    }
+    // No session found — login screen stays visible until the user signs in.
+  }).catch(function() {});
 }
 
 
