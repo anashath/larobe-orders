@@ -287,6 +287,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .s-mask.open{display:flex;background:rgba(0,0,0,.35)}
 .sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-height:92vh;overflow-y:auto;animation:sup .22s ease}
 @keyframes sup{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .s-grip{width:34px;height:4px;background:var(--line);border-radius:2px;margin:11px auto 0}
 .s-hdr{display:flex;align-items:flex-start;justify-content:space-between;padding:15px 16px 13px;border-bottom:1px solid var(--line)}
 .s-title{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
@@ -592,7 +593,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 </nav>
 
 <!-- ═══ SCROLL ═══════════════════════════════════════════════════════════════ -->
-<div class="content">
+<div class="content" id="contentScroll">
+<div id="pullRefreshIndicator" style="height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:height .15s ease;color:var(--ink3)">
+  <svg id="pullRefreshSpinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .1s ease"><polyline points="6 9 12 15 18 9"/></svg>
+</div>
 
 <!-- DASHBOARD -->
 <div class="screen" id="sc-dashboard">
@@ -2911,7 +2915,9 @@ async function delOrder(id) {
     await restoreStock(o);
   }
   await logActivity(id, 'deleted');
-  await db.from('orders').delete().eq('id',id);
+  const {data, error} = await db.from('orders').delete().eq('id',id).select();
+  if (error) { toast('Delete failed: ' + error.message, true); return; }
+  if (!data || !data.length) { toast('Delete failed — order may be protected by another record', true); return; }
   orders=orders.filter(o=>o.id!==id); closeSheet(); render(); toast('Deleted');
 }
 
@@ -4395,6 +4401,76 @@ if('serviceWorker' in navigator) window.addEventListener('load',function(){navig
       history.pushState({ page: 'app' }, '', '');
     }
   });
+})();
+
+// ── PULL TO REFRESH ──────────────────────────────────────────────────────────
+var _pullStartY = null;
+var _pullDistance = 0;
+var _pullRefreshing = false;
+var PULL_THRESHOLD = 64;
+var PULL_MAX = 90;
+
+// Add more screens here later — key is the screen id (without 'sc-' prefix),
+// value is the function that actually re-fetches from the database.
+var _pullRefreshMap = {
+  orders: loadOrders
+};
+
+(function() {
+  var scrollEl = document.getElementById('contentScroll');
+  var indicator = document.getElementById('pullRefreshIndicator');
+  var spinner = document.getElementById('pullRefreshSpinner');
+  if (!scrollEl || !indicator) return;
+
+  function activeScreenId() {
+    var el = document.querySelector('.screen.on');
+    return el ? el.id.replace(/^sc-/, '') : null;
+  }
+
+  scrollEl.addEventListener('touchstart', function(e) {
+    if (_pullRefreshing) return;
+    if (scrollEl.scrollTop <= 0 && _pullRefreshMap[activeScreenId()]) {
+      _pullStartY = e.touches[0].clientY;
+    } else {
+      _pullStartY = null;
+    }
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchmove', function(e) {
+    if (_pullStartY === null || _pullRefreshing) return;
+    var delta = e.touches[0].clientY - _pullStartY;
+    if (delta <= 0) { _pullDistance = 0; indicator.style.height = '0px'; return; }
+    _pullDistance = Math.min(delta * 0.5, PULL_MAX);
+    indicator.style.height = _pullDistance + 'px';
+    spinner.style.transform = 'rotate(' + Math.min(_pullDistance / PULL_THRESHOLD, 1) * 180 + 'deg)';
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchend', function() {
+    if (_pullStartY === null || _pullRefreshing) { _pullStartY = null; return; }
+    if (_pullDistance >= PULL_THRESHOLD) {
+      var fn = _pullRefreshMap[activeScreenId()];
+      if (fn) {
+        _pullRefreshing = true;
+        indicator.style.height = PULL_THRESHOLD + 'px';
+        spinner.style.animation = 'spin .6s linear infinite';
+        Promise.resolve(fn()).then(function() {
+          _pullRefreshing = false;
+          spinner.style.animation = '';
+          indicator.style.height = '0px';
+        }).catch(function() {
+          _pullRefreshing = false;
+          spinner.style.animation = '';
+          indicator.style.height = '0px';
+        });
+      } else {
+        indicator.style.height = '0px';
+      }
+    } else {
+      indicator.style.height = '0px';
+    }
+    _pullStartY = null;
+    _pullDistance = 0;
+  }, { passive: true });
 })();
 
 _autoLogin();
