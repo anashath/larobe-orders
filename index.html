@@ -146,6 +146,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 14px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 14px;box-shadow:var(--sh);text-align:center}
 .stat-n{font-family:'Plus Jakarta Sans',sans-serif;font-size:28px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1}
+#sc-dashboard .stat-n{font-size:21px}
 .stat-l{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-top:4px}
 .stat.hi .stat-n{color:var(--blue)}
 
@@ -3923,13 +3924,13 @@ async function loadDashboard() {
 
   var profitToday = deliveredToday.reduce(function(s,o){ return s + (Number(o.price) - orderCost(o)); }, 0);
   var marginToday = revenueToday > 0 ? Math.round((profitToday / revenueToday) * 100) : 0;
-  document.getElementById('dashProfitToday').textContent = profitToday.toLocaleString();
+  document.getElementById('dashProfitToday').textContent = profitToday.toLocaleString(undefined,{maximumFractionDigits:0});
   document.getElementById('dashMarginToday').textContent = marginToday + '%';
 
   document.getElementById('dashOrdersToday').textContent = ordersToday.length;
-  document.getElementById('dashRevenueToday').textContent = revenueToday.toLocaleString();
+  document.getElementById('dashRevenueToday').textContent = revenueToday.toLocaleString(undefined,{maximumFractionDigits:0});
   document.getElementById('dashPending').textContent = pendingCount;
-  document.getElementById('dashAvgOrder').textContent = avgOrderToday.toLocaleString();
+  document.getElementById('dashAvgOrder').textContent = avgOrderToday.toLocaleString(undefined,{maximumFractionDigits:0});
 
   // Unpaid — all-time delivered-but-unpaid orders (actual outstanding receivables,
   // not just today's), with total MVR value and how long the oldest has been waiting
@@ -3942,7 +3943,7 @@ async function loadDashboard() {
   if (unpaidSubEl) {
     if (unpaidList.length > 0) {
       var oldestDays = Math.floor((new Date(todayDate) - new Date(unpaidList[0].order_date)) / 86400000);
-      unpaidSubEl.textContent = 'MVR ' + unpaidValue.toLocaleString() + (oldestDays > 0 ? ' · oldest ' + oldestDays + 'd' : ' · today');
+      unpaidSubEl.textContent = 'MVR ' + unpaidValue.toLocaleString(undefined,{maximumFractionDigits:0}) + (oldestDays > 0 ? ' · oldest ' + oldestDays + 'd' : ' · today');
     } else {
       unpaidSubEl.textContent = '';
     }
@@ -4068,9 +4069,9 @@ async function loadDashboard() {
   const {data: monthOrders} = await db.from('orders').select('*')
     .eq('status','delivered').gte('order_date', monthStart).lte('order_date', todayDate);
   var revenueMonth = (monthOrders||[]).reduce(function(s,o){ return s + Number(o.price); }, 0);
-  document.getElementById('dashRevenueMonth').textContent = revenueMonth.toLocaleString();
+  document.getElementById('dashRevenueMonth').textContent = revenueMonth.toLocaleString(undefined,{maximumFractionDigits:0});
   var profitMonth = (monthOrders||[]).reduce(function(s,o){ return s + (Number(o.price) - orderCost(o)); }, 0);
-  document.getElementById('dashProfitMonth').textContent = profitMonth.toLocaleString();
+  document.getElementById('dashProfitMonth').textContent = profitMonth.toLocaleString(undefined,{maximumFractionDigits:0});
 
   // Action items — orders waiting at each stage (all-time, not just today)
   const {data: allActive} = await db.from('orders').select('*').in('status', ['pending','confirmed','packed']);
