@@ -3079,16 +3079,23 @@ function applyRole(profile) {
     delivery:['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
-  ['orders','history','products','copy','settings'].forEach(function(s) {
+  ['orders','history','products','copy'].forEach(function(s) {
     var btn = document.getElementById('bn-'+s);
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
   });
   var newBtn = document.getElementById('bn-new');
   if (newBtn) newBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
-  ['orders','new','history','copy','products','settings','users','sales'].forEach(function(s) {
+  // Settings stays visible for managers too — hiding it left an empty slot in the
+  // bottom nav, unbalanced around the center FAB. go() still redirects managers
+  // away from the actual screen, so this only changes visibility, not access.
+  var bnSettingsBtn = document.getElementById('bn-settings');
+  if (bnSettingsBtn) bnSettingsBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
+  ['orders','new','history','copy','products','users','sales'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
   });
+  var dnSettingsBtn = document.getElementById('dn-settings');
+  if (dnSettingsBtn) dnSettingsBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   var usersBtn = document.getElementById('dn-users');
   if (usersBtn) usersBtn.style.display = role==='admin' ? '' : 'none';
   var salesBtn = document.getElementById('dn-sales');
