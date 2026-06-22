@@ -343,6 +343,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .uact-btn{font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;border:none;font-family:'Inter',sans-serif;letter-spacing:.04em}
 .uact-deact{background:var(--red-l);color:var(--red)}
 .uact-act{background:var(--green-l);color:var(--green)}
+.uact-role{background:var(--card2);color:var(--ink2);border:1px solid var(--line)}
 
 /* ── LOGIN ── */
 #loginScreen{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#F2F1EE;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
@@ -1715,10 +1716,10 @@ function selectProduct(productId) {
   closeProductPicker();
 }
 
-var _optPicker = null; // { hiddenId, displayId, options:[{value,label}] }
+var _optPicker = null; // { hiddenId, displayId, options:[{value,label}], onSelect, currentValueOverride }
 
-function openOptionPicker(hiddenId, displayId, title, options) {
-  _optPicker = { hiddenId: hiddenId, displayId: displayId, options: options };
+function openOptionPicker(hiddenId, displayId, title, options, onSelect, currentValueOverride) {
+  _optPicker = { hiddenId: hiddenId, displayId: displayId, options: options, onSelect: onSelect || null, currentValueOverride: currentValueOverride };
   document.getElementById('optPickerTitle').textContent = title;
   document.getElementById('optPickerMask').classList.add('open');
   renderOptionPicker();
@@ -1731,7 +1732,7 @@ function closeOptionPicker() {
 function renderOptionPicker() {
   if (!_optPicker) return;
   var body = document.getElementById('optPickerBody');
-  var currentVal = document.getElementById(_optPicker.hiddenId).value;
+  var currentVal = _optPicker.currentValueOverride !== undefined ? _optPicker.currentValueOverride : document.getElementById(_optPicker.hiddenId).value;
   body.innerHTML = _optPicker.options.map(function(o) {
     var isSel = o.value === currentVal;
     return '<div class="opt-item' + (isSel ? ' sel' : '') + '" onclick="selectOptionPicker(\'' + o.value.replace(/'/g, "\\'") + '\')">'
@@ -1743,6 +1744,11 @@ function renderOptionPicker() {
 
 function selectOptionPicker(value) {
   if (!_optPicker) return;
+  if (_optPicker.onSelect) {
+    closeOptionPicker();
+    _optPicker.onSelect(value);
+    return;
+  }
   var hidden = document.getElementById(_optPicker.hiddenId);
   hidden.value = value;
   var opt = _optPicker.options.find(function(o){ return o.value === value; });
@@ -3130,6 +3136,7 @@ function loadUsers() {
           } else {
             actionHtml = '<button class="uact-btn uact-act" data-uid="'+u.id+'" data-active="1" onclick="handleUserActive(this)">Activate</button>';
           }
+          actionHtml += ' <button class="uact-btn uact-role" data-uid="'+u.id+'" data-role="'+u.role+'" onclick="handleChangeRole(this)">Change Role</button>';
         }
         html += '<div class="u-row">'
           + '<div class="u-info">'
@@ -3159,6 +3166,27 @@ async function setUserActive(btn, uid, active) {
       toast(active ? 'User activated' : 'User deactivated');
       loadUsers();
     }).catch(function(e) { toast('Error: '+e.message, true); if(btn) btn.disabled=false; });
+}
+
+function handleChangeRole(btn) {
+  if (!_profile || _profile.role !== 'admin') { toast('Admin only', true); return; }
+  var uid = btn.getAttribute('data-uid');
+  var curRole = btn.getAttribute('data-role');
+  openOptionPicker(null, null, 'Change Role',
+    [{value:'delivery',label:'Delivery'},{value:'manager',label:'Manager'},{value:'admin',label:'Admin'}],
+    function(newRole) { updateUserRole(uid, newRole, curRole); },
+    curRole
+  );
+}
+
+async function updateUserRole(uid, newRole, oldRole) {
+  if (!_profile || _profile.role !== 'admin') { toast('Admin only', true); return; }
+  if (newRole === oldRole) return;
+  if (!await showConfirm('Change Role', 'Change this user\'s role to ' + roleLabel(newRole) + '? They\'ll see the change next time they open the app.', {confirmLabel:'Change Role'})) return;
+  const {error} = await db.from('profiles').update({ role: newRole }).eq('id', uid);
+  if (error) { toast('Error: ' + error.message, true); return; }
+  toast('Role updated to ' + roleLabel(newRole));
+  loadUsers();
 }
 
 function createUser() {
