@@ -1271,6 +1271,32 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
 </div>
 
+<!-- ═══ ADJUST STOCK ═══════════════════════════════════════════════════════ -->
+<div class="s-mask" id="adjustStockMask" style="z-index:150">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Adjust Stock</div><div class="s-sub" id="adjustSub"></div></div>
+      <button class="s-x" onclick="closeAdjustStockPrompt()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <div class="fg"><label>Reason</label>
+        <div id="adjustReasonDisplay" onclick="openAdjustReasonPicker()" class="product-select-field">
+          <span style="flex:1;font-size:14px;color:var(--ink)">Damaged</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <input type="hidden" id="adjustReason" value="damaged">
+      </div>
+      <div class="fg"><label id="adjustQtyLabel">Quantity Damaged</label><input type="number" id="adjustQty" placeholder="e.g. 2" min="0"></div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px" id="adjustHint">This reduces current stock by the amount entered. Logged for your records.</div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeAdjustStockPrompt()">Cancel</button>
+      <button class="sfbtn sf-blue" onclick="confirmAdjustStock()">Apply Adjustment</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ EDIT PRODUCT SHEET ══════════════════════════════════════════════════ -->
 <div class="s-mask" id="prodSheetMask">
   <div class="sheet">
@@ -1669,6 +1695,32 @@ function closeProductPicker() {
   document.getElementById('productPickerMask').classList.remove('open');
 }
 
+function isOnPromo(p) {
+  if (!p || !p.promo_price || !p.promo_start || !p.promo_end) return false;
+  var t = today();
+  return p.promo_start <= t && t <= p.promo_end;
+}
+function effectivePrice(p) {
+  return isOnPromo(p) ? Number(p.promo_price) : Number(p.selling_price||0);
+}
+function promoStatusText(p) {
+  if (!p.promo_price || !p.promo_start || !p.promo_end) return 'No active promotion';
+  var t = today();
+  if (t < p.promo_start) return 'Scheduled — starts ' + formatDisplayDate(p.promo_start);
+  if (t > p.promo_end) return 'Ended ' + formatDisplayDate(p.promo_end);
+  return 'Active now — ends ' + formatDisplayDate(p.promo_end);
+}
+function clearPromoFields() {
+  document.getElementById('ps-promo-price').value = '';
+  document.getElementById('ps-promo-start').value = '';
+  document.getElementById('ps-promo-end').value = '';
+  var s = document.getElementById('psPromoStartDisplay').querySelector('span');
+  var e = document.getElementById('psPromoEndDisplay').querySelector('span');
+  s.textContent = 'Select date…'; s.style.color = 'var(--ink3)';
+  e.textContent = 'Select date…'; e.style.color = 'var(--ink3)';
+  toast('Promotion cleared — tap Save Changes to apply');
+}
+
 function renderProductPicker() {
   var body = document.getElementById('productPickerBody');
   var active = products.filter(function(p){ return p.active; });
@@ -1679,16 +1731,20 @@ function renderProductPicker() {
   body.innerHTML = active.map(function(p) {
     var stock = p.stock_qty || 0;
     var outOfStock = stock <= 0;
+    var onPromo = isOnPromo(p);
     var imgHtml = p.image_url
       ? '<img src="' + p.image_url + '">'
       : '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
+    var priceHtml = onPromo
+      ? '<div style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:10px;color:var(--ink3);text-decoration:line-through">MVR ' + Number(p.selling_price||0).toLocaleString() + '</span><span class="pp-price" style="color:var(--red)">MVR ' + Number(p.promo_price).toLocaleString() + '</span></div>'
+      : '<div class="pp-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</div>';
     return '<div class="pp-item' + (outOfStock?' disabled':'') + '" onclick="' + (outOfStock?'':'selectProduct(' + p.id + ')') + '">'
       + '<div class="pp-img">' + imgHtml + '</div>'
       + '<div class="pp-info">'
-        + '<div class="pp-name">' + esc(p.name) + (p.color ? ' — ' + esc(p.color) : '') + '</div>'
+        + '<div class="pp-name">' + esc(p.name) + (p.color ? ' — ' + esc(p.color) : '') + (onPromo ? ' <span style="color:var(--red);font-size:10px;font-weight:700">· PROMO</span>' : '') + '</div>'
         + '<div class="pp-meta">' + (outOfStock ? 'Out of stock' : stock + ' in stock') + '</div>'
       + '</div>'
-      + '<div class="pp-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</div>'
+      + priceHtml
       + '</div>';
   }).join('');
 }
@@ -1715,10 +1771,12 @@ function selectProduct(productId) {
     imgWrap.style.display = 'none';
   }
 
-  textEl.textContent = p.name + (p.color ? ' — ' + p.color : '') + ' (' + (p.stock_qty||0) + ' in stock)';
+  var onPromo = isOnPromo(p);
+  textEl.textContent = p.name + (p.color ? ' — ' + p.color : '') + (onPromo ? ' · PROMO' : '') + ' (' + (p.stock_qty||0) + ' in stock)';
   textEl.style.color = 'var(--ink)';
 
-  if (p.selling_price) document.getElementById(priceId).value = p.selling_price;
+  var price = effectivePrice(p);
+  if (price) document.getElementById(priceId).value = price;
 
   closeProductPicker();
 }
@@ -1896,13 +1954,16 @@ function renderProds() {
       ? '<img src="' + p.image_url + '" alt="">'
       : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
 
+    var onPromo = isOnPromo(p);
     var cardHtml = '<div class="pcard">'
       + '<div class="pcard-top' + (p.active?'':' off') + '" onclick="openProdSheet(' + p.id + ')">'
       + '<div class="pcard-img">' + imgHtml + '</div>'
       + '<div class="pcard-info">'
-        + '<div class="pcard-name">' + esc(p.name) + (p.color ? ' <span class="pcard-color">— ' + esc(p.color) + '</span>' : '') + '</div>'
+        + '<div class="pcard-name">' + esc(p.name) + (p.color ? ' <span class="pcard-color">— ' + esc(p.color) + '</span>' : '') + (onPromo ? ' <span style="color:var(--red);font-size:10px;font-weight:700">· PROMO</span>' : '') + '</div>'
         + '<div class="pcard-price-row">'
-          + '<span class="pcard-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</span>'
+          + (onPromo
+              ? '<span class="pcard-price" style="color:var(--red)">MVR ' + Number(p.promo_price).toLocaleString() + '</span><span style="font-size:11px;color:var(--ink3);text-decoration:line-through">MVR ' + Number(p.selling_price||0).toLocaleString() + '</span>'
+              : '<span class="pcard-price">MVR ' + Number(p.selling_price||0).toLocaleString() + '</span>')
           + (p.cost_price ? '<span class="pcard-cost">cost ' + Number(p.cost_price).toLocaleString() + '</span>' : '')
         + '</div>'
         + '<div class="pcard-stock">'
@@ -2084,6 +2145,87 @@ async function confirmRestock() {
   toast('Restocked +' + qty + ' units');
 }
 
+var _adjustProductId = null;
+var _adjustReasonLabels = { damaged: 'Damaged', lost: 'Lost', found: 'Found', correction: 'Correction' };
+var _adjustQtyLabels = { damaged: 'Quantity Damaged', lost: 'Quantity Lost', found: 'Quantity Found', correction: 'New Stock Count' };
+var _adjustHints = {
+  damaged: 'This reduces current stock by the amount entered. Logged for your records.',
+  lost: 'This reduces current stock by the amount entered. Logged for your records.',
+  found: 'This increases current stock by the amount entered. Logged for your records.',
+  correction: 'Enter the actual counted stock — the difference from the current number is logged automatically.'
+};
+
+function openAdjustStockPrompt(productId) {
+  _adjustProductId = productId;
+  var p = products.find(function(x){ return x.id === productId; });
+  document.getElementById('adjustSub').textContent = (p?p.name:'') + (p&&p.color?' — '+p.color:'') + ' (current: ' + (p?p.stock_qty||0:0) + ')';
+  document.getElementById('adjustQty').value = '';
+  document.getElementById('adjustReason').value = 'damaged';
+  document.getElementById('adjustReasonDisplay').querySelector('span').textContent = 'Damaged';
+  document.getElementById('adjustQtyLabel').textContent = _adjustQtyLabels.damaged;
+  document.getElementById('adjustHint').textContent = _adjustHints.damaged;
+  document.getElementById('adjustStockMask').classList.add('open');
+}
+
+function closeAdjustStockPrompt() {
+  document.getElementById('adjustStockMask').classList.remove('open');
+  _adjustProductId = null;
+}
+
+function openAdjustReasonPicker() {
+  openOptionPicker(null, null, 'Reason',
+    [{value:'damaged',label:'Damaged'},{value:'lost',label:'Lost'},{value:'found',label:'Found'},{value:'correction',label:'Correction'}],
+    function(reason) {
+      document.getElementById('adjustReason').value = reason;
+      document.getElementById('adjustReasonDisplay').querySelector('span').textContent = _adjustReasonLabels[reason];
+      document.getElementById('adjustQtyLabel').textContent = _adjustQtyLabels[reason];
+      document.getElementById('adjustHint').textContent = _adjustHints[reason];
+      document.getElementById('adjustQty').value = '';
+    },
+    document.getElementById('adjustReason').value
+  );
+}
+
+async function confirmAdjustStock() {
+  var reason = document.getElementById('adjustReason').value;
+  var qtyRaw = document.getElementById('adjustQty').value;
+  var p = products.find(function(x){ return x.id === _adjustProductId; });
+  if (!p) { toast('Product not found', true); return; }
+  var current = p.stock_qty || 0;
+  var delta;
+
+  if (reason === 'correction') {
+    if (!isNonNegativeNumber(qtyRaw)) { toast('Enter a valid stock count', true); return; }
+    var newCount = parseInt(qtyRaw);
+    delta = newCount - current;
+    if (delta === 0) { toast('No change — count matches current stock', true); return; }
+  } else {
+    if (!isNonNegativeNumber(qtyRaw) || parseFloat(qtyRaw) <= 0) { toast('Enter a quantity greater than 0', true); return; }
+    var qty = parseInt(qtyRaw);
+    delta = (reason === 'found') ? qty : -qty;
+  }
+
+  var newQty = Math.max(0, current + delta);
+  var actualDelta = newQty - current;
+  var reasonCode = (reason === 'correction') ? 'manual_correction' : reason;
+
+  const {error} = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
+  if (error) { toast('Error: ' + error.message, true); return; }
+
+  var oldStock = p.stock_qty;
+  p.stock_qty = newQty;
+
+  await db.from('stock_movements').insert({
+    product_id: p.id, change_qty: actualDelta, reason: reasonCode
+  });
+  await logProductActivity(p.id, p.name, reasonCode, 'stock_qty', oldStock, newQty);
+
+  closeAdjustStockPrompt();
+  renderProdSheetBody();
+  renderProds();
+  toast('Stock adjusted: ' + (actualDelta>0?'+':'') + actualDelta + ' units');
+}
+
 function openProdSheet(id) {
   _prodSheetId = id;
   _prodSheetPhotoFile = null;
@@ -2142,17 +2284,47 @@ function renderProdSheetBody() {
     + '<div class="fg"><label>Selling Price (MVR)</label><input type="number" id="ps-price" value="' + (p.selling_price||0) + '"></div>'
     + '</div>';
 
-  // Stock + restock
+  // Stock + restock + adjust
   html += '<div class="fg">'
     + '<label>Stock Quantity</label>'
     + '<div style="display:flex;gap:8px;align-items:center">'
       + '<input type="number" id="ps-stock" value="' + stock + '" style="flex:1">'
       + '<span class="stock-badge ' + stockBadgeClass(stock, threshold) + '">' + (stock<=0?'Out':stock<=threshold?'Low':'OK') + '</span>'
-      + '<button type="button" class="btn btn-blue btn-sm" onclick="openRestockPrompt(' + p.id + ')" style="padding:9px 14px">+ Restock</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px">'
+      + '<button type="button" class="btn btn-blue btn-sm" onclick="openRestockPrompt(' + p.id + ')" style="padding:9px 14px;flex:1">+ Restock</button>'
+      + '<button type="button" class="btn btn-ghost btn-sm" onclick="openAdjustStockPrompt(' + p.id + ')" style="padding:9px 14px;flex:1">Adjust Stock</button>'
     + '</div>'
   + '</div>';
   html += '<div class="fg"><label>Low Stock Alert Threshold</label><input type="number" id="ps-threshold" value="' + threshold + '" min="0">'
     + '<div style="font-size:11px;color:var(--ink3);margin-top:4px">Marked "Low Stock" when quantity falls to or below this number</div></div>';
+
+  // Promotion
+  var onPromo = isOnPromo(p);
+  html += '<div class="fg" style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">'
+    + '<label>Promotion</label>'
+    + '<div style="font-size:12px;font-weight:700;margin-bottom:10px;color:' + (onPromo ? 'var(--red)' : 'var(--ink3)') + '">' + promoStatusText(p) + '</div>'
+  + '</div>';
+  html += '<div class="fg"><label>Promo Price (MVR)</label><input type="number" id="ps-promo-price" value="' + (p.promo_price||'') + '" placeholder="Leave blank for no promotion"></div>';
+  html += '<div class="fgrid" style="margin-bottom:4px">'
+    + '<div class="fg"><label>Start Date</label>'
+      + '<div id="psPromoStartDisplay" onclick="openCalendarSingle(\'ps-promo-start\',\'Promotion Start\',function(v){ document.getElementById(\'psPromoStartDisplay\').querySelector(\'span\').textContent = formatDisplayDate(v); document.getElementById(\'psPromoStartDisplay\').querySelector(\'span\').style.color=\'var(--ink)\'; })" class="product-select-field">'
+        + '<span style="flex:1;font-size:14px;color:' + (p.promo_start ? 'var(--ink)' : 'var(--ink3)') + '">' + (p.promo_start ? formatDisplayDate(p.promo_start) : 'Select date…') + '</span>'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      + '</div>'
+      + '<input type="hidden" id="ps-promo-start" value="' + (p.promo_start||'') + '">'
+    + '</div>'
+    + '<div class="fg"><label>End Date</label>'
+      + '<div id="psPromoEndDisplay" onclick="openCalendarSingle(\'ps-promo-end\',\'Promotion End\',function(v){ document.getElementById(\'psPromoEndDisplay\').querySelector(\'span\').textContent = formatDisplayDate(v); document.getElementById(\'psPromoEndDisplay\').querySelector(\'span\').style.color=\'var(--ink)\'; })" class="product-select-field">'
+        + '<span style="flex:1;font-size:14px;color:' + (p.promo_end ? 'var(--ink)' : 'var(--ink3)') + '">' + (p.promo_end ? formatDisplayDate(p.promo_end) : 'Select date…') + '</span>'
+        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      + '</div>'
+      + '<input type="hidden" id="ps-promo-end" value="' + (p.promo_end||'') + '">'
+    + '</div>'
+  + '</div>';
+  if (p.promo_price) {
+    html += '<button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:14px" onclick="clearPromoFields()">Clear Promotion</button>';
+  }
 
   // Active toggle
   html += '<div class="fg"><label>Status</label>'
@@ -2186,13 +2358,28 @@ async function saveProdFromSheet() {
   if (isNaN(threshold) || threshold < 0) threshold = 3;
   if (!name) { toast('Name cannot be empty', true); return; }
 
+  // Promotion fields — promoPrice empty means "no promotion", clearing dates too
+  var promoPriceRaw = document.getElementById('ps-promo-price').value;
+  var promoStart = document.getElementById('ps-promo-start').value || null;
+  var promoEnd = document.getElementById('ps-promo-end').value || null;
+  var promoPrice = null;
+  if (promoPriceRaw) {
+    if (!isNonNegativeNumber(promoPriceRaw)) { toast('Promo price cannot be negative', true); return; }
+    promoPrice = parseFloat(promoPriceRaw);
+    if (!promoStart || !promoEnd) { toast('Set a start and end date for the promotion', true); return; }
+    if (promoEnd < promoStart) { toast('Promotion end date must be after the start date', true); return; }
+    if (promoPrice >= price) { toast('Promo price should be lower than the selling price', true); return; }
+  } else {
+    promoStart = null; promoEnd = null;
+  }
+
   // Capture old values for change logging
   var oldVals = {
     name: p.name, color: p.color, cost_price: p.cost_price, selling_price: p.selling_price,
     stock_qty: p.stock_qty, low_stock_threshold: p.low_stock_threshold
   };
 
-  var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock, low_stock_threshold: threshold };
+  var updates = { name: name, color: color||null, cost_price: cost, selling_price: price, price: price, stock_qty: stock, low_stock_threshold: threshold, promo_price: promoPrice, promo_start: promoStart, promo_end: promoEnd };
 
   var photoChanged = false;
   if (_prodSheetPhotoFile) {
@@ -2211,8 +2398,10 @@ async function saveProdFromSheet() {
   if (Number(oldVals.stock_qty||0) !== stock) await logProductActivity(p.id, name, 'edited', 'stock_qty', oldVals.stock_qty, stock);
   if (Number(oldVals.low_stock_threshold!=null?oldVals.low_stock_threshold:3) !== threshold) await logProductActivity(p.id, name, 'edited', 'low_stock_threshold', oldVals.low_stock_threshold, threshold);
   if (photoChanged) await logProductActivity(p.id, name, 'edited', 'photo', null, 'updated');
+  if ((p.promo_price||null) != promoPrice) await logProductActivity(p.id, name, 'edited', 'promo_price', p.promo_price, promoPrice);
 
   p.name = name; p.color = color; p.cost_price = cost; p.selling_price = price; p.price = price; p.stock_qty = stock; p.low_stock_threshold = threshold;
+  p.promo_price = promoPrice; p.promo_start = promoStart; p.promo_end = promoEnd;
   if (updates.image_url) p.image_url = updates.image_url;
 
   fillDrop(); renderProds(); closeProdSheet();
