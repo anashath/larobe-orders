@@ -926,7 +926,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="sheet" style="max-width:420px;margin:0 auto">
     <div class="s-grip"></div>
     <div class="s-hdr">
-      <div><div class="s-title">Add Expense</div><div class="s-sub">Log a cost not tied to a specific order</div></div>
+      <div><div class="s-title" id="expModalTitle">Add Expense</div><div class="s-sub" id="expModalSub">Log a cost not tied to a specific order</div></div>
       <button class="s-x" onclick="closeAddExpense()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="s-body">
@@ -954,10 +954,11 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <label>Note (optional)</label>
         <textarea id="expNote" rows="2" placeholder="e.g. Courier fee for 5 deliveries"></textarea>
       </div>
+      <button type="button" id="expDeleteLink" onclick="deleteExpenseFromEdit()" style="display:none;width:100%;text-align:center;background:none;border:none;color:var(--red);font-size:12px;font-weight:700;padding:8px 0 0;cursor:pointer">Delete this expense</button>
     </div>
     <div class="s-foot">
       <button class="sfbtn sf-ghost" onclick="closeAddExpense()">Cancel</button>
-      <button class="sfbtn sf-blue" onclick="saveExpense()">Save Expense</button>
+      <button class="sfbtn sf-blue" id="expSaveBtn" onclick="saveExpense()">Save Expense</button>
     </div>
   </div>
 </div>
@@ -4542,7 +4543,7 @@ function renderExpenseList() {
   list.innerHTML = _allExpenses.map(function(e) {
     var color = catColors[e.category] || 'var(--ink2)';
     var bg = catBg[e.category] || 'var(--card2)';
-    return '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:8px">'
+    return '<div onclick="openEditExpense(' + e.id + ')" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:8px;cursor:pointer">'
       + '<div style="width:8px;height:36px;border-radius:4px;background:' + color + ';flex-shrink:0"></div>'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(e.category) + '</div>'
@@ -4550,17 +4551,42 @@ function renderExpenseList() {
         + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + formatDisplayDate(e.expense_date) + ' · ' + esc(e.user_name||'') + '</div>'
       + '</div>'
       + '<div style="font-size:14px;font-weight:700;color:var(--ink);flex-shrink:0">MVR ' + Number(e.amount).toLocaleString() + '</div>'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>'
       + '</div>';
   }).join('');
 }
 
+var _editingExpenseId = null;
+
 function openAddExpense() {
+  _editingExpenseId = null;
+  document.getElementById('expModalTitle').textContent = 'Add Expense';
+  document.getElementById('expModalSub').textContent = 'Log a cost not tied to a specific order';
+  document.getElementById('expSaveBtn').textContent = 'Save Expense';
+  document.getElementById('expDeleteLink').style.display = 'none';
   document.getElementById('expDate').value = today();
   document.getElementById('expDateText').textContent = formatDisplayDate(today());
   document.getElementById('expCategory').value = 'Delivery';
   document.getElementById('expCategoryDisplay').querySelector('span').textContent = 'Delivery';
   document.getElementById('expAmount').value = '';
   document.getElementById('expNote').value = '';
+  document.getElementById('addExpenseMask').classList.add('open');
+}
+
+function openEditExpense(id) {
+  var e = _allExpenses.find(function(x){ return x.id === id; });
+  if (!e) return;
+  _editingExpenseId = id;
+  document.getElementById('expModalTitle').textContent = 'Edit Expense';
+  document.getElementById('expModalSub').textContent = 'Logged ' + formatDisplayDate(e.expense_date) + ' by ' + esc(e.user_name||'—');
+  document.getElementById('expSaveBtn').textContent = 'Save Changes';
+  document.getElementById('expDeleteLink').style.display = '';
+  document.getElementById('expDate').value = e.expense_date;
+  document.getElementById('expDateText').textContent = formatDisplayDate(e.expense_date);
+  document.getElementById('expCategory').value = e.category;
+  document.getElementById('expCategoryDisplay').querySelector('span').textContent = e.category;
+  document.getElementById('expAmount').value = e.amount;
+  document.getElementById('expNote').value = e.note || '';
   document.getElementById('addExpenseMask').classList.add('open');
 }
 
@@ -4576,6 +4602,17 @@ async function saveExpense() {
 
   if (!isPositiveNumber(amountRaw)) { toast('Enter a valid amount greater than 0', true); return; }
 
+  if (_editingExpenseId) {
+    const {error} = await db.from('expenses').update({
+      expense_date: date, category: category, amount: parseFloat(amountRaw), note: note || null
+    }).eq('id', _editingExpenseId);
+    if (error) { toast('Error: ' + error.message, true); return; }
+    closeAddExpense();
+    toast('Expense updated');
+    loadExpenses();
+    return;
+  }
+
   var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
   var userId = _session ? _session.user.id : null;
 
@@ -4588,6 +4625,16 @@ async function saveExpense() {
 
   closeAddExpense();
   toast('Expense logged');
+  loadExpenses();
+}
+
+async function deleteExpenseFromEdit() {
+  if (!_editingExpenseId) return;
+  if (!await showConfirm('Delete Expense', 'This expense will be permanently removed.', {confirmLabel:'Delete', danger:true})) return;
+  const {error} = await db.from('expenses').delete().eq('id', _editingExpenseId);
+  if (error) { toast('Error: ' + error.message, true); return; }
+  closeAddExpense();
+  toast('Expense deleted');
   loadExpenses();
 }
 
