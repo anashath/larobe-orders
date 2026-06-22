@@ -176,6 +176,15 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .b-cancelled{background:var(--red-l);color:var(--red)}
 .b-packed   {background:var(--blue-l);color:var(--blue)}
 .b-confirmed{background:#F3F4F6;color:var(--ink2)}
+
+.ostep{display:flex;align-items:center;gap:5px;margin-top:7px}
+.ostep-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.ostep-dot.on{background:var(--ink);border-color:var(--ink)}
+.ostep-dot svg{display:none}
+.ostep-dot.on svg{display:block}
+.ostep-line{width:12px;height:1.5px;background:var(--line);flex-shrink:0}
+.ostep-line.on{background:var(--ink)}
+.ostep-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:2px}
 .pay-done{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--green-l);color:var(--green)}
 .pay-pend{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--red-l);color:var(--red)}
 
@@ -2623,6 +2632,31 @@ var _selectMode = false;
 var _selectedIds = [];
 var _longPressTimer = null;
 
+function renderStatusStepper(o) {
+  if (o.status === 'cancelled') {
+    return '<div class="ostep"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="ostep-label" style="color:var(--red)">Cancelled</span></div>';
+  }
+  var stages = ['pending','confirmed','packed','delivered'];
+  var idx = stages.indexOf(o.status);
+  if (idx < 0) idx = 0;
+  var colorMap = { pending:'var(--amber)', confirmed:'var(--ink2)', packed:'var(--blue)', delivered:'var(--green)' };
+  var tintMap  = { pending:'var(--amber-l)', confirmed:'#F3F4F6', packed:'var(--blue-l)', delivered:'var(--green-l)' };
+  var labelMap = { pending:'Pending', confirmed:'Confirmed', packed:'Packed', delivered:'Delivered' };
+  var curTint = tintMap[o.status];
+
+  var html = '<div class="ostep">';
+  for (var i = 0; i < stages.length; i++) {
+    var done = i <= idx;
+    var ringStyle = (i === idx) ? ' style="box-shadow:0 0 0 3px ' + curTint + '"' : '';
+    html += '<div class="ostep-dot' + (done?' on':'') + '"' + ringStyle + '>'
+      + '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+      + '</div>';
+    if (i < stages.length - 1) html += '<div class="ostep-line' + (i < idx ? ' on' : '') + '"></div>';
+  }
+  html += '<span class="ostep-label" style="color:' + colorMap[o.status] + '">' + labelMap[o.status] + '</span></div>';
+  return html;
+}
+
 function render() {
   const L=document.getElementById('olist');
   const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
@@ -2632,7 +2666,6 @@ function render() {
     L.innerHTML='<div class="empty"><div class="empty-ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div><div class="empty-t">'+(flt==='all'?'No orders yet today':'No '+flt+' orders')+'</div><div class="empty-s">'+(flt==='all'?'Tap the + button to create one':'')+'</div></div>';
   } else {
     L.innerHTML=arr.map(function(o) {
-      var sc = o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
       var swatch = 'swatch-' + o.status;
       var pc = o.payment_done ? 'pay-done' : 'pay-pend';
       // Delivery role can only bulk-select packed orders (to mark delivered) —
@@ -2655,10 +2688,10 @@ function render() {
           + '<div class="o-name">' + esc(o.customer_name) + '</div>'
           + '<div class="o-prod">' + esc(o.product) + '</div>'
           + '<div class="o-meta">' + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>'
+          + renderStatusStepper(o)
         + '</div>'
         + '<div class="o-right">'
           + '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>'
-          + '<span class="badge ' + sc + '">' + o.status + '</span>'
           + '<span class="' + pc + '">' + (o.payment_done?'Paid':'Unpaid') + '</span>'
         + '</div>'
         + (_selectMode ? '' : '<div class="o-arr">›</div>')
@@ -4578,7 +4611,6 @@ function renderHistory(data) {
       +'<span style="font-size:12px;font-weight:600;color:var(--blue)">MVR '+revenue.toLocaleString()+' · '+dayOrders.length+' orders</span>'
       +'</div>';
     dayOrders.forEach(function(o){
-      var sc=o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed';
       var swatch='swatch-'+o.status;
       var pc=o.payment_done?'pay-done':'pay-pend';
       html+='<div class="orow '+swatch+'" onclick="openSheet('+o.id+')" style="margin-bottom:6px">'
@@ -4587,10 +4619,10 @@ function renderHistory(data) {
           +'<div class="o-name">'+esc(o.customer_name)+'</div>'
           +'<div class="o-prod">'+esc(o.product)+'</div>'
           +'<div class="o-meta">'+esc(o.delivery)+'</div>'
+          +renderStatusStepper(o)
         +'</div>'
         +'<div class="o-right">'
           +'<div class="o-price">MVR '+Number(o.price).toLocaleString()+'</div>'
-          +'<span class="badge '+sc+'">'+o.status+'</span>'
           +'<span class="'+pc+'">'+(o.payment_done?'Paid':'Unpaid')+'</span>'
         +'</div>'
         +'<div class="o-arr">›</div>'
