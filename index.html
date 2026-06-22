@@ -911,14 +911,36 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="stat hi"><div class="stat-n" id="expNetProfit">0</div><div class="stat-l">Net Profit</div></div>
   </div>
 
-  <div style="padding:0 16px 8px;display:flex;align-items:center;justify-content:space-between">
-    <div style="font-size:14px;font-weight:700;color:var(--ink)">Logged Expenses</div>
-    <button onclick="go('gstreport')" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-      GST Report
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>
+  <div style="padding:0 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <div style="font-size:14px;font-weight:700;color:var(--ink);flex-shrink:0">Logged Expenses</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button onclick="go('expenseactivity')" style="background:none;border:none;color:var(--ink2);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+        Activity
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button onclick="go('gstreport')" style="background:none;border:none;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+        GST Report
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
   </div>
   <div id="expenseList" style="padding:0 16px 16px"></div>
+</div>
+
+<!-- EXPENSE ACTIVITY -->
+<div class="screen" id="sc-expenseactivity">
+  <div class="pg">
+    <button onclick="go('expenses')" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--ink2);font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;padding:0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Expenses
+    </button>
+    <div class="pg-title">Expense Activity</div>
+    <div style="font-size:13px;color:var(--ink3);margin-top:4px">Every expense created, edited, or deleted</div>
+  </div>
+  <div style="padding:0 16px 8px">
+    <input type="text" id="expActivitySearch" placeholder="Search by category or staff name…" oninput="filterExpenseActivity()" style="width:100%;border:1px solid var(--line);border-radius:999px;padding:11px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none">
+  </div>
+  <div id="expActivityList" style="padding:0 16px 16px"></div>
 </div>
 
 <!-- ADD EXPENSE SHEET -->
@@ -1445,7 +1467,7 @@ function go(s) {
     var role = _profile.role;
     if (role !== 'admin') {
       var allowed = {
-        manager:  ['orders','new','history','copy','products','sales','expenses'],
+        manager:  ['orders','new','history','copy','products','sales','expenses','expenseactivity'],
         delivery: ['orders','history']
       };
       var roleAllowed = allowed[role] || ['orders'];
@@ -1470,6 +1492,7 @@ function go(s) {
   if(s==='sales')    { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadSales(); else go('orders'); }
   if(s==='expenses') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadExpenses(); else go('orders'); }
   if(s==='gstreport') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadGstReport(); else go('orders'); }
+  if(s==='expenseactivity') { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadExpenseActivity(); else go('orders'); }
   if(s==='dashboard'){ if(_profile&&_profile.role==='admin') loadDashboard(); else go('orders'); }
   if(s==='productactivity'){ if(_profile&&_profile.role==='admin') loadProductActivity(); else go('orders'); }
   maybeShowTips(s);
@@ -4592,6 +4615,70 @@ function openEditExpense(id) {
 
 function closeAddExpense() {
   document.getElementById('addExpenseMask').classList.remove('open');
+}
+
+var _expActivityAll = [];
+
+async function loadExpenseActivity() {
+  var list = document.getElementById('expActivityList');
+  list.innerHTML = '<div class="empty"><div class="empty-t" style="color:var(--ink3)">Loading…</div></div>';
+
+  const {data, error} = await db.from('expense_activity')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(300);
+
+  if (error) { list.innerHTML = '<div class="empty"><div class="empty-t">Error loading</div></div>'; return; }
+  _expActivityAll = data || [];
+  renderExpenseActivity(_expActivityAll);
+}
+
+function filterExpenseActivity() {
+  var q = (document.getElementById('expActivitySearch').value || '').toLowerCase();
+  if (!q) { renderExpenseActivity(_expActivityAll); return; }
+  var filtered = _expActivityAll.filter(function(a) {
+    return (a.expense_category||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+  });
+  renderExpenseActivity(filtered);
+}
+
+function renderExpenseActivity(data) {
+  var list = document.getElementById('expActivityList');
+  if (!data.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-t">No activity recorded yet</div></div>';
+    return;
+  }
+
+  var actionConfig = {
+    created: { label: 'created', color: 'var(--green)', bg: 'var(--green-l)' },
+    edited:  { label: 'edited',  color: 'var(--blue)',  bg: 'var(--blue-l)' },
+    deleted: { label: 'deleted', color: 'var(--red)',   bg: 'var(--red-l)' }
+  };
+
+  var fieldLabels = { date: 'Date', category: 'Category', amount: 'Amount', note: 'Note' };
+
+  list.innerHTML = data.map(function(a) {
+    var cfg = actionConfig[a.action] || { label: a.action, color: 'var(--ink2)', bg: 'var(--card2)' };
+    var dt = new Date(a.created_at);
+    var timeStr = dt.toLocaleString('en-US', { day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' });
+
+    var detail = '';
+    if (a.action === 'deleted') {
+      detail = a.new_value ? ('Deleted: ' + a.new_value) : '';
+    } else if (a.field_name) {
+      var fieldLabel = fieldLabels[a.field_name] || a.field_name;
+      detail = fieldLabel + ': ' + (a.old_value||'—') + ' → ' + (a.new_value||'—');
+    }
+
+    return '<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">'
+      + '<div style="width:36px;height:36px;border-radius:10px;background:' + cfg.bg + ';color:' + cfg.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;text-transform:uppercase">' + cfg.label.slice(0,2) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(a.expense_category||'Unknown') + ' <span style="color:' + cfg.color + ';font-weight:700">' + cfg.label + '</span></div>'
+        + (detail ? '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + esc(detail) + '</div>' : '')
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:3px">' + esc(a.user_name||'Unknown') + ' · ' + timeStr + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 async function logExpenseActivity(expenseId, category, action, fieldName, oldValue, newValue) {
