@@ -1560,6 +1560,16 @@ function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
+function sanitizeNumericInput(el) {
+  // Strips anything that isn't a digit or decimal point as the user types —
+  // type="number" still lets some keyboards/browsers enter letters like 'e'
+  // (scientific notation) or '+'/'-', which silently fail to save.
+  var v = el.value.replace(/[^0-9.]/g, '');
+  var parts = v.split('.');
+  if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+  el.value = v;
+}
+
 function isPositiveNumber(v) {
   var n = parseFloat(v);
   return !isNaN(n) && n > 0;
@@ -2457,7 +2467,7 @@ function renderProdSheetBody() {
     + '<label>Promotion</label>'
     + '<div style="font-size:12px;font-weight:700;margin-bottom:10px;color:' + (onPromo ? 'var(--red)' : 'var(--ink3)') + '">' + promoStatusText(p) + '</div>'
   + '</div>';
-  html += '<div class="fg"><label>Promo Price (MVR)</label><input type="number" id="ps-promo-price" value="' + (p.promo_price||'') + '" placeholder="Leave blank for no promotion"></div>';
+  html += '<div class="fg"><label>Promo Price (MVR)</label><input type="number" inputmode="decimal" id="ps-promo-price" value="' + (p.promo_price||'') + '" placeholder="Leave blank for no promotion" oninput="sanitizeNumericInput(this)"></div>';
   html += '<div class="fgrid" style="margin-bottom:4px">'
     + '<div class="fg"><label>Start Date</label>'
       + '<div id="psPromoStartDisplay" onclick="openCalendarSingle(\'ps-promo-start\',\'Promotion Start\',function(v){ document.getElementById(\'psPromoStartDisplay\').querySelector(\'span\').textContent = formatDisplayDate(v); document.getElementById(\'psPromoStartDisplay\').querySelector(\'span\').style.color=\'var(--ink)\'; })" class="product-select-field">'
