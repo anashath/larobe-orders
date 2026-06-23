@@ -740,6 +740,12 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
           <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('new-item')" style="width:100%">+ Add Item</button>
         </div>
         <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+          <span style="font-size:12px;color:var(--ink2)">Subtotal</span>
+          <span style="font-size:13px;font-weight:600;color:var(--ink2)" id="fItemsSubtotal">MVR 0</span>
+        </div>
+        <div class="fg"><label>Discount (MVR)</label><input type="number" id="fDiscount" placeholder="0" min="0" oninput="renderNewOrderItems()"></div>
+        <div class="fg"><label>Discount Reason</label><input type="text" id="fDiscountReason" placeholder="Optional — e.g. loyal customer"></div>
+        <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding-top:2px">
           <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
           <span style="font-size:18px;font-weight:700;color:var(--ink)" id="fItemsTotal">MVR 0</span>
         </div>
@@ -1758,9 +1764,18 @@ function renderNewOrderItems() {
         + '</div>';
     }).join('');
   }
-  var total = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var subtotal = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var subtotalEl = document.getElementById('fItemsSubtotal');
+  if (subtotalEl) subtotalEl.textContent = 'MVR ' + subtotal.toLocaleString(undefined,{maximumFractionDigits:0});
+
+  var discountInput = document.getElementById('fDiscount');
+  var discount = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
+  if (discount > subtotal) discount = subtotal;
+  if (discount < 0) discount = 0;
+
+  var total = subtotal - discount;
   var totalEl = document.getElementById('fItemsTotal');
-  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString();
+  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString(undefined,{maximumFractionDigits:0});
 }
 
 function changeNewItemQty(i, delta) {
@@ -2596,9 +2611,16 @@ async function addOrder() {
     if (cp && ci.quantity > (cp.stock_qty||0)) { toast(ci.name + ' only has ' + (cp.stock_qty||0) + ' in stock', true); return; }
   }
 
-  var totalPrice = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var subtotal = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
   var totalCost = _newOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
   var productLabel = _newOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
+
+  var discountRaw = document.getElementById('fDiscount').value;
+  var discount = parseFloat(discountRaw) || 0;
+  if (discount < 0) { toast('Discount cannot be negative', true); return; }
+  if (discount > subtotal) { toast('Discount cannot exceed the subtotal', true); return; }
+  var discountReason = document.getElementById('fDiscountReason').value.trim();
+  var totalPrice = subtotal - discount;
 
   const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Saving…';
   var orderDate = today();
@@ -2622,6 +2644,8 @@ async function addOrder() {
       product_id: _newOrderItems[0].product_id,
       price: totalPrice,
       total_cost: totalCost,
+      discount_amount: discount,
+      discount_reason: discountReason || null,
       status:document.getElementById('fStatus').value,
       delivery:document.getElementById('fDelivery').value,
       payment:document.getElementById('fPayment').value,
@@ -2712,7 +2736,7 @@ async function restoreStock(order) {
   return true;
 }
 function clearForm() {
-  ['fName','fContact','fNotes'].forEach(id=>document.getElementById(id).value='');
+  ['fName','fContact','fNotes','fDiscount','fDiscountReason'].forEach(id=>document.getElementById(id).value='');
   _newOrderItems = [];
   renderNewOrderItems();
   _payDone=false; renderPayDone();
@@ -2976,6 +3000,8 @@ function openSheet(id) {
       <div id="detItemsList"><div class="empty" style="padding:10px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">Loading…</div></div></div>
     </div>
     <div class="det-rows">
+      ${o.discount_amount > 0 ? `<div class="det-row"><span class="det-lbl">Subtotal</span><span class="det-val dim">MVR ${(Number(o.price)+Number(o.discount_amount)).toLocaleString()}</span></div>
+      <div class="det-row"><span class="det-lbl">Discount</span><span class="det-val" style="color:var(--red)">−MVR ${Number(o.discount_amount).toLocaleString()}${o.discount_reason?' ('+esc(o.discount_reason)+')':''}</span></div>` : ''}
       <div class="det-row"><span class="det-lbl">Total</span><span class="det-val big">MVR ${Number(o.price).toLocaleString()}</span></div>
       <div class="det-row"><span class="det-lbl">Payment</span><span class="det-val">${esc(o.payment)}</span></div>
       <div class="det-row"><span class="det-lbl">Delivery</span><span class="det-val">${esc(o.delivery)}</span></div>
@@ -3177,6 +3203,12 @@ async function enterEdit() {
         <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('edit-item')" style="width:100%">+ Add Item</button>
       </div>
       <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+        <span style="font-size:12px;color:var(--ink2)">Subtotal</span>
+        <span style="font-size:13px;font-weight:600;color:var(--ink2)" id="eItemsSubtotal">MVR 0</span>
+      </div>
+      <div class="fg"><label>Discount (MVR)</label><input type="number" id="eDiscount" value="${o.discount_amount||''}" placeholder="0" min="0" oninput="renderEditOrderItems()"></div>
+      <div class="fg"><label>Discount Reason</label><input type="text" id="eDiscountReason" value="${esc(o.discount_reason||'')}" placeholder="Optional — e.g. loyal customer"></div>
+      <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding-top:2px">
         <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
         <span style="font-size:18px;font-weight:700;color:var(--ink)" id="eItemsTotal">MVR 0</span>
       </div>
@@ -3260,9 +3292,18 @@ function renderEditOrderItems() {
         + '</div>';
     }).join('');
   }
-  var total = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var subtotal = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var subtotalEl = document.getElementById('eItemsSubtotal');
+  if (subtotalEl) subtotalEl.textContent = 'MVR ' + subtotal.toLocaleString(undefined,{maximumFractionDigits:0});
+
+  var eDiscountInput = document.getElementById('eDiscount');
+  var eDiscount = eDiscountInput ? (parseFloat(eDiscountInput.value) || 0) : 0;
+  if (eDiscount > subtotal) eDiscount = subtotal;
+  if (eDiscount < 0) eDiscount = 0;
+
+  var total = subtotal - eDiscount;
   var totalEl = document.getElementById('eItemsTotal');
-  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString();
+  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString(undefined,{maximumFractionDigits:0});
 }
 
 function changeEditItemQty(i, delta) {
@@ -3288,6 +3329,12 @@ async function saveEdit() {
   if (!editName) { toast('Customer name cannot be empty', true); return; }
   if (editContact && !isValidPhone(editContact)) { toast('Enter a valid phone number', true); return; }
   if (!_editOrderItems.length) { toast('Order must have at least one item', true); return; }
+
+  var editSubtotal = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var editDiscount = parseFloat(g('eDiscount')) || 0;
+  if (editDiscount < 0) { toast('Discount cannot be negative', true); return; }
+  if (editDiscount > editSubtotal) { toast('Discount cannot exceed the subtotal', true); return; }
+  var editDiscountReason = g('eDiscountReason') ? g('eDiscountReason').trim() : '';
 
   const o=orders.find(x=>x.id===viewId)
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(x=>x.id===viewId))
@@ -3353,7 +3400,7 @@ async function saveEdit() {
   const itemsRes = await db.from('order_items').insert(itemRows);
   if (itemsRes.error) { toast('Items failed to save: ' + itemsRes.error.message, true); return; }
 
-  var totalPrice = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalPrice = editSubtotal - editDiscount;
   var totalCost = _editOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
   var productLabel = _editOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
@@ -3362,6 +3409,7 @@ async function saveEdit() {
     customer_name: editName, contact: editContact,
     product: productLabel, product_id: _editOrderItems[0].product_id,
     price: totalPrice, total_cost: totalCost,
+    discount_amount: editDiscount, discount_reason: editDiscountReason || null,
     status: newStatus, delivery: g('ed'), payment: g('epy'), notes: g('eno'),
     payment_done: epdEl?epdEl.value==='1':false,
     stock_deducted: willBeDeducted
@@ -4351,13 +4399,14 @@ function exportSalesCSV() {
 }
 
 function buildSalesRows(data) {
-  var rows = [['Order #','Date','Customer','Contact','Product','Price (MVR)','Cost Price (MVR)','Gross Profit (MVR)','Delivery','Payment Method','Payment Status']];
+  var rows = [['Order #','Date','Customer','Contact','Product','Price (MVR)','Discount Applied (MVR)','Cost Price (MVR)','Gross Profit (MVR)','Delivery','Payment Method','Payment Status']];
   data.forEach(function(o) {
     var cost = Number(o.total_cost)||0;
     var price = Number(o.price)||0;
+    var discount = Number(o.discount_amount)||0;
     rows.push([
       o.num, o.order_date, o.customer_name, o.contact||'', o.product,
-      price, cost, (price-cost).toFixed(2), o.delivery, o.payment,
+      price, discount, cost, (price-cost).toFixed(2), o.delivery, o.payment,
       o.payment_done ? 'Paid' : 'Unpaid'
     ]);
   });
