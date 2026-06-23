@@ -1574,28 +1574,36 @@ var _confirmResolve = null;
 
 var TIPS_CONFIG = {
   orders: [
-    { selector: '.chips', title: 'Filter Orders', text: 'Tap these chips to filter today\'s orders by status. Tap "Today" to reset and see everything.' },
-    { selector: '.olist', title: 'Quick Actions', text: 'Tap any order to view details. Long-press a Pending order to select multiple and confirm them all at once.' },
+    { selector: '.chips', title: 'Filter Orders', text: 'Tap these chips to filter today\'s orders by status. Tap "Today" to reset and see everything. Pull down from the top anytime to refresh.' },
+    { selector: '.olist', title: 'Quick Actions', text: 'Tap any order to view full details. Long-press a select-able order to multi-select and act on several at once — which orders qualify depends on your role (e.g. pending orders to confirm, or packed orders to mark delivered).' },
+    { selector: '.ostep-dot.next', title: 'Advance Status Fast', text: 'The dashed dot shows the next stage. Tap it to move that order forward right from the list — no need to open it first. Everyone sees what\'s next; only roles allowed to make that move can actually tap it.' },
+    { selector: '.pay-pend', title: 'Mark Payment Received', text: 'Tap the Unpaid/Paid badge on any order to toggle it directly, without opening the order — handy for marking a cash-on-delivery payment the moment it\'s collected.' },
     { selector: '.nb-fab', title: 'New Order', text: 'Tap the + button anytime to record a new order.' }
   ],
   products: [
     { selector: '#addProdTrigger', title: 'Add a Product', text: 'Tap here to add a new product with photo, price, and starting stock.' },
     { selector: '#prodSortStock', title: 'Sort Products', text: 'Switch between sorting by stock level or by when it was added.' },
-    { selector: '.pcard-top', title: 'Edit Anytime', text: 'Tap any product to edit its details, restock it, or hide it from the catalogue.' }
+    { selector: '.pcard-top', title: 'Edit Anytime', text: 'Tap any product to edit its details, restock it, run a time-bound promotion, or adjust stock for damaged/lost/found items.' }
   ],
   dashboard: [
     { selector: '.stats', title: 'Your Daily Pulse', text: 'These cards update live — tap Low Stock or Out of Stock to jump straight to the affected products.' },
-    { selector: '#dashActionItems', title: 'Needs Attention', text: 'This list shows exactly what\'s waiting on you — orders to confirm, pack, or deliver.' }
+    { selector: '#dashProfitToday', title: 'Profitability', text: 'Gross profit and margin, not just revenue — so a busy day with thin margins doesn\'t look like a great day by mistake.' },
+    { selector: '#dashActionItems', title: 'Needs Attention', text: 'This list shows exactly what\'s waiting on you — orders to confirm, pack, or deliver. The same count shows as a badge on the Orders icon throughout the app.' }
   ],
   sales: [
     { selector: '.chips', title: 'Pick a Range', text: 'Choose a preset range or tap Custom to pick exact dates.' },
-    { selector: 'button[onclick="exportSalesCSV()"]', title: 'Export Anytime', text: 'Tap Export to download a CSV for any date range — handy for bookkeeping.' }
+    { selector: 'button[onclick="exportSalesCSV()"]', title: 'Export Anytime', text: 'Tap Export to download a CSV for any date range — includes cost, profit, and any discounts applied, handy for bookkeeping.' }
   ],
   history: [
-    { selector: '#histSearch', title: 'Search Past Orders', text: 'Search by customer name or product across your entire order history.' }
+    { selector: '#histSearch', title: 'Search Past Orders', text: 'Search by customer name or product across your entire order history. Pull down from the top to refresh.' }
   ],
   new: [
-    { selector: 'button[onclick="openProductPicker(\'new-item\')"]', title: 'Add Items', text: 'Tap here to add a product — browse your catalogue with photos and live stock, and add as many items as the order needs.' }
+    { selector: 'button[onclick="openProductPicker(\'new-item\')"]', title: 'Add Items', text: 'Tap here to add a product — browse your catalogue with photos and live stock, and add as many items as the order needs.' },
+    { selector: '#fDiscount', title: 'Apply a Discount', text: 'Give a one-off discount on this sale if needed — switch between a flat MVR amount or a percentage, and add a reason for your own records.' }
+  ],
+  expenses: [
+    { selector: 'button[onclick="openAddExpense()"]', title: 'Log an Expense', text: 'Record a cost that isn\'t tied to a specific order — delivery, rent, salaries, or anything else.' },
+    { selector: '#expenseList', title: 'Edit Anytime', text: 'Tap any logged expense to correct or delete it. Every change is tracked — see the Activity link above to view the full history.' }
   ]
 };
 
