@@ -2836,6 +2836,24 @@ function renderStatusStepper(o) {
   return html;
 }
 
+function togglePaymentStatus(orderId) {
+  var o = orders.find(function(x){ return x.id === orderId; })
+       || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){ return x.id === orderId; }));
+  if (!o) return;
+  var newVal = !o.payment_done;
+  var label = newVal ? 'Paid' : 'Unpaid';
+  showConfirm('Update Payment', 'Mark order #' + o.num + ' as ' + label + '?', { confirmLabel: 'Mark ' + label }).then(function(ok) {
+    if (!ok) return;
+    db.from('orders').update({ payment_done: newVal }).eq('id', orderId).then(function(res) {
+      if (res.error) { toast('Error: ' + res.error.message, true); return; }
+      o.payment_done = newVal;
+      render();
+      if (typeof _histAllOrders !== 'undefined' && _histAllOrders.length) renderHistory(_histAllOrders);
+      toast('Marked ' + label);
+    });
+  });
+}
+
 function tapAdvanceStatus(orderId, toStatus) {
   var o = orders.find(function(x){ return x.id === orderId; })
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){ return x.id === orderId; }));
@@ -2890,7 +2908,7 @@ function render() {
         + '</div>'
         + '<div class="o-right">'
           + '<div class="o-price">MVR ' + Number(o.price).toLocaleString() + '</div>'
-          + '<span class="' + pc + '">' + (o.payment_done?'Paid':'Unpaid') + '</span>'
+          + '<span class="' + pc + '"' + (_selectMode ? '' : ' onclick="event.stopPropagation();togglePaymentStatus(' + o.id + ')" style="cursor:pointer"') + '>' + (o.payment_done?'Paid':'Unpaid') + '</span>'
         + '</div>'
         + (_selectMode ? '' : '<div class="o-arr">›</div>')
         + '</div>';
@@ -5166,7 +5184,7 @@ function renderHistory(data) {
         +'</div>'
         +'<div class="o-right">'
           +'<div class="o-price">MVR '+Number(o.price).toLocaleString()+'</div>'
-          +'<span class="'+pc+'">'+(o.payment_done?'Paid':'Unpaid')+'</span>'
+          +'<span class="'+pc+'" onclick="event.stopPropagation();togglePaymentStatus('+o.id+')" style="cursor:pointer">'+(o.payment_done?'Paid':'Unpaid')+'</span>'
         +'</div>'
         +'<div class="o-arr">›</div>'
         +'</div>';
