@@ -208,6 +208,8 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
 .fg:last-child{margin-bottom:0}
 .fg label{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.disc-mode-btn{font-size:9px;font-weight:700;padding:3px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink3);cursor:pointer;letter-spacing:.04em}
+.disc-mode-btn.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .fg input,.fg select,.fg textarea{border:1.5px solid var(--line);border-radius:var(--r);padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);background:var(--card2);outline:none;width:100%;transition:all .15s;-webkit-appearance:none}
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue);background:var(--card);box-shadow:0 0 0 3px rgba(236,95,61,.12)}
 .fg textarea{resize:none;min-height:68px}
@@ -743,7 +745,16 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
           <span style="font-size:12px;color:var(--ink2)">Subtotal</span>
           <span style="font-size:13px;font-weight:600;color:var(--ink2)" id="fItemsSubtotal">MVR 0</span>
         </div>
-        <div class="fg"><label>Discount (MVR)</label><input type="number" id="fDiscount" placeholder="0" min="0" oninput="renderNewOrderItems()"></div>
+        <div class="fg">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+            <label style="margin:0">Discount</label>
+            <div style="display:flex;gap:4px">
+              <button type="button" id="fDiscModeAmt" onclick="setDiscountMode('f','amount')" class="disc-mode-btn on">MVR</button>
+              <button type="button" id="fDiscModePct" onclick="setDiscountMode('f','percent')" class="disc-mode-btn">%</button>
+            </div>
+          </div>
+          <input type="number" id="fDiscount" placeholder="0" min="0" oninput="renderNewOrderItems()">
+        </div>
         <div class="fg"><label>Discount Reason</label><input type="text" id="fDiscountReason" placeholder="Optional — e.g. loyal customer"></div>
         <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding-top:2px">
           <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
@@ -1736,6 +1747,32 @@ async function loadProds() {
   products=data||[]; fillDrop();
 }
 var _newOrderItems = []; // [{product_id, name, color, unit_price, unit_cost, quantity, stock_qty}]
+var _newDiscountMode = 'amount';
+var _editDiscountMode = 'amount';
+
+function setDiscountMode(prefix, mode) {
+  if (prefix === 'f') { _newDiscountMode = mode; } else { _editDiscountMode = mode; }
+  var amtBtn = document.getElementById(prefix + 'DiscModeAmt');
+  var pctBtn = document.getElementById(prefix + 'DiscModePct');
+  var input = document.getElementById(prefix + 'Discount');
+  if (amtBtn) amtBtn.classList.toggle('on', mode === 'amount');
+  if (pctBtn) pctBtn.classList.toggle('on', mode === 'percent');
+  if (input) input.placeholder = mode === 'percent' ? 'e.g. 10' : '0';
+  if (prefix === 'f') renderNewOrderItems(); else renderEditOrderItems();
+}
+
+// Converts whatever's typed in the discount field into an actual MVR amount,
+// based on the active mode — percent is always relative to this order's own
+// subtotal, clamped to a sane range either way.
+function computeDiscountAmount(subtotal, rawValue, mode) {
+  var v = parseFloat(rawValue) || 0;
+  if (v < 0) v = 0;
+  if (mode === 'percent') {
+    if (v > 100) v = 100;
+    return subtotal * (v / 100);
+  }
+  return Math.min(v, subtotal);
+}
 
 function fillDrop() {
   renderNewOrderItems();
@@ -1769,9 +1806,7 @@ function renderNewOrderItems() {
   if (subtotalEl) subtotalEl.textContent = 'MVR ' + subtotal.toLocaleString(undefined,{maximumFractionDigits:0});
 
   var discountInput = document.getElementById('fDiscount');
-  var discount = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
-  if (discount > subtotal) discount = subtotal;
-  if (discount < 0) discount = 0;
+  var discount = discountInput ? computeDiscountAmount(subtotal, discountInput.value, _newDiscountMode) : 0;
 
   var total = subtotal - discount;
   var totalEl = document.getElementById('fItemsTotal');
@@ -2616,9 +2651,10 @@ async function addOrder() {
   var productLabel = _newOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
   var discountRaw = document.getElementById('fDiscount').value;
-  var discount = parseFloat(discountRaw) || 0;
-  if (discount < 0) { toast('Discount cannot be negative', true); return; }
-  if (discount > subtotal) { toast('Discount cannot exceed the subtotal', true); return; }
+  var discountTyped = parseFloat(discountRaw) || 0;
+  if (discountTyped < 0) { toast('Discount cannot be negative', true); return; }
+  if (_newDiscountMode === 'percent' && discountTyped > 100) { toast('Discount percentage cannot exceed 100%', true); return; }
+  var discount = computeDiscountAmount(subtotal, discountRaw, _newDiscountMode);
   var discountReason = document.getElementById('fDiscountReason').value.trim();
   var totalPrice = subtotal - discount;
 
@@ -2738,6 +2774,7 @@ async function restoreStock(order) {
 function clearForm() {
   ['fName','fContact','fNotes','fDiscount','fDiscountReason'].forEach(id=>document.getElementById(id).value='');
   _newOrderItems = [];
+  setDiscountMode('f', 'amount');
   renderNewOrderItems();
   _payDone=false; renderPayDone();
 }
@@ -3206,7 +3243,16 @@ async function enterEdit() {
         <span style="font-size:12px;color:var(--ink2)">Subtotal</span>
         <span style="font-size:13px;font-weight:600;color:var(--ink2)" id="eItemsSubtotal">MVR 0</span>
       </div>
-      <div class="fg"><label>Discount (MVR)</label><input type="number" id="eDiscount" value="${o.discount_amount||''}" placeholder="0" min="0" oninput="renderEditOrderItems()"></div>
+      <div class="fg">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <label style="margin:0">Discount</label>
+          <div style="display:flex;gap:4px">
+            <button type="button" id="eDiscModeAmt" onclick="setDiscountMode('e','amount')" class="disc-mode-btn on">MVR</button>
+            <button type="button" id="eDiscModePct" onclick="setDiscountMode('e','percent')" class="disc-mode-btn">%</button>
+          </div>
+        </div>
+        <input type="number" id="eDiscount" value="${o.discount_amount||''}" placeholder="0" min="0" oninput="renderEditOrderItems()">
+      </div>
       <div class="fg"><label>Discount Reason</label><input type="text" id="eDiscountReason" value="${esc(o.discount_reason||'')}" placeholder="Optional — e.g. loyal customer"></div>
       <div class="fg ffull" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding-top:2px">
         <span style="font-size:13px;font-weight:700;color:var(--ink)">Total</span>
@@ -3297,9 +3343,7 @@ function renderEditOrderItems() {
   if (subtotalEl) subtotalEl.textContent = 'MVR ' + subtotal.toLocaleString(undefined,{maximumFractionDigits:0});
 
   var eDiscountInput = document.getElementById('eDiscount');
-  var eDiscount = eDiscountInput ? (parseFloat(eDiscountInput.value) || 0) : 0;
-  if (eDiscount > subtotal) eDiscount = subtotal;
-  if (eDiscount < 0) eDiscount = 0;
+  var eDiscount = eDiscountInput ? computeDiscountAmount(subtotal, eDiscountInput.value, _editDiscountMode) : 0;
 
   var total = subtotal - eDiscount;
   var totalEl = document.getElementById('eItemsTotal');
@@ -3331,9 +3375,11 @@ async function saveEdit() {
   if (!_editOrderItems.length) { toast('Order must have at least one item', true); return; }
 
   var editSubtotal = _editOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
-  var editDiscount = parseFloat(g('eDiscount')) || 0;
-  if (editDiscount < 0) { toast('Discount cannot be negative', true); return; }
-  if (editDiscount > editSubtotal) { toast('Discount cannot exceed the subtotal', true); return; }
+  var editDiscountRaw = g('eDiscount');
+  var editDiscountTyped = parseFloat(editDiscountRaw) || 0;
+  if (editDiscountTyped < 0) { toast('Discount cannot be negative', true); return; }
+  if (_editDiscountMode === 'percent' && editDiscountTyped > 100) { toast('Discount percentage cannot exceed 100%', true); return; }
+  var editDiscount = computeDiscountAmount(editSubtotal, editDiscountRaw, _editDiscountMode);
   var editDiscountReason = g('eDiscountReason') ? g('eDiscountReason').trim() : '';
 
   const o=orders.find(x=>x.id===viewId)
