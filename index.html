@@ -2675,12 +2675,15 @@ async function loadOrders() {
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
 }
-async function logActivity(orderId, action) {
+async function logActivity(orderId, action, fieldName, oldValue, newValue) {
   try {
     var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
     var userId = _session ? _session.user.id : null;
     await db.from('order_activity').insert({
-      order_id: orderId, user_id: userId, user_name: userName, action: action
+      order_id: orderId, user_id: userId, user_name: userName, action: action,
+      field_name: fieldName || null,
+      old_value: (oldValue===undefined||oldValue===null) ? null : String(oldValue),
+      new_value: (newValue===undefined||newValue===null) ? null : String(newValue)
     });
   } catch(e) { console.error('Activity log failed:', e); }
 }
@@ -3201,6 +3204,12 @@ async function loadOrderActivity(orderId) {
     deleted: 'Deleted'
   };
 
+  var fieldLabels = {
+    customer_name: 'Customer', contact: 'Contact', delivery: 'Delivery',
+    payment: 'Payment Method', payment_status: 'Payment Status', notes: 'Notes',
+    total: 'Total', discount: 'Discount', items: 'Items'
+  };
+
   var html = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Activity</div>';
   html += '<div style="display:flex;flex-direction:column;gap:0">';
 
@@ -3210,6 +3219,16 @@ async function loadOrderActivity(orderId) {
     var timeStr = dt.toLocaleString('en-US', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit' });
     var label = actionLabels[a.action] || a.action;
 
+    var detail = '';
+    if (a.field_name === 'items') {
+      detail = 'Items: ' + (a.new_value || '—');
+    } else if (a.field_name === 'total' || a.field_name === 'discount') {
+      detail = fieldLabels[a.field_name] + ': MVR ' + (a.old_value||0) + ' → MVR ' + (a.new_value||0);
+    } else if (a.field_name) {
+      var fl = fieldLabels[a.field_name] || a.field_name;
+      detail = fl + ': ' + (a.old_value||'—') + ' → ' + (a.new_value||'—');
+    }
+
     html += '<div style="display:flex;gap:10px">'
       + '<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">'
         + '<div style="width:8px;height:8px;border-radius:50%;background:var(--blue);margin-top:5px"></div>'
@@ -3217,6 +3236,7 @@ async function loadOrderActivity(orderId) {
       + '</div>'
       + '<div style="padding-bottom:' + (isLast?'0':'14') + 'px;flex:1">'
         + '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(label) + '</div>'
+        + (detail ? '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + esc(detail) + '</div>' : '')
         + '<div style="font-size:11px;color:var(--ink3);margin-top:1px">' + esc(a.user_name||'Unknown') + ' · ' + timeStr + '</div>'
       + '</div>'
       + '</div>';
@@ -3562,12 +3582,28 @@ async function saveEdit() {
   if(error){toast('Error: '+error.message,true);return;}
 
   var prevStatus = o.status;
+  var prevCustomer = o.customer_name, prevContact = o.contact||'', prevDelivery = o.delivery,
+      prevPayment = o.payment, prevPaymentDone = !!o.payment_done, prevNotes = o.notes||'',
+      prevPrice = Number(o.price)||0, prevDiscount = Number(o.discount_amount)||0;
+
   Object.assign(o,u);
-  if (prevStatus !== newStatus) {
-    await logActivity(viewId, newStatus + ' (via edit)');
-  } else {
-    await logActivity(viewId, 'edited');
-  }
+
+  if (prevStatus !== newStatus) await logActivity(viewId, newStatus + ' (via edit)');
+
+  if (prevCustomer !== editName) await logActivity(viewId, 'edited', 'customer_name', prevCustomer, editName);
+  if (prevContact !== editContact) await logActivity(viewId, 'edited', 'contact', prevContact, editContact);
+  if (prevDelivery !== g('ed')) await logActivity(viewId, 'edited', 'delivery', prevDelivery, g('ed'));
+  if (prevPayment !== g('epy')) await logActivity(viewId, 'edited', 'payment', prevPayment, g('epy'));
+  var newPaymentDone = epdEl?epdEl.value==='1':false;
+  if (prevPaymentDone !== newPaymentDone) await logActivity(viewId, 'edited', 'payment_status', prevPaymentDone?'Paid':'Unpaid', newPaymentDone?'Paid':'Unpaid');
+  if (prevNotes !== (g('eno')||'')) await logActivity(viewId, 'edited', 'notes', prevNotes, g('eno'));
+
+  var itemsChanged = JSON.stringify(_editOrderItemsOriginal.map(function(it){return [it.product_id,it.quantity];}))
+    !== JSON.stringify(_editOrderItems.map(function(it){return [it.product_id,it.quantity];}));
+  if (itemsChanged) await logActivity(viewId, 'edited', 'items', null, productLabel);
+  if (prevPrice !== totalPrice) await logActivity(viewId, 'edited', 'total', prevPrice, totalPrice);
+  if (prevDiscount !== editDiscount) await logActivity(viewId, 'edited', 'discount', prevDiscount, editDiscount);
+
   render(); openSheet(viewId); toast('Saved ✓');
 }
 async function updateOrderStatus(newStatus, activityLabel) {
