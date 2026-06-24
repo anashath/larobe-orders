@@ -4850,7 +4850,8 @@ function openEditExpense(id, readOnly) {
   document.getElementById('expModalTitle').textContent = readOnly ? 'View Expense' : 'Edit Expense';
   document.getElementById('expModalSub').textContent = 'Logged ' + formatDisplayDate(e.expense_date) + ' by ' + esc(e.user_name||'—');
   document.getElementById('expSaveBtn').textContent = 'Save Changes';
-  document.getElementById('expDeleteLink').style.display = readOnly ? 'none' : '';
+  var isAdmin = _profile && _profile.role === 'admin';
+  document.getElementById('expDeleteLink').style.display = (readOnly || !isAdmin) ? 'none' : '';
   document.getElementById('expDate').value = e.expense_date;
   document.getElementById('expDateText').textContent = formatDisplayDate(e.expense_date);
   document.getElementById('expCategory').value = e.category;
@@ -5046,8 +5047,9 @@ async function deleteExpenseFromEdit() {
   if (!_editingExpenseId) return;
   if (!await showConfirm('Delete Expense', 'This expense will be permanently removed.', {confirmLabel:'Delete', danger:true})) return;
   var oldExp = _allExpenses.find(function(x){ return x.id === _editingExpenseId; });
-  const {error} = await db.from('expenses').delete().eq('id', _editingExpenseId);
+  const {data, error} = await db.from('expenses').delete().eq('id', _editingExpenseId).select();
   if (error) { toast('Error: ' + error.message, true); return; }
+  if (!data || !data.length) { toast('Delete failed — you may not have permission to delete expenses', true); return; }
   await logExpenseActivity(_editingExpenseId, oldExp?oldExp.category:null, 'deleted', null, null, oldExp?('MVR '+oldExp.amount+' on '+oldExp.expense_date):null);
   closeAddExpense();
   toast('Expense deleted');
