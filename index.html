@@ -962,6 +962,20 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div style="padding:0 16px 8px">
     <input type="text" id="expActivitySearch" placeholder="Search by category or staff name…" oninput="filterExpenseActivity()" style="width:100%;border:1px solid var(--line);border-radius:999px;padding:11px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none">
   </div>
+  <div class="chips" id="expActivityChips">
+    <button class="chip on" onclick="setExpActivityCategory('all',this)">All</button>
+    <button class="chip" onclick="setExpActivityCategory('Delivery',this)">Delivery</button>
+    <button class="chip" onclick="setExpActivityCategory('Rent',this)">Rent</button>
+    <button class="chip" onclick="setExpActivityCategory('Salaries',this)">Salaries</button>
+    <button class="chip" onclick="setExpActivityCategory('Other',this)">Other</button>
+  </div>
+  <div style="padding:0 16px 8px;display:flex;align-items:center;gap:8px">
+    <div id="expActivityDateDisplay" onclick="openExpActivityDateRange()" class="product-select-field" style="flex:1">
+      <span style="flex:1;font-size:13px;color:var(--ink3)" id="expActivityDateText">All dates</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <button onclick="clearExpActivityDateRange()" id="expActivityDateClear" style="display:none;background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer;padding:8px;flex-shrink:0">Clear</button>
+  </div>
   <div id="expActivityList" style="padding:0 16px 16px"></div>
 </div>
 
@@ -1131,6 +1145,15 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   </div>
   <div style="padding:0 16px 8px">
     <input type="text" id="prodActivitySearch" placeholder="Search by product or staff name…" oninput="filterProductActivity()" style="width:100%;border:1px solid var(--line);border-radius:999px;padding:11px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none">
+  </div>
+  <div class="chips" id="prodActivityChips">
+    <button class="chip on" onclick="setProdActivityFilter('all',this)">All</button>
+    <button class="chip" onclick="setProdActivityFilter('created',this)">Created</button>
+    <button class="chip" onclick="setProdActivityFilter('edited',this)">Edited</button>
+    <button class="chip" onclick="setProdActivityFilter('restocked',this)">Restocked</button>
+    <button class="chip" onclick="setProdActivityFilter('activated',this)">Activated</button>
+    <button class="chip" onclick="setProdActivityFilter('deactivated',this)">Deactivated</button>
+    <button class="chip" onclick="setProdActivityFilter('deleted',this)">Deleted</button>
   </div>
   <div id="prodActivityList" style="padding:0 16px 16px"></div>
 </div>
@@ -2237,7 +2260,8 @@ async function addProd() {
     }
   }
 
-  await logProductActivity(newProduct.id, newProduct.name, 'created', null, null, null);
+  var creationSummary = 'Stock: ' + stock + ', Cost: MVR ' + cost + ', Price: MVR ' + price + (color ? ', Color: ' + color : '');
+  await logProductActivity(newProduct.id, newProduct.name, 'created', 'details', null, creationSummary);
 
   products.push(newProduct);
   document.getElementById('newProd').value='';
@@ -3218,11 +3242,21 @@ async function loadProductActivity() {
   renderProductActivity(_prodActivityAll);
 }
 
+var _prodActivityFilter = 'all';
+
+function setProdActivityFilter(action, btn) {
+  _prodActivityFilter = action;
+  document.querySelectorAll('#prodActivityChips .chip').forEach(function(c){ c.classList.remove('on'); });
+  btn.classList.add('on');
+  filterProductActivity();
+}
+
 function filterProductActivity() {
   var q = (document.getElementById('prodActivitySearch').value || '').toLowerCase();
-  if (!q) { renderProductActivity(_prodActivityAll); return; }
   var filtered = _prodActivityAll.filter(function(a) {
-    return (a.product_name||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+    var matchesAction = _prodActivityFilter === 'all' || a.action === _prodActivityFilter;
+    var matchesSearch = !q || (a.product_name||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+    return matchesAction && matchesSearch;
   });
   renderProductActivity(filtered);
 }
@@ -3260,6 +3294,8 @@ function renderProductActivity(data) {
         detail = fieldLabel + ': ' + (a.new_value === 'true' ? 'Active' : 'Hidden');
       } else if (a.field_name === 'photo') {
         detail = 'Photo updated';
+      } else if (a.field_name === 'details') {
+        detail = a.new_value || '';
       } else {
         detail = fieldLabel + ': ' + (a.old_value||'—') + ' → ' + (a.new_value||'—');
       }
@@ -4781,6 +4817,9 @@ function closeAddExpense() {
 }
 
 var _expActivityAll = [];
+var _expActivityCategory = 'all';
+var _expActivityDateStart = null;
+var _expActivityDateEnd = null;
 
 async function loadExpenseActivity() {
   var list = document.getElementById('expActivityList');
@@ -4796,13 +4835,58 @@ async function loadExpenseActivity() {
   renderExpenseActivity(_expActivityAll);
 }
 
+function setExpActivityCategory(cat, btn) {
+  _expActivityCategory = cat;
+  document.querySelectorAll('#expActivityChips .chip').forEach(function(c){ c.classList.remove('on'); });
+  btn.classList.add('on');
+  filterExpenseActivity();
+}
+
+function localDateStr(dt) {
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+
+function openExpActivityDateRange() {
+  openCalendarRange('Filter by Date', 'Filters by when the activity happened', _expActivityDateStart || today(), _expActivityDateEnd || today(), function(start, end) {
+    _expActivityDateStart = start;
+    _expActivityDateEnd = end;
+    document.getElementById('expActivityDateText').textContent = formatDisplayDate(start) + ' – ' + formatDisplayDate(end);
+    document.getElementById('expActivityDateText').style.color = 'var(--ink)';
+    document.getElementById('expActivityDateClear').style.display = '';
+    filterExpenseActivity();
+  });
+}
+
+function clearExpActivityDateRange() {
+  _expActivityDateStart = null;
+  _expActivityDateEnd = null;
+  document.getElementById('expActivityDateText').textContent = 'All dates';
+  document.getElementById('expActivityDateText').style.color = 'var(--ink3)';
+  document.getElementById('expActivityDateClear').style.display = 'none';
+  filterExpenseActivity();
+}
+
 function filterExpenseActivity() {
   var q = (document.getElementById('expActivitySearch').value || '').toLowerCase();
-  if (!q) { renderExpenseActivity(_expActivityAll); return; }
   var filtered = _expActivityAll.filter(function(a) {
-    return (a.expense_category||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+    var matchesCategory = _expActivityCategory === 'all' || a.expense_category === _expActivityCategory;
+    var matchesSearch = !q || (a.expense_category||'').toLowerCase().includes(q) || (a.user_name||'').toLowerCase().includes(q);
+    var matchesDate = true;
+    if (_expActivityDateStart && _expActivityDateEnd) {
+      var d = localDateStr(new Date(a.created_at));
+      matchesDate = d >= _expActivityDateStart && d <= _expActivityDateEnd;
+    }
+    return matchesCategory && matchesSearch && matchesDate;
   });
   renderExpenseActivity(filtered);
+}
+
+async function jumpToExpense(expenseId) {
+  go('expenses');
+  await loadExpenses();
+  var exists = _allExpenses.find(function(x){ return x.id === expenseId; });
+  if (!exists) { toast('This expense no longer exists', true); return; }
+  openEditExpense(expenseId);
 }
 
 function renderExpenseActivity(data) {
@@ -4828,18 +4912,22 @@ function renderExpenseActivity(data) {
     var detail = '';
     if (a.action === 'deleted') {
       detail = a.new_value ? ('Deleted: ' + a.new_value) : '';
+    } else if (a.field_name === 'details') {
+      detail = a.new_value || '';
     } else if (a.field_name) {
       var fieldLabel = fieldLabels[a.field_name] || a.field_name;
       detail = fieldLabel + ': ' + (a.old_value||'—') + ' → ' + (a.new_value||'—');
     }
 
-    return '<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)">'
+    var tappable = a.action !== 'deleted' && a.expense_id;
+    return '<div' + (tappable ? ' onclick="jumpToExpense(' + a.expense_id + ')" style="cursor:pointer"' : '') + ' style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)' + (tappable ? ';cursor:pointer' : '') + '">'
       + '<div style="width:36px;height:36px;border-radius:10px;background:' + cfg.bg + ';color:' + cfg.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;text-transform:uppercase">' + cfg.label.slice(0,2) + '</div>'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(a.expense_category||'Unknown') + ' <span style="color:' + cfg.color + ';font-weight:700">' + cfg.label + '</span></div>'
         + (detail ? '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + esc(detail) + '</div>' : '')
         + '<div style="font-size:11px;color:var(--ink3);margin-top:3px">' + esc(a.user_name||'Unknown') + ' · ' + timeStr + '</div>'
       + '</div>'
+      + (tappable ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round" style="flex-shrink:0;align-self:center"><polyline points="9 18 15 12 9 6"/></svg>' : '')
       + '</div>';
   }).join('');
 }
@@ -4896,7 +4984,9 @@ async function saveExpense() {
 
   if (error) { toast('Error: ' + error.message, true); return; }
 
-  if (data && data.length) await logExpenseActivity(data[0].id, category, 'created');
+  if (data && data.length) {
+    await logExpenseActivity(data[0].id, category, 'created', 'details', null, 'MVR ' + amountRaw + ' on ' + date);
+  }
 
   closeAddExpense();
   toast('Expense logged');
