@@ -1015,7 +1015,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <button type="button" id="expDeleteLink" onclick="deleteExpenseFromEdit()" style="display:none;width:100%;text-align:center;background:none;border:none;color:var(--red);font-size:12px;font-weight:700;padding:8px 0 0;cursor:pointer">Delete this expense</button>
     </div>
     <div class="s-foot">
-      <button class="sfbtn sf-ghost" onclick="closeAddExpense()">Cancel</button>
+      <button class="sfbtn sf-ghost" id="expCancelBtn" onclick="closeAddExpense()">Cancel</button>
       <button class="sfbtn sf-blue" id="expSaveBtn" onclick="saveExpense()">Save Expense</button>
     </div>
   </div>
@@ -4780,6 +4780,17 @@ function renderExpenseList() {
 
 var _editingExpenseId = null;
 
+function setExpenseFormReadOnly(readOnly) {
+  document.getElementById('expAmount').disabled = !!readOnly;
+  document.getElementById('expNote').disabled = !!readOnly;
+  ['expDateDisplay','expCategoryDisplay'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.pointerEvents = readOnly ? 'none' : ''; el.style.opacity = readOnly ? '0.55' : ''; }
+  });
+  document.getElementById('expSaveBtn').style.display = readOnly ? 'none' : '';
+  document.getElementById('expCancelBtn').textContent = readOnly ? 'Close' : 'Cancel';
+}
+
 function openAddExpense() {
   _editingExpenseId = null;
   document.getElementById('expModalTitle').textContent = 'Add Expense';
@@ -4792,23 +4803,25 @@ function openAddExpense() {
   document.getElementById('expCategoryDisplay').querySelector('span').textContent = 'Delivery';
   document.getElementById('expAmount').value = '';
   document.getElementById('expNote').value = '';
+  setExpenseFormReadOnly(false);
   document.getElementById('addExpenseMask').classList.add('open');
 }
 
-function openEditExpense(id) {
+function openEditExpense(id, readOnly) {
   var e = _allExpenses.find(function(x){ return x.id === id; });
   if (!e) return;
   _editingExpenseId = id;
-  document.getElementById('expModalTitle').textContent = 'Edit Expense';
+  document.getElementById('expModalTitle').textContent = readOnly ? 'View Expense' : 'Edit Expense';
   document.getElementById('expModalSub').textContent = 'Logged ' + formatDisplayDate(e.expense_date) + ' by ' + esc(e.user_name||'—');
   document.getElementById('expSaveBtn').textContent = 'Save Changes';
-  document.getElementById('expDeleteLink').style.display = '';
+  document.getElementById('expDeleteLink').style.display = readOnly ? 'none' : '';
   document.getElementById('expDate').value = e.expense_date;
   document.getElementById('expDateText').textContent = formatDisplayDate(e.expense_date);
   document.getElementById('expCategory').value = e.category;
   document.getElementById('expCategoryDisplay').querySelector('span').textContent = e.category;
   document.getElementById('expAmount').value = e.amount;
   document.getElementById('expNote').value = e.note || '';
+  setExpenseFormReadOnly(readOnly);
   document.getElementById('addExpenseMask').classList.add('open');
 }
 
@@ -4886,7 +4899,7 @@ async function jumpToExpense(expenseId) {
   await loadExpenses();
   var exists = _allExpenses.find(function(x){ return x.id === expenseId; });
   if (!exists) { toast('This expense no longer exists', true); return; }
-  openEditExpense(expenseId);
+  openEditExpense(expenseId, true);
 }
 
 function renderExpenseActivity(data) {
