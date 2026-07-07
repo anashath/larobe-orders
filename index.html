@@ -1814,6 +1814,14 @@ function setDiscountMode(prefix, mode) {
 
 // Converts whatever's typed in the discount field into an actual MVR amount,
 // based on the active mode — percent is always relative to this order's own
+// Calculate weighted average price per unit
+function calcWeightedAveragePrice(items) {
+  if (!items || !items.length) return 0;
+  var totalPrice = items.reduce(function(s,it){ return s + it.unit_price * it.quantity; }, 0);
+  var totalQty = items.reduce(function(s,it){ return s + it.quantity; }, 0);
+  return totalQty > 0 ? totalPrice / totalQty : 0;
+}
+
 // subtotal, clamped to a sane range either way.
 function computeDiscountAmount(subtotal, rawValue, mode) {
   var v = parseFloat(rawValue) || 0;
@@ -2703,6 +2711,8 @@ async function addOrder() {
 
   var subtotal = _newOrderItems.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
   var totalCost = _newOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
+  var weightedAvgPrice = calcWeightedAveragePrice(_newOrderItems);
+  var totalQty = _newOrderItems.reduce(function(s,it){ return s + it.quantity; }, 0);
   var productLabel = _newOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
   var discountRaw = document.getElementById('fDiscount').value;
@@ -2734,6 +2744,8 @@ async function addOrder() {
       product: productLabel,
       product_id: _newOrderItems[0].product_id,
       price: totalPrice,
+      weighted_avg_price: weightedAvgPrice,
+      total_qty: totalQty,
       total_cost: totalCost,
       discount_amount: discount,
       discount_reason: discountReason || null,
@@ -2766,6 +2778,20 @@ async function addOrder() {
     };
   });
   const itemsRes = await db.from('order_items').insert(itemRows);
+  
+  // Log item history for audit trail
+  for (var h = 0; h < itemRows.length; h++) {
+    var histRow = itemRows[h];
+    await db.from('order_item_history').insert({
+      order_id: newOrder.id,
+      product_id: histRow.product_id,
+      product_name: histRow.product_name,
+      unit_price: histRow.unit_price,
+      quantity: histRow.quantity,
+      action: 'added',
+      timestamp: new Date().toISOString()
+    }).catch(function(){});
+  }
 
   orders.unshift(newOrder);
   await logActivity(newOrder.id, 'created');
@@ -2786,6 +2812,12 @@ async function addOrder() {
 async function loadOrderItems(orderId) {
   const {data, error} = await db.from('order_items').select('*').eq('order_id', orderId).order('id', {ascending:true});
   if (error) { console.error('Load order items failed:', error); return []; }
+  return data || [];
+}
+
+async function loadOrderItemHistory(orderId) {
+  const {data, error} = await db.from('order_item_history').select('*').eq('order_id', orderId).order('timestamp', {ascending:false});
+  if (error) { console.error('Load item history failed:', error); return []; }
   return data || [];
 }
 
@@ -3563,16 +3595,32 @@ async function saveEdit() {
   });
   const itemsRes = await db.from('order_items').insert(itemRows);
   if (itemsRes.error) { toast('Items failed to save: ' + itemsRes.error.message, true); return; }
+  
+  // Log item history for edit
+  for (var h = 0; h < itemRows.length; h++) {
+    var histRow = itemRows[h];
+    await db.from('order_item_history').insert({
+      order_id: viewId,
+      product_id: histRow.product_id,
+      product_name: histRow.product_name,
+      unit_price: histRow.unit_price,
+      quantity: histRow.quantity,
+      action: 'modified',
+      timestamp: new Date().toISOString()
+    }).catch(function(){});
+  }
 
   var totalPrice = editSubtotal - editDiscount;
   var totalCost = _editOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
+  var weightedAvgPrice = calcWeightedAveragePrice(_editOrderItems);
+  var totalQty = _editOrderItems.reduce(function(s,it){ return s + it.quantity; }, 0);
   var productLabel = _editOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
   const epdEl=document.getElementById('epd');
   const u={
     customer_name: editName, contact: editContact,
     product: productLabel, product_id: _editOrderItems[0].product_id,
-    price: totalPrice, total_cost: totalCost,
+    price: totalPrice, weighted_avg_price: weightedAvgPrice, total_qty: totalQty, total_cost: totalCost,
     discount_amount: editDiscount, discount_reason: editDiscountReason || null,
     status: newStatus, delivery: g('ed'), payment: g('epy'), notes: g('eno'),
     payment_done: epdEl?epdEl.value==='1':false,
