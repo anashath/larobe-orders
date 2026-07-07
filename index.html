@@ -1822,6 +1822,33 @@ function calcWeightedAveragePrice(items) {
   return totalQty > 0 ? totalPrice / totalQty : 0;
 }
 
+// Calculate weighted average cost from stock entries (only current stock on hand)
+async function calcWeightedAverageCost(productId) {
+  if (!productId) return 0;
+  const {data, error} = await db.from('stock_entries')
+    .select('quantity, cost_price')
+    .eq('product_id', productId)
+    .eq('active', true)
+    .order('created_at', {ascending: false});
+  
+  if (error || !data || !data.length) return 0;
+  
+  var totalCost = data.reduce(function(s,it){ return s + (it.cost_price * it.quantity); }, 0);
+  var totalQty = data.reduce(function(s,it){ return s + it.quantity; }, 0);
+  return totalQty > 0 ? totalCost / totalQty : 0;
+}
+
+// Load all stock entries for a product
+async function loadStockEntries(productId) {
+  const {data, error} = await db.from('stock_entries')
+    .select('*')
+    .eq('product_id', productId)
+    .order('created_at', {ascending: false});
+  
+  if (error) { console.error('Load stock entries failed:', error); return []; }
+  return data || [];
+}
+
 // subtotal, clamped to a sane range either way.
 function computeDiscountAmount(subtotal, rawValue, mode) {
   var v = parseFloat(rawValue) || 0;
@@ -2316,8 +2343,30 @@ async function confirmRestock() {
   if (!p) { toast('Product not found', true); return; }
 
   var newQty = (p.stock_qty||0) + qty;
-  var updates = { stock_qty: newQty };
-  if (cost > 0) updates.cost_price = cost;
+  
+  // Log the stock entry
+  const entryRes = await db.from('stock_entries').insert({
+    product_id: p.id,
+    quantity: qty,
+    cost_price: cost > 0 ? cost : (p.cost_price || 0),
+    reason: 'manual_restock',
+    active: true,
+    created_at: new Date().toISOString(),
+    added_by: auth.currentUser?.email || 'unknown'
+  });
+  
+  if (entryRes.error) {
+    toast('Error logging stock entry: ' + entryRes.error.message, true);
+    return;
+  }
+
+  // Calculate new weighted average cost from all active stock entries
+  var newAvgCost = await calcWeightedAverageCost(p.id);
+  
+  var updates = { 
+    stock_qty: newQty,
+    cost_price: newAvgCost > 0 ? newAvgCost : (p.cost_price || 0)
+  };
 
   const {error} = await db.from('products').update(updates).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
@@ -2325,18 +2374,19 @@ async function confirmRestock() {
   var oldStock = p.stock_qty;
   var oldCost = p.cost_price;
   p.stock_qty = newQty;
-  if (cost > 0) p.cost_price = cost;
+  p.cost_price = newAvgCost > 0 ? newAvgCost : (p.cost_price || 0);
 
   await db.from('stock_movements').insert({
     product_id: p.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
   });
+  
   await logProductActivity(p.id, p.name, 'restocked', 'stock_qty', oldStock, newQty);
-  if (cost > 0 && cost !== oldCost) await logProductActivity(p.id, p.name, 'restocked', 'cost_price', oldCost, cost);
+  await logProductActivity(p.id, p.name, 'restocked', 'cost_price', oldCost, p.cost_price);
 
   closeRestockPrompt();
   renderProdSheetBody();
   renderProds();
-  toast('Restocked +' + qty + ' units');
+  toast('Restocked +' + qty + ' units @ average cost MVR ' + p.cost_price.toLocaleString(undefined,{maximumFractionDigits:2}));
 }
 
 var _adjustProductId = null;
@@ -2403,11 +2453,54 @@ async function confirmAdjustStock() {
   var actualDelta = newQty - current;
   var reasonCode = (reason === 'correction') ? 'manual_correction' : reason;
 
+  // If stock is being reduced (lost/damaged/correction down), deactivate oldest entries (FIFO)
+  if (actualDelta < 0) {
+    var toDeactivate = Math.abs(actualDelta);
+    var entries = await loadStockEntries(p.id);
+    var activeEntries = entries.filter(e => e.active);
+    
+    for (var i = activeEntries.length - 1; i >= 0 && toDeactivate > 0; i--) {
+      var entry = activeEntries[i];
+      var deactivateQty = Math.min(toDeactivate, entry.quantity);
+      
+      var newEntryQty = entry.quantity - deactivateQty;
+      if (newEntryQty <= 0) {
+        // Deactivate entire entry
+        await db.from('stock_entries').update({ active: false }).eq('id', entry.id);
+      } else {
+        // Partial deactivation
+        await db.from('stock_entries').update({ quantity: newEntryQty }).eq('id', entry.id);
+      }
+      toDeactivate -= deactivateQty;
+    }
+  }
+  // If stock is being added (found), create a new entry with current cost
+  else if (actualDelta > 0 && reason === 'found') {
+    await db.from('stock_entries').insert({
+      product_id: p.id,
+      quantity: actualDelta,
+      cost_price: p.cost_price || 0,
+      reason: 'found',
+      active: true,
+      created_at: new Date().toISOString(),
+      added_by: auth.currentUser?.email || 'unknown'
+    }).catch(function(){});
+  }
+
   const {error} = await db.from('products').update({ stock_qty: newQty }).eq('id', p.id);
   if (error) { toast('Error: ' + error.message, true); return; }
 
   var oldStock = p.stock_qty;
   p.stock_qty = newQty;
+
+  // Recalculate average cost
+  if (actualDelta !== 0) {
+    var newAvgCost = await calcWeightedAverageCost(p.id);
+    if (newAvgCost > 0) {
+      p.cost_price = newAvgCost;
+      await db.from('products').update({ cost_price: newAvgCost }).eq('id', p.id);
+    }
+  }
 
   await db.from('stock_movements').insert({
     product_id: p.id, change_qty: actualDelta, reason: reasonCode
