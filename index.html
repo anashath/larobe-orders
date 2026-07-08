@@ -2952,49 +2952,102 @@ async function restoreStock(order) {
   return true;
 }
 function clearForm() {
-  // Clear all text inputs
-  ['fName','fContact','fNotes','fDiscount','fDiscountReason'].forEach(id => {
+  console.log('[clearForm] Starting form clear...');
+  
+  // Clear all text input fields by ID
+  const textFields = ['fName', 'fContact', 'fNotes', 'fDiscount', 'fDiscountReason'];
+  textFields.forEach(id => {
     var el = document.getElementById(id);
-    if (el) el.value = '';
+    if (el) {
+      el.value = '';
+      console.log('[clearForm] Cleared ' + id);
+    }
   });
-  
-  // Reset hidden select fields to defaults
-  document.getElementById('fStatus').value = 'pending';
-  document.getElementById('fDelivery').value = 'Hulhumale Phase 1';
-  document.getElementById('fPayment').value = 'BML Transfer';
-  
-  // Update display text for selects
-  var statusDisplay = document.getElementById('fStatusDisplay');
-  if (statusDisplay) statusDisplay.querySelector('span').textContent = 'Pending';
-  
-  var deliveryDisplay = document.getElementById('fDeliveryDisplay');
-  if (deliveryDisplay) deliveryDisplay.querySelector('span').textContent = 'Hulhumalé Phase 1';
-  
-  var paymentDisplay = document.getElementById('fPaymentDisplay');
-  if (paymentDisplay) paymentDisplay.querySelector('span').textContent = 'BML Transfer';
   
   // Clear items array
   _newOrderItems = [];
+  console.log('[clearForm] Cleared _newOrderItems array');
+  
+  // Reset hidden select field values
+  var fStatus = document.getElementById('fStatus');
+  if (fStatus) { fStatus.value = 'pending'; }
+  
+  var fDelivery = document.getElementById('fDelivery');
+  if (fDelivery) { fDelivery.value = 'Hulhumale Phase 1'; }
+  
+  var fPayment = document.getElementById('fPayment');
+  if (fPayment) { fPayment.value = 'BML Transfer'; }
+  
+  console.log('[clearForm] Reset hidden select values');
+  
+  // Update display text for status select
+  var statusDisplay = document.getElementById('fStatusDisplay');
+  if (statusDisplay) {
+    var statusSpan = statusDisplay.querySelector('span');
+    if (statusSpan) {
+      statusSpan.textContent = 'Pending';
+      console.log('[clearForm] Updated fStatusDisplay text');
+    }
+  }
+  
+  // Update display text for delivery select
+  var deliveryDisplay = document.getElementById('fDeliveryDisplay');
+  if (deliveryDisplay) {
+    var deliverySpan = deliveryDisplay.querySelector('span');
+    if (deliverySpan) {
+      deliverySpan.textContent = 'Hulhumalé Phase 1';
+      console.log('[clearForm] Updated fDeliveryDisplay text');
+    }
+  }
+  
+  // Update display text for payment select
+  var paymentDisplay = document.getElementById('fPaymentDisplay');
+  if (paymentDisplay) {
+    var paymentSpan = paymentDisplay.querySelector('span');
+    if (paymentSpan) {
+      paymentSpan.textContent = 'BML Transfer';
+      console.log('[clearForm] Updated fPaymentDisplay text');
+    }
+  }
   
   // Reset discount mode
-  setDiscountMode('f', 'amount');
-  
-  // Re-render items list
-  renderNewOrderItems();
+  _newDiscountMode = 'amount';
+  var fDiscModeAmt = document.getElementById('fDiscModeAmt');
+  var fDiscModePct = document.getElementById('fDiscModePct');
+  if (fDiscModeAmt) { fDiscModeAmt.className = 'disc-mode-btn on'; }
+  if (fDiscModePct) { fDiscModePct.className = 'disc-mode-btn'; }
+  console.log('[clearForm] Reset discount mode to amount');
   
   // Reset payment done status
   _payDone = false;
-  renderPayDone();
+  var payYes = document.getElementById('payYes');
+  var payNo = document.getElementById('payNo');
+  if (payNo) { payNo.className = 'epd-btn epd-on-red'; }
+  if (payYes) { payYes.className = 'epd-btn epd-off'; }
+  console.log('[clearForm] Reset payment done status');
   
-  // Force clear the DOM in case of rendering issues
+  // Clear items list HTML
   var itemsList = document.getElementById('fItemsList');
-  if (itemsList) itemsList.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items added yet</div></div>';
+  if (itemsList) {
+    itemsList.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items added yet</div></div>';
+    console.log('[clearForm] Cleared fItemsList HTML');
+  }
   
+  // Reset subtotal display
   var subtotalEl = document.getElementById('fItemsSubtotal');
-  if (subtotalEl) subtotalEl.textContent = 'MVR 0';
+  if (subtotalEl) {
+    subtotalEl.textContent = 'MVR 0';
+    console.log('[clearForm] Reset subtotal to MVR 0');
+  }
   
+  // Reset total display
   var totalEl = document.getElementById('fItemsTotal');
-  if (totalEl) totalEl.textContent = 'MVR 0';
+  if (totalEl) {
+    totalEl.textContent = 'MVR 0';
+    console.log('[clearForm] Reset total to MVR 0');
+  }
+  
+  console.log('[clearForm] ✓ FORM CLEAR COMPLETE');
 }
 function renderPayDone() {
   const yes=document.getElementById('payYes');
