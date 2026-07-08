@@ -1536,7 +1536,7 @@ function go(s) {
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
   if(s==='products') { renderProds(); }
   if(s==='archived')  { renderArchivedProducts(); }
-  if(s==='new')      { fillDrop(); }
+  if(s==='new')      { fillDrop(); clearForm(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadSales(); else go('orders'); }
@@ -2957,6 +2957,13 @@ function clearForm() {
   setDiscountMode('f', 'amount');
   renderNewOrderItems();
   _payDone=false; renderPayDone();
+  // Force clear the DOM in case of rendering issues
+  var itemsList = document.getElementById('fItemsList');
+  if (itemsList) itemsList.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items added yet</div></div>';
+  var subtotalEl = document.getElementById('fItemsSubtotal');
+  if (subtotalEl) subtotalEl.textContent = 'MVR 0';
+  var totalEl = document.getElementById('fItemsTotal');
+  if (totalEl) totalEl.textContent = 'MVR 0';
 }
 function renderPayDone() {
   const yes=document.getElementById('payYes');
