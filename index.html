@@ -2952,16 +2952,47 @@ async function restoreStock(order) {
   return true;
 }
 function clearForm() {
-  ['fName','fContact','fNotes','fDiscount','fDiscountReason'].forEach(id=>document.getElementById(id).value='');
+  // Clear all text inputs
+  ['fName','fContact','fNotes','fDiscount','fDiscountReason'].forEach(id => {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  
+  // Reset hidden select fields to defaults
+  document.getElementById('fStatus').value = 'pending';
+  document.getElementById('fDelivery').value = 'Hulhumale Phase 1';
+  document.getElementById('fPayment').value = 'BML Transfer';
+  
+  // Update display text for selects
+  var statusDisplay = document.getElementById('fStatusDisplay');
+  if (statusDisplay) statusDisplay.querySelector('span').textContent = 'Pending';
+  
+  var deliveryDisplay = document.getElementById('fDeliveryDisplay');
+  if (deliveryDisplay) deliveryDisplay.querySelector('span').textContent = 'Hulhumalé Phase 1';
+  
+  var paymentDisplay = document.getElementById('fPaymentDisplay');
+  if (paymentDisplay) paymentDisplay.querySelector('span').textContent = 'BML Transfer';
+  
+  // Clear items array
   _newOrderItems = [];
+  
+  // Reset discount mode
   setDiscountMode('f', 'amount');
+  
+  // Re-render items list
   renderNewOrderItems();
-  _payDone=false; renderPayDone();
+  
+  // Reset payment done status
+  _payDone = false;
+  renderPayDone();
+  
   // Force clear the DOM in case of rendering issues
   var itemsList = document.getElementById('fItemsList');
   if (itemsList) itemsList.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items added yet</div></div>';
+  
   var subtotalEl = document.getElementById('fItemsSubtotal');
   if (subtotalEl) subtotalEl.textContent = 'MVR 0';
+  
   var totalEl = document.getElementById('fItemsTotal');
   if (totalEl) totalEl.textContent = 'MVR 0';
 }
