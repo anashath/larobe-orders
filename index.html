@@ -3796,15 +3796,13 @@ async function saveEdit() {
 
   var totalPrice = editSubtotal - editDiscount;
   var totalCost = _editOrderItems.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
-  var weightedAvgPrice = calcWeightedAveragePrice(_editOrderItems);
-  var totalQty = _editOrderItems.reduce(function(s,it){ return s + it.quantity; }, 0);
   var productLabel = _editOrderItems.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
   const epdEl=document.getElementById('epd');
   const u={
     customer_name: editName, contact: editContact,
     product: productLabel, product_id: _editOrderItems[0].product_id,
-    price: totalPrice, weighted_avg_price: weightedAvgPrice, total_qty: totalQty, total_cost: totalCost,
+    price: totalPrice, total_cost: totalCost,
     discount_amount: editDiscount, discount_reason: editDiscountReason || null,
     status: newStatus, delivery: g('ed'), payment: g('epy'), notes: g('eno'),
     payment_done: epdEl?epdEl.value==='1':false,
