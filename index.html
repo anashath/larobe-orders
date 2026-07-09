@@ -2875,15 +2875,19 @@ async function addOrder() {
   // Log item history for audit trail
   for (var h = 0; h < itemRows.length; h++) {
     var histRow = itemRows[h];
-    await db.from('order_item_history').insert({
-      order_id: newOrder.id,
-      product_id: histRow.product_id,
-      product_name: histRow.product_name,
-      unit_price: histRow.unit_price,
-      quantity: histRow.quantity,
-      action: 'added',
-      timestamp: new Date().toISOString()
-    }).catch(function(){});
+    try {
+      await db.from('order_item_history').insert({
+        order_id: newOrder.id,
+        product_id: histRow.product_id,
+        product_name: histRow.product_name,
+        unit_price: histRow.unit_price,
+        quantity: histRow.quantity,
+        action: 'added',
+        timestamp: new Date().toISOString()
+      });
+    } catch(e) {
+      // Silently fail - history logging is non-critical
+    }
   }
 
   orders.unshift(newOrder);
@@ -3783,15 +3787,19 @@ async function saveEdit() {
   // Log item history for edit
   for (var h = 0; h < itemRows.length; h++) {
     var histRow = itemRows[h];
-    await db.from('order_item_history').insert({
-      order_id: viewId,
-      product_id: histRow.product_id,
-      product_name: histRow.product_name,
-      unit_price: histRow.unit_price,
-      quantity: histRow.quantity,
-      action: 'modified',
-      timestamp: new Date().toISOString()
-    }).catch(function(){});
+    try {
+      await db.from('order_item_history').insert({
+        order_id: viewId,
+        product_id: histRow.product_id,
+        product_name: histRow.product_name,
+        unit_price: histRow.unit_price,
+        quantity: histRow.quantity,
+        action: 'modified',
+        timestamp: new Date().toISOString()
+      });
+    } catch(e) {
+      // Silently fail - history logging is non-critical
+    }
   }
 
   var totalPrice = editSubtotal - editDiscount;
