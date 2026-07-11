@@ -2352,7 +2352,7 @@ async function confirmRestock() {
     reason: 'manual_restock',
     active: true,
     created_at: new Date().toISOString(),
-    added_by: auth.currentUser?.email || 'unknown'
+    added_by: 'stock_entry'
   });
   
   if (entryRes.error) {
@@ -2483,7 +2483,7 @@ async function confirmAdjustStock() {
       reason: 'found',
       active: true,
       created_at: new Date().toISOString(),
-      added_by: auth.currentUser?.email || 'unknown'
+      added_by: 'stock_adjustment'
     }).catch(function(){});
   }
 
