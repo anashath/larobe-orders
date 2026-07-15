@@ -325,22 +325,24 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 /* ── PRODUCTS ── */
 .prod-add-row{display:flex;gap:8px;margin-bottom:12px}
 .prod-add-row .fg{flex:1;margin:0}
-.pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:12px;overflow:hidden;box-shadow:var(--sh);transition:box-shadow .15s,transform .15s}
+#prodList,#archivedList{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh);transition:box-shadow .15s,transform .15s}
 .pcard:active{transform:scale(.99)}
-.pcard-top{display:flex;gap:11px;padding:11px 13px;cursor:pointer;align-items:center}
+.pcard-top{display:flex;flex-direction:column;padding:0;cursor:pointer;align-items:stretch}
 .pcard-top.off{opacity:.42}
-.pcard-img{width:60px;height:60px;border-radius:12px;background:linear-gradient(145deg,var(--card2),var(--line));flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
+.pcard-img{width:100%;aspect-ratio:1/1;border-radius:0;background:linear-gradient(145deg,var(--card2),var(--line));flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
 .pcard-img img{width:100%;height:100%;object-fit:cover}
 .pcard-img svg{color:var(--ink3);opacity:.35}
-.pcard-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.pcard-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding:9px 10px 11px}
 .pcard-name{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pcard-name .pcard-color{color:var(--ink3);font-weight:500;font-size:12px}
-.pcard-price-row{display:flex;align-items:baseline;gap:7px}
+.pcard-price-row{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
 .pcard-price{font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--ink);font-weight:700;letter-spacing:0}
 .pcard-cost{font-size:9px;color:var(--ink3);font-weight:500}
 .pcard-stock{display:flex;align-items:center;gap:6px;margin-top:1px}
-.pcard-stock-text{font-size:9.5px;color:var(--ink3);font-weight:500}
-.pcard-arrow{flex-shrink:0;color:var(--ink3);align-self:center;opacity:.6}
+.pcard-stock-text{font-size:9.5px;color:var(--ink3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcard-arrow{display:none}
+.pcard-badge{position:absolute;top:7px;left:7px;background:var(--amber);color:#fff;font-size:9px;font-weight:700;padding:3px 7px 3px 5px;border-radius:20px;display:flex;align-items:center;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.3);letter-spacing:.01em}
 .pcard-expand{color:var(--ink3);flex-shrink:0;align-self:center;transition:transform .2s}
 .pcard-expand.open{transform:rotate(90deg)}
 .prow{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0;cursor:pointer}
@@ -1652,6 +1654,30 @@ const db = supabase.createClient(SB_URL, SB_KEY, {
 });
 
 let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
+let _bestsellerIds = {};
+
+// Tags the top-selling products (by all-time units sold) as bestsellers, then
+// re-renders the catalogue so the badge appears. Fire-and-forget — a slow or
+// failed lookup just means no badges show up, never blocks the products screen.
+async function loadBestsellers() {
+  try {
+    var res = await db.from('order_items').select('product_id,quantity');
+    if (res.error || !res.data) return;
+    var byProduct = {};
+    res.data.forEach(function(it) {
+      if (!it.product_id) return;
+      byProduct[it.product_id] = (byProduct[it.product_id] || 0) + (Number(it.quantity) || 0);
+    });
+    var ranked = Object.keys(byProduct)
+      .map(function(id) { return { id: id, qty: byProduct[id] }; })
+      .filter(function(x) { return x.qty > 0; })
+      .sort(function(a, b) { return b.qty - a.qty; })
+      .slice(0, 3);
+    _bestsellerIds = {};
+    ranked.forEach(function(x) { _bestsellerIds[x.id] = true; });
+    if (document.getElementById('sc-products').classList.contains('on')) renderProds();
+  } catch (e) {}
+}
 
 /* THEME */
 function setTheme(t) {
@@ -1721,7 +1747,7 @@ function go(s) {
   const b=document.getElementById('bn-'+s); if(b) b.classList.add('on');
   const d=document.getElementById('dn-'+s); if(d) d.classList.add('on');
   try{var sc=document.querySelector('.content');if(sc)sc.scrollTo(0,0);}catch(e){}
-  if(s==='products') { renderProds(); }
+  if(s==='products') { renderProds(); loadBestsellers(); }
   if(s==='archived')  { renderArchivedProducts(); }
   if(s==='new')      { fillDrop(); clearForm(); }
   if(s==='copy')     { initCopy(); }
@@ -2377,9 +2403,12 @@ function renderProds() {
       : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>';
 
     var onPromo = isOnPromo(p);
+    var badgeHtml = _bestsellerIds[p.id]
+      ? '<span class="pcard-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>Bestseller</span>'
+      : '';
     var cardHtml = '<div class="pcard">'
       + '<div class="pcard-top' + (p.active?'':' off') + '" onclick="openProdSheet(' + p.id + ')">'
-      + '<div class="pcard-img">' + imgHtml + '</div>'
+      + '<div class="pcard-img">' + imgHtml + badgeHtml + '</div>'
       + '<div class="pcard-info">'
         + '<div class="pcard-name">' + esc(p.name) + (p.color ? ' <span class="pcard-color">— ' + esc(p.color) + '</span>' : '') + (onPromo ? ' <span style="color:var(--red);font-size:10px;font-weight:700">· PROMO</span>' : '') + '</div>'
         + '<div class="pcard-price-row">'
@@ -6518,7 +6547,7 @@ function notifyRoles(roles, title, body, url) {
     fetch(SB_URL + '/functions/v1/notify-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY },
-      body: JSON.stringify({ roles: roles, title: title, body: body, url: url || '/larobe-orders/index.html' })
+      body: JSON.stringify({ roles: roles, title: title, body: body, url: url || '/larobe-orders/index.html', excludeUserId: _session && _session.user.id })
     }).catch(function(){});
   } catch (e) {}
 }

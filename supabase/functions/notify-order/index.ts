@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { roles, title, body, url } = await req.json();
+    const { roles, title, body, url, excludeUserId } = await req.json();
     if (!Array.isArray(roles) || !roles.length || !title) {
       return new Response(JSON.stringify({ error: "roles[] and title are required" }), {
         status: 400,
@@ -34,8 +34,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    const excludeFilter = excludeUserId ? `&user_id=neq.${excludeUserId}` : "";
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/push_subscriptions?role=in.(${roles.join(",")})&select=id,endpoint,p256dh,auth`,
+      `${SUPABASE_URL}/rest/v1/push_subscriptions?role=in.(${roles.join(",")})${excludeFilter}&select=id,endpoint,p256dh,auth`,
       {
         headers: {
           apikey: SERVICE_ROLE_KEY,
