@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
     }
 
     const tenantRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tenants?slug=eq.${encodeURIComponent(slug)}&active=eq.true&select=id,name,branding,currency`,
+      `${SUPABASE_URL}/rest/v1/tenants?slug=eq.${encodeURIComponent(slug)}&active=eq.true` +
+        `&select=id,name,branding,currency,bank_details,preorder_deposit_rule`,
       { headers: serviceHeaders }
     );
     const tenants = await tenantRes.json();
@@ -79,7 +80,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        tenant: { name: tenant.name, branding: tenant.branding, currency: tenant.currency },
+        tenant: {
+          name: tenant.name,
+          branding: tenant.branding,
+          currency: tenant.currency,
+          bank_details: tenant.bank_details,
+          preorder_deposit_rule: tenant.preorder_deposit_rule,
+        },
         products,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
