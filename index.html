@@ -1645,6 +1645,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 
 const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
+// La Robe's fixed tenant id (Phase 1 multi-tenant conversion). Every insert
+// into a tenant-scoped table must include this — see HANDOFF.md.
+const TENANT_ID = 'aca3f6c5-62aa-4efc-824f-75f0d65bafcd';
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
@@ -2304,7 +2307,9 @@ function previewNewProdPhoto(input) {
 
 async function uploadProductPhoto(file, productId) {
   var ext = file.name.split('.').pop();
-  var path = productId + '_' + Date.now() + '.' + ext;
+  // Path must start with <tenant_id>/ — storage RLS requires the uploader
+  // to be an active member of the tenant named in the first path segment.
+  var path = TENANT_ID + '/' + productId + '_' + Date.now() + '.' + ext;
   const {data, error} = await db.storage.from('product-images').upload(path, file, { upsert: true });
   if (error) { console.error('Upload error:', error); return null; }
   const { data: urlData } = db.storage.from('product-images').getPublicUrl(path);
@@ -2487,6 +2492,7 @@ async function logProductActivity(productId, productName, action, fieldName, old
     var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
     var userId = _session ? _session.user.id : null;
     await db.from('product_activity').insert({
+      tenant_id: TENANT_ID,
       product_id: productId, product_name: productName,
       user_id: userId, user_name: userName,
       action: action, field_name: fieldName || null,
@@ -2511,6 +2517,7 @@ async function addProd() {
   if(priceRaw && !isNonNegativeNumber(priceRaw)){toast('Selling price cannot be negative',true);return;}
 
   const {data,error}=await db.from('products').insert({
+    tenant_id: TENANT_ID,
     name:n, color:color||null, stock_qty:stock, active:true, cost_price:cost, selling_price:price, price:price
   }).select();
 
@@ -2531,6 +2538,7 @@ async function addProd() {
   // compute its average from only the new batch, ignoring the opening stock entirely.
   if (stock > 0) {
     await db.from('stock_entries').insert({
+      tenant_id: TENANT_ID,
       product_id: newProduct.id,
       quantity: stock,
       cost_price: cost,
@@ -2540,6 +2548,7 @@ async function addProd() {
       added_by: 'stock_entry'
     });
     await db.from('stock_movements').insert({
+      tenant_id: TENANT_ID,
       product_id: newProduct.id, change_qty: stock, reason: 'initial_stock', cost_price: cost || null
     });
   }
@@ -2595,6 +2604,7 @@ async function confirmRestock() {
   
   // Log the stock entry
   const entryRes = await db.from('stock_entries').insert({
+    tenant_id: TENANT_ID,
     product_id: p.id,
     quantity: qty,
     cost_price: cost > 0 ? cost : (p.cost_price || 0),
@@ -2626,6 +2636,7 @@ async function confirmRestock() {
   p.cost_price = newAvgCost > 0 ? newAvgCost : (p.cost_price || 0);
 
   await db.from('stock_movements').insert({
+    tenant_id: TENANT_ID,
     product_id: p.id, change_qty: qty, reason: 'manual_restock', cost_price: cost || null
   });
   
@@ -2726,6 +2737,7 @@ async function confirmAdjustStock() {
   // If stock is being added (found), create a new entry with current cost
   else if (actualDelta > 0 && reason === 'found') {
     await db.from('stock_entries').insert({
+      tenant_id: TENANT_ID,
       product_id: p.id,
       quantity: actualDelta,
       cost_price: p.cost_price || 0,
@@ -2752,6 +2764,7 @@ async function confirmAdjustStock() {
   }
 
   await db.from('stock_movements').insert({
+    tenant_id: TENANT_ID,
     product_id: p.id, change_qty: actualDelta, reason: reasonCode
   });
   await logProductActivity(p.id, p.name, reasonCode, 'stock_qty', oldStock, newQty);
@@ -3217,6 +3230,7 @@ async function logActivity(orderId, action, fieldName, oldValue, newValue) {
     var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
     var userId = _session ? _session.user.id : null;
     await db.from('order_activity').insert({
+      tenant_id: TENANT_ID,
       order_id: orderId, user_id: userId, user_name: userName, action: action,
       field_name: fieldName || null,
       old_value: (oldValue===undefined||oldValue===null) ? null : String(oldValue),
@@ -3268,6 +3282,7 @@ async function addOrder() {
     num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
 
     var res = await db.from('orders').insert({
+      tenant_id: TENANT_ID,
       num, customer_name:name,
       contact: contact,
       product: productLabel,
@@ -3300,6 +3315,7 @@ async function addOrder() {
 
   var itemRows = _newOrderItems.map(function(it){
     return {
+      tenant_id: TENANT_ID,
       order_id: newOrder.id, product_id: it.product_id,
       product_name: it.name + (it.color?' - '+it.color:''),
       unit_price: it.unit_price, unit_cost: it.unit_cost,
@@ -3307,12 +3323,13 @@ async function addOrder() {
     };
   });
   const itemsRes = await db.from('order_items').insert(itemRows);
-  
+
   // Log item history for audit trail
   for (var h = 0; h < itemRows.length; h++) {
     var histRow = itemRows[h];
     try {
       await db.from('order_item_history').insert({
+        tenant_id: TENANT_ID,
         order_id: newOrder.id,
         product_id: histRow.product_id,
         product_name: histRow.product_name,
@@ -4247,6 +4264,7 @@ async function saveEdit() {
   await db.from('order_items').delete().eq('order_id', viewId);
   var itemRows = _editOrderItems.map(function(it){
     return {
+      tenant_id: TENANT_ID,
       order_id: viewId, product_id: it.product_id,
       product_name: it.name + (it.color?' - '+it.color:''),
       unit_price: it.unit_price, unit_cost: it.unit_cost,
@@ -4255,12 +4273,13 @@ async function saveEdit() {
   });
   const itemsRes = await db.from('order_items').insert(itemRows);
   if (itemsRes.error) { toast('Items failed to save: ' + itemsRes.error.message, true); return; }
-  
+
   // Log item history for edit
   for (var h = 0; h < itemRows.length; h++) {
     var histRow = itemRows[h];
     try {
       await db.from('order_item_history').insert({
+        tenant_id: TENANT_ID,
         order_id: viewId,
         product_id: histRow.product_id,
         product_name: histRow.product_name,
@@ -5961,6 +5980,7 @@ async function logExpenseActivity(expenseId, category, action, fieldName, oldVal
     var userName = (_profile && _profile.full_name) ? _profile.full_name : 'Unknown';
     var userId = _session ? _session.user.id : null;
     await db.from('expense_activity').insert({
+      tenant_id: TENANT_ID,
       expense_id: expenseId, expense_category: category,
       user_id: userId, user_name: userName,
       action: action, field_name: fieldName || null,
@@ -6002,6 +6022,7 @@ async function saveExpense() {
   var userId = _session ? _session.user.id : null;
 
   const {data, error} = await db.from('expenses').insert({
+    tenant_id: TENANT_ID,
     expense_date: date, category: category, amount: parseFloat(amountRaw),
     note: note || null, user_id: userId, user_name: userName
   }).select();
@@ -6138,7 +6159,7 @@ async function saveNewGstRate() {
   var effFrom = document.getElementById('gstNewRateDate').value;
   if (isNaN(rate) || rate < 0) { toast('Enter a valid rate', true); return; }
   if (!effFrom) { toast('Choose an effective date', true); return; }
-  const {error} = await db.from('gst_rate_history').insert({ rate: rate, effective_from: effFrom });
+  const {error} = await db.from('gst_rate_history').insert({ tenant_id: TENANT_ID, rate: rate, effective_from: effFrom });
   if (error) { toast('Error: ' + error.message, true); return; }
   toast('New rate saved');
   await loadGstRates();
@@ -6515,6 +6536,7 @@ async function subscribeToPush() {
     });
     var json = sub.toJSON();
     var { error } = await db.from('push_subscriptions').upsert({
+      tenant_id: TENANT_ID,
       user_id: _session.user.id,
       role: _profile.role,
       endpoint: json.endpoint,
