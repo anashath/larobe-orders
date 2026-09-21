@@ -1,0 +1,109 @@
+// Supabase Edge Function: place_order
+//
+// Public, unauthenticated endpoint for the storefront checkout. Never
+// trusts client-sent prices — only product_id + quantity are accepted;
+// the public.place_order() SQL function looks up current prices/promos/
+// stock itself (HANDOFF.md rule 5). This function's job is: resolve the
+// tenant, optionally upload a bank-transfer slip to the private
+// payment-slips bucket, then call that SQL function via the service role
+// (the function refuses to run for any other caller).
+//
+// Deploy: supabase functions deploy place_order
+import { corsHeaders } from "../_shared/cors.ts";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const serviceHeaders = {
+  apikey: SERVICE_ROLE_KEY,
+  Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function isValidMaldivianPhone(phone: string): boolean {
+  // 7 digits, optionally prefixed with +960 / 960
+  return /^(\+?960)?\d{7}$/.test(phone.replace(/[\s-]/g, ""));
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
+
+  try {
+    const body = await req.json();
+    const { tenant_slug, items, customer, payment } = body;
+
+    if (!tenant_slug || !Array.isArray(items) || !items.length) {
+      return jsonResponse({ error: "tenant_slug and items[] are required" }, 400);
+    }
+    if (!customer?.name || !customer?.contact) {
+      return jsonResponse({ error: "customer.name and customer.contact are required" }, 400);
+    }
+    if (!isValidMaldivianPhone(customer.contact)) {
+      return jsonResponse({ error: "Enter a valid Maldivian phone number" }, 400);
+    }
+    if (!payment?.method || !["transfer", "cod", "preorder"].includes(payment.method)) {
+      return jsonResponse({ error: "payment.method must be transfer, cod, or preorder" }, 400);
+    }
+
+    // Resolve tenant id (needed for the slip's storage path prefix).
+    const tenantRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/tenants?slug=eq.${encodeURIComponent(tenant_slug)}&active=eq.true&select=id`,
+      { headers: serviceHeaders }
+    );
+    const tenants = await tenantRes.json();
+    const tenant = tenants[0];
+    if (!tenant) return jsonResponse({ error: "Tenant not found" }, 404);
+
+    let slipPath: string | null = null;
+    if (payment.method === "transfer" && payment.slip_base64) {
+      const bytes = Uint8Array.from(atob(payment.slip_base64), (c) => c.charCodeAt(0));
+      const ext = (payment.slip_filename ?? "slip.jpg").split(".").pop();
+      slipPath = `${tenant.id}/${Date.now()}.${ext}`;
+
+      const uploadRes = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/payment-slips/${slipPath}`,
+        {
+          method: "POST",
+          headers: { ...serviceHeaders, "Content-Type": payment.slip_content_type ?? "image/jpeg" },
+          body: bytes,
+        }
+      );
+      if (!uploadRes.ok) {
+        return jsonResponse({ error: "Slip upload failed" }, 500);
+      }
+    }
+
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/place_order`, {
+      method: "POST",
+      headers: { ...serviceHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_tenant_slug: tenant_slug,
+        p_items: items,
+        p_customer_name: customer.name,
+        p_customer_contact: customer.contact,
+        p_customer_address: customer.address ?? null,
+        p_payment_method: payment.method,
+        p_amount_paid: payment.amount_paid ?? null,
+        p_slip_path: slipPath,
+        p_deposit_amount: payment.deposit_amount ?? null,
+      }),
+    });
+
+    if (!rpcRes.ok) {
+      const errBody = await rpcRes.json().catch(() => ({}));
+      return jsonResponse({ error: errBody.message ?? "Could not place order" }, 400);
+    }
+
+    const result = await rpcRes.json();
+    return jsonResponse(result);
+  } catch (e) {
+    return jsonResponse({ error: String(e) }, 500);
+  }
+});
