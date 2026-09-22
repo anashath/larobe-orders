@@ -31,6 +31,42 @@ function isValidMaldivianPhone(phone: string): boolean {
   return /^(\+?960)?\d{7}$/.test(phone.replace(/[\s-]/g, ""));
 }
 
+function clientIp(req: Request): string {
+  // Supabase's edge runtime sits behind a proxy that sets this; first entry
+  // is the original client. Falls back to "unknown" rather than throwing —
+  // rate limiting degrades gracefully instead of blocking checkout entirely
+  // if the header is ever missing.
+  const fwd = req.headers.get("x-forwarded-for");
+  return fwd ? fwd.split(",")[0].trim() : "unknown";
+}
+
+// Rate limiting: throttles the endpoint itself against repeated calls
+// (including failed ones) — distinct from the unpaid-order cap inside
+// place_order(), which only counts orders that actually succeeded.
+const PHONE_ATTEMPT_LIMIT = 5;
+const IP_ATTEMPT_LIMIT = 15;
+const ATTEMPT_WINDOW_MINUTES = 10;
+
+async function tooManyAttempts(phone: string, ip: string): Promise<boolean> {
+  const since = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60_000).toISOString();
+
+  const [phoneRes, ipRes] = await Promise.all([
+    fetch(
+      `${SUPABASE_URL}/rest/v1/checkout_attempts?phone=eq.${encodeURIComponent(phone)}&created_at=gte.${since}&select=id&limit=1`,
+      { headers: { ...serviceHeaders, Prefer: "count=exact" } }
+    ),
+    fetch(
+      `${SUPABASE_URL}/rest/v1/checkout_attempts?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${since}&select=id&limit=1`,
+      { headers: { ...serviceHeaders, Prefer: "count=exact" } }
+    ),
+  ]);
+
+  const phoneCount = Number(phoneRes.headers.get("content-range")?.split("/")[1] ?? 0);
+  const ipCount = Number(ipRes.headers.get("content-range")?.split("/")[1] ?? 0);
+
+  return phoneCount >= PHONE_ATTEMPT_LIMIT || (ip !== "unknown" && ipCount >= IP_ATTEMPT_LIMIT);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
@@ -52,6 +88,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "payment.method must be transfer, cod, or preorder" }, 400);
     }
 
+    const ip = clientIp(req);
+    if (await tooManyAttempts(customer.contact, ip)) {
+      return jsonResponse({ error: "Too many attempts. Please wait a few minutes and try again." }, 429);
+    }
+
     // Resolve tenant id (needed for the slip's storage path prefix).
     const tenantRes = await fetch(
       `${SUPABASE_URL}/rest/v1/tenants?slug=eq.${encodeURIComponent(tenant_slug)}&active=eq.true&select=id`,
@@ -60,6 +101,15 @@ Deno.serve(async (req) => {
     const tenants = await tenantRes.json();
     const tenant = tenants[0];
     if (!tenant) return jsonResponse({ error: "Tenant not found" }, 404);
+
+    // Log this attempt regardless of what happens next — the throttle
+    // check above only reads attempts already logged, so this write
+    // happens after, not before.
+    await fetch(`${SUPABASE_URL}/rest/v1/checkout_attempts`, {
+      method: "POST",
+      headers: { ...serviceHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: tenant.id, phone: customer.contact, ip }),
+    });
 
     let slipPath: string | null = null;
     if (payment.method === "transfer" && payment.slip_base64) {
