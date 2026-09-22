@@ -861,6 +861,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="chip" onclick="setFlt('pending',this)">Pending</button>
     <button class="chip" onclick="setFlt('delivered',this)">Delivered</button>
     <button class="chip" onclick="setFlt('packed',this)">Packed</button>
+    <button class="chip" id="webSourceChip" onclick="toggleWebFilter(this)">Web<span id="webBadge" style="display:none;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px"></span></button>
   </div>
   <div class="olist" id="olist">
     <div class="empty"><div class="empty-t">Loading…</div></div>
@@ -1449,6 +1450,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <button class="sfbtn sf-revoke" id="srevoke" style="display:none" onclick="revokeOrder()">Revoke</button>
       <button class="sfbtn sf-pack"    id="spack"    style="display:none" onclick="updateOrderStatus('packed')">Mark Packed</button>
       <button class="sfbtn sf-deliver" id="sdeliver" style="display:none" onclick="updateOrderStatus('delivered')">Mark Delivered</button>
+      <button class="sfbtn sf-soft"    id="sviewslip" style="display:none" onclick="viewSlip()">View Slip</button>
+      <button class="sfbtn sf-confirm" id="sverify"   style="display:none" onclick="verifyPayment()">Verify Payment</button>
+      <button class="sfbtn sf-red"     id="sreject"   style="display:none" onclick="rejectPayment()">Reject Payment</button>
+      <button class="sfbtn sf-confirm" id="sallocate" style="display:none" onclick="allocatePreorder()">Allocate Stock</button>
       <button class="sfbtn sf-red"     id="scancel"  style="display:none" onclick="updateOrderStatus('cancelled')">Cancel Order</button>
       <button class="sfbtn sf-ghost"   onclick="closeSheet()">Close</button>
       <button class="sfbtn sf-blue"    id="ssave"    style="display:none" onclick="saveEdit()">Save Changes</button>
@@ -1656,7 +1661,7 @@ const db = supabase.createClient(SB_URL, SB_KEY, {
   }
 });
 
-let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false;
+let orders=[], products=[], flt='all', viewId=null, editProdId=null, _payDone=false, _sourceFilter=null;
 let _bestsellerIds = {};
 
 // Tags the top-selling products (by all-time units sold) as bestsellers, then
@@ -3219,8 +3224,10 @@ async function loadOrders() {
   // Today's orders, plus any still-outstanding order from an earlier date —
   // an order that's pending/confirmed/packed is an active task regardless of
   // which day it was created, so it shouldn't only be findable in History.
+  // Web orders awaiting payment verification or stock allocation are equally
+  // outstanding, so they're included too, however old.
   const {data,error}=await db.from('orders').select('*')
-    .or('order_date.eq.' + date + ',status.in.(pending,confirmed,packed)')
+    .or('order_date.eq.' + date + ',status.in.(pending,confirmed,packed,"Payment pending verification","Pre-order")')
     .order('order_date',{ascending:false}).order('num',{ascending:true});
   if(error){setSync(false);toast('Load error',true);return;}
   setSync(true); orders=data||[]; render();
@@ -3412,6 +3419,75 @@ async function restoreStock(order) {
   order.stock_deducted = false;
   return true;
 }
+
+// Web order review actions (Phase 3). All require admin/manager, enforced
+// both here (button visibility) and at the database layer (payment-slips
+// bucket RLS only allows admin/manager to read slips; get_my_role() checks
+// inside process_stock_change gate the actual stock changes below).
+
+async function viewSlip() {
+  if (!viewId) return;
+  var o = orders.find(function(x){ return x.id === viewId; });
+  if (!o || !o.slip_path) { toast('No slip on file for this order', true); return; }
+  var res = await db.storage.from('payment-slips').createSignedUrl(o.slip_path, 300);
+  if (res.error) { toast('Could not open slip: ' + res.error.message, true); return; }
+  window.open(res.data.signedUrl, '_blank');
+}
+
+async function verifyPayment() {
+  if (!viewId) return;
+  var o = orders.find(function(x){ return x.id === viewId; });
+  if (!o || o.status !== 'Payment pending verification') return;
+  if (!await showConfirm('Verify Payment', 'Confirm the transfer slip and amount are correct? The order will join the normal fulfillment queue.', {confirmLabel:'Verify'})) return;
+
+  var res = await db.from('orders').update({ status: 'pending', payment_done: true }).eq('id', o.id);
+  if (res.error) { toast('Error: ' + res.error.message, true); return; }
+  o.status = 'pending'; o.payment_done = true;
+  await logActivity(o.id, 'payment verified');
+  closeSheet(); render();
+  toast('Payment verified — order is now pending');
+}
+
+async function rejectPayment() {
+  if (!viewId) return;
+  var o = orders.find(function(x){ return x.id === viewId; });
+  if (!o || o.status !== 'Payment pending verification') return;
+  if (!await showConfirm('Reject Payment', 'This cancels the order and restores any reserved stock. The customer is not notified automatically.', {confirmLabel:'Reject', danger:true})) return;
+
+  // Reuses the existing cancel pipeline (updateOrderStatus already restores
+  // stock via the stock_deducted flag, which place_order now sets correctly
+  // for transfer orders) instead of duplicating that logic here.
+  await updateOrderStatus('cancelled', 'payment rejected');
+}
+
+async function allocatePreorder() {
+  if (!viewId) return;
+  var o = orders.find(function(x){ return x.id === viewId; });
+  if (!o || o.status !== 'Pre-order') return;
+
+  var items = await loadOrderItems(o.id);
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var p = products.find(function(x){ return x.id === it.product_id; });
+    if (p && (p.stock_qty || 0) < it.quantity) {
+      toast('Not enough stock yet for ' + (p.name || 'an item') + ' (' + (p.stock_qty||0) + ' available, ' + it.quantity + ' needed)', true);
+      return;
+    }
+  }
+
+  if (!await showConfirm('Allocate Stock', 'Deduct stock now and move this order into the normal fulfillment queue?', {confirmLabel:'Allocate'})) return;
+
+  var ok = await deductStock(o);
+  if (!ok) return; // deductStock already toasts its own error
+
+  var res = await db.from('orders').update({ status: 'pending' }).eq('id', o.id);
+  if (res.error) { toast('Error: ' + res.error.message, true); return; }
+  o.status = 'pending';
+  await logActivity(o.id, 'preorder allocated');
+  closeSheet(); render();
+  toast('Stock allocated — order is now pending');
+}
+
 function clearForm() {
   console.log('[clearForm] Starting form clear...');
   
@@ -3526,6 +3602,17 @@ function renderStatusStepper(o) {
   if (o.status === 'cancelled') {
     return '<div class="ostep"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="ostep-label" style="color:var(--red)">Cancelled</span></div>';
   }
+  // These two web-order statuses aren't part of the normal in-store
+  // pipeline below (pending -> confirmed -> packed -> delivered) — they're
+  // blocked on something else entirely (payment proof, stock arriving), so
+  // showing the normal stepper would misleadingly imply they're just
+  // "pending" and ready to progress like any other order.
+  if (o.status === 'Payment pending verification') {
+    return '<div class="ostep"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg><span class="ostep-label" style="color:var(--amber)">Awaiting payment verification</span></div>';
+  }
+  if (o.status === 'Pre-order') {
+    return '<div class="ostep"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v3"/><path d="M3 8h18v11a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg><span class="ostep-label" style="color:var(--blue)">Pre-order — awaiting stock</span></div>';
+  }
   var stages = ['pending','confirmed','packed','delivered'];
   var idx = stages.indexOf(o.status);
   if (idx < 0) idx = 0;
@@ -3627,9 +3714,30 @@ function tapAdvanceStatus(orderId, toStatus) {
   });
 }
 
+function toggleWebFilter(btn) {
+  _sourceFilter = _sourceFilter === 'web' ? null : 'web';
+  btn.classList.toggle('on', _sourceFilter === 'web');
+  render();
+}
+
 function render() {
   const L=document.getElementById('olist');
-  const arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
+  var arr=flt==='all'?orders:orders.filter(o=>o.status===flt);
+  if (_sourceFilter) arr = arr.filter(o => o.source === _sourceFilter);
+
+  // Web orders still needing attention: anything not yet delivered/cancelled.
+  var webNeedsAttention = orders.filter(function(o){
+    return o.source === 'web' && o.status !== 'delivered' && o.status !== 'cancelled';
+  }).length;
+  var badge = document.getElementById('webBadge');
+  if (badge) {
+    if (webNeedsAttention > 0) {
+      badge.textContent = ' ' + webNeedsAttention;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
   var _role = _profile ? _profile.role : '';
   var _isDeliveryRole = _role === 'delivery';
   var _todayDate = today();
@@ -3656,7 +3764,7 @@ function render() {
         + checkboxHtml
         + '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>'
         + '<div class="o-info">'
-          + '<div class="o-name">' + esc(o.customer_name) + '</div>'
+          + '<div class="o-name">' + esc(o.customer_name) + (o.source === 'web' ? ' <span style="background:var(--blue);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;vertical-align:middle">WEB</span>' : '') + '</div>'
           + '<div class="o-prod">' + esc(o.product) + '</div>'
           + '<div class="o-meta">' + (o.order_date !== _todayDate ? '<span style="color:var(--amber);font-weight:700">' + formatDisplayDate(o.order_date) + '</span> · ' : '') + esc(o.delivery) + ' · ' + (o.order_time||'') + '</div>'
           + renderStatusStepper(o)
@@ -3814,7 +3922,8 @@ function openSheet(id) {
     <div class="det-hero">
       <div class="det-num">#${o.num}</div>
       <div>
-        <span class="badge ${o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':'b-confirmed'}">${o.status}</span>
+        <span class="badge ${o.status==='pending'?'b-pending':o.status==='delivered'?'b-delivered':o.status==='cancelled'?'b-cancelled':o.status==='packed'?'b-packed':(o.status==='Payment pending verification'||o.status==='Pre-order')?'b-pending':'b-confirmed'}">${o.status}</span>
+        ${o.source==='web' ? '<span class="badge" style="background:var(--blue-l);color:var(--blue);margin-left:6px">WEB</span>' : ''}
         <span class="${o.payment_done?'pay-done':'pay-pend'}" style="display:block;margin-top:5px">${o.payment_done?'Received':'Not Received'}</span>
       </div>
     </div>
@@ -3856,14 +3965,19 @@ function openSheet(id) {
   var spack   = document.getElementById('spack');
   var sdelv   = document.getElementById('sdeliver');
   var scancel = document.getElementById('scancel');
+  var sviewslip = document.getElementById('sviewslip');
+  var sverify   = document.getElementById('sverify');
+  var sreject   = document.getElementById('sreject');
+  var sallocate = document.getElementById('sallocate');
   var _o = orders.find(function(x){return x.id===id;})
        || (typeof _histAllOrders !== 'undefined' && _histAllOrders.find(function(x){return x.id===id;}))
        || (typeof _salesOrders !== 'undefined' && _salesOrders.find(function(x){return x.id===id;}));
   var isCancelled = _o && _o.status === 'cancelled';
   var isRevokable = _o && ['confirmed','packed','delivered'].indexOf(_o.status) >= 0;
+  var canReview = role === 'admin' || role === 'manager'; // matches payment-slips RLS (admin/manager only)
 
   // Hide all first
-  [sdel, sedit, sconfirm, srevoke, spack, sdelv, scancel].forEach(function(b){ if(b) b.style.display='none'; });
+  [sdel, sedit, sconfirm, srevoke, spack, sdelv, scancel, sviewslip, sverify, sreject, sallocate].forEach(function(b){ if(b) b.style.display='none'; });
 
   if (role === 'admin') {
     if (sdel)  sdel.style.display  = '';
@@ -3881,6 +3995,17 @@ function openSheet(id) {
     if (scancel && !isCancelled) scancel.style.display = '';
   } else if (role === 'delivery') {
     if (sdelv && _o && _o.status === 'packed') sdelv.style.display = '';
+  }
+
+  // Web-order review actions, admin/manager only (matches the private
+  // payment-slips bucket's RLS: only those roles can read slip images).
+  if (canReview && _o) {
+    if (sviewslip && _o.source === 'web' && _o.slip_path) sviewslip.style.display = '';
+    if (_o.status === 'Payment pending verification') {
+      if (sverify) sverify.style.display = '';
+      if (sreject) sreject.style.display = '';
+    }
+    if (_o.status === 'Pre-order' && sallocate) sallocate.style.display = '';
   }
   document.getElementById('sdel').onclick=function(){delOrder(id);};
   var sm=document.getElementById('sheetMask')||document.getElementById('smask'); if(sm) sm.classList.add('open');
@@ -6274,7 +6399,7 @@ async function renderSales() {
       return '<div class="orow" onclick="openSheet(' + o.id + ')">'
         + '<div class="o-num"><div class="o-num-t">' + o.num + '</div></div>'
         + '<div class="o-info">'
-          + '<div class="o-name">' + esc(o.customer_name) + '</div>'
+          + '<div class="o-name">' + esc(o.customer_name) + (o.source === 'web' ? ' <span style="background:var(--blue);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;vertical-align:middle">WEB</span>' : '') + '</div>'
           + '<div class="o-prod">' + esc(o.product) + '</div>'
           + '<div class="o-meta">' + o.order_date + '</div>'
         + '</div>'
@@ -6392,7 +6517,7 @@ function renderHistoryDayGroup(date, dayOrders) {
     html+='<div class="orow '+swatch+'" onclick="openSheet('+o.id+')" style="margin-bottom:6px">'
       +'<div class="o-num"><div class="o-num-t">'+o.num+'</div></div>'
       +'<div class="o-info">'
-        +'<div class="o-name">'+esc(o.customer_name)+'</div>'
+        +'<div class="o-name">'+esc(o.customer_name)+(o.source === 'web' ? ' <span style="background:var(--blue);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;vertical-align:middle">WEB</span>' : '')+'</div>'
         +'<div class="o-prod">'+esc(o.product)+'</div>'
         +'<div class="o-meta">'+esc(o.delivery)+'</div>'
         +renderStatusStepper(o)
