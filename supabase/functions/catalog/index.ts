@@ -63,19 +63,26 @@ Deno.serve(async (req) => {
 
     const productsRes = await fetch(
       `${SUPABASE_URL}/rest/v1/products?tenant_id=eq.${tenant.id}&active=eq.true` +
-        `&select=id,name,color,image_url,selling_price,price,stock_qty,low_stock_threshold,promo_price,promo_start,promo_end`,
+        `&select=id,name,color,category,image_url,selling_price,price,stock_qty,low_stock_threshold,promo_price,promo_start,promo_end,created_at`,
       { headers: serviceHeaders }
     );
     const rawProducts = await productsRes.json();
+
+    // "New" is products added in the last 14 days — a simple, data-driven
+    // signal rather than a separate flag to maintain.
+    const NEW_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
 
     const products = rawProducts.map((p: any) => ({
       id: p.id,
       name: p.name,
       color: p.color,
+      category: p.category,
       image_url: p.image_url,
       price: p.selling_price ?? p.price,
       stock_status: stockStatus(p.stock_qty ?? 0, p.low_stock_threshold ?? 3),
       promo: activePromo(p.promo_price, p.promo_start, p.promo_end),
+      is_new: p.created_at ? now - new Date(p.created_at).getTime() < NEW_WINDOW_MS : false,
     }));
 
     return new Response(
