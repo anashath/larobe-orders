@@ -73,7 +73,18 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { tenant_slug, items, customer, payment } = body;
+    const { tenant_slug, items, customer, payment, website, elapsed_ms } = body;
+
+    // Bot deterrence, no external service: a hidden field real users never
+    // fill (bots that auto-fill every field usually do), and a minimum
+    // time between the form rendering and being submitted (faster than any
+    // human reading it). Deliberately returns the same generic error as
+    // other validation failures, not a distinct "bot detected" message —
+    // nothing here should help a script figure out what tripped it.
+    const MIN_HUMAN_SUBMIT_MS = 2000;
+    if (website || (typeof elapsed_ms === "number" && elapsed_ms < MIN_HUMAN_SUBMIT_MS)) {
+      return jsonResponse({ error: "Could not place order. Please try again." }, 400);
+    }
 
     if (!tenant_slug || !Array.isArray(items) || !items.length) {
       return jsonResponse({ error: "tenant_slug and items[] are required" }, 400);
