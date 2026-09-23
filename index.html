@@ -687,6 +687,9 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <button class="d-item" id="dn-new" onclick="go('new')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>New Order
     </button>
+    <button class="d-item" id="dn-counter" onclick="go('counter')">
+      <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/><line x1="6" y1="13" x2="18" y2="13"/></svg></span>Counter
+    </button>
     <button class="d-item" id="dn-history" onclick="go('history')">
       <span class="d-item-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>History
     </button>
@@ -940,6 +943,68 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="factions">
       <button class="btn btn-ghost btn-sm" onclick="clearForm()">Clear</button>
       <button class="btn btn-blue" id="submitBtn" onclick="addOrder()">Record Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTER (POS) -->
+<div class="screen" id="sc-counter">
+  <div class="pg"><div class="pg-title">Counter</div></div>
+
+  <div id="tillClosedView" style="display:none">
+    <div class="fwrap">
+      <div class="fcard">
+        <div class="fcard-hdr">Open Till</div>
+        <div style="padding:4px 0 12px;font-size:13px;color:var(--ink3)">Count the cash in the drawer and enter it here to start a counter session.</div>
+        <div class="fgrid">
+          <div class="fg ffull"><label>Opening Cash (MVR)</label><input type="number" id="tillOpeningCash" placeholder="0" min="0" step="0.01"></div>
+        </div>
+      </div>
+      <div class="factions">
+        <button class="btn btn-blue" id="openTillBtn" onclick="openTill()" style="width:100%">Open Till</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tillOpenView" style="display:none">
+    <div class="fwrap">
+      <div class="fcard">
+        <div class="fcard-hdr" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Scan or search item</span>
+          <button class="btn btn-ghost btn-sm" onclick="closeTill()">Close Till</button>
+        </div>
+        <div class="fgrid">
+          <div class="fg ffull">
+            <input type="text" id="posScanInput" placeholder="Scan barcode or enter SKU, then Enter" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();posAddByCode(this.value);this.value='';}">
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('pos-item')" style="width:100%;margin-top:6px">+ Find item</button>
+      </div>
+
+      <div class="fcard">
+        <div class="fcard-hdr">Cart</div>
+        <div id="posCartList"><div class="empty"><div class="empty-t">No items yet</div></div></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 2px 2px;font-weight:700;font-size:15px;border-top:1px solid var(--line);margin-top:8px">
+          <span>Total</span><span id="posCartTotal">MVR 0</span>
+        </div>
+      </div>
+
+      <div class="fcard">
+        <div class="fcard-hdr">Payment</div>
+        <div class="fgrid">
+          <div class="fg ffull">
+            <label>Tender</label>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="epd-btn epd-off" id="posTenderCash" onclick="setPosTender('cash')">Cash</button>
+              <button type="button" class="epd-btn epd-off" id="posTenderCard" onclick="setPosTender('card')">Card</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="factions">
+      <button class="btn btn-ghost btn-sm" onclick="posClearCart()">Clear</button>
+      <button class="btn btn-blue" id="posCompleteBtn" onclick="posCompleteSale()">Complete Sale</button>
     </div>
   </div>
 </div>
@@ -1424,6 +1489,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <button class="nb nb-fab" id="bn-new" onclick="go('new')">
     <span class="nb-fab-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
   </button>
+  <button class="nb" id="bn-counter" onclick="go('counter')">
+    <span class="nb-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/><line x1="6" y1="13" x2="18" y2="13"/></svg></span>
+    <span class="nb-lbl">Counter</span>
+  </button>
   <button class="nb" id="bn-products" onclick="go('products')">
     <span class="nb-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>
     <span class="nb-lbl">Products</span>
@@ -1561,6 +1630,25 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="s-foot">
       <button class="sfbtn sf-ghost" onclick="closeRestockPrompt()">Cancel</button>
       <button class="sfbtn sf-blue" onclick="confirmRestock()">Add Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CLOSE TILL ═════════════════════════════════════════════════════════ -->
+<div class="s-mask" id="closeTillMask" style="z-index:150">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Close Till</div><div class="s-sub">Count the cash in the drawer</div></div>
+      <button class="s-x" onclick="closeCloseTillPrompt()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <div class="fg"><label>Cash Counted (MVR)</label><input type="number" id="tillClosingCash" placeholder="0" min="0" step="0.01"></div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px">Compared against opening cash plus cash sales rung up this session.</div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeCloseTillPrompt()">Cancel</button>
+      <button class="sfbtn sf-blue" onclick="confirmCloseTill()">Close Till</button>
     </div>
   </div>
 </div>
@@ -1736,7 +1824,7 @@ function go(s) {
     var role = _profile.role;
     if (role !== 'admin') {
       var allowed = {
-        manager:  ['orders','new','history','copy','products','sales','expenses','expenseactivity','stockreport'],
+        manager:  ['orders','new','counter','history','copy','products','sales','expenses','expenseactivity','stockreport'],
         delivery: ['orders','history']
       };
       var roleAllowed = allowed[role] || ['orders'];
@@ -1758,6 +1846,7 @@ function go(s) {
   if(s==='products') { renderProds(); loadBestsellers(); }
   if(s==='archived')  { renderArchivedProducts(); }
   if(s==='new')      { fillDrop(); clearForm(); }
+  if(s==='counter')  { renderCounterScreen(); }
   if(s==='copy')     { initCopy(); }
   if(s==='history')  { initHistory(); }
   if(s==='sales')    { if(_profile&&(_profile.role==='admin'||_profile.role==='manager')) loadSales(); else go('orders'); }
@@ -2208,7 +2297,8 @@ function selectProduct(productId) {
   if ((p.stock_qty||0) <= 0) { toast('Out of stock', true); return; }
 
   var isEdit = _productPickerTarget === 'edit-item';
-  var targetList = isEdit ? _editOrderItems : _newOrderItems;
+  var isPos = _productPickerTarget === 'pos-item';
+  var targetList = isPos ? posCart : (isEdit ? _editOrderItems : _newOrderItems);
 
   var existing = targetList.find(function(it){ return it.product_id === productId; });
   if (existing) {
@@ -2226,7 +2316,7 @@ function selectProduct(productId) {
     });
   }
 
-  if (isEdit) renderEditOrderItems(); else renderNewOrderItems();
+  if (isPos) renderPosCart(); else if (isEdit) renderEditOrderItems(); else renderNewOrderItems();
   closeProductPicker();
 }
 
@@ -3488,6 +3578,260 @@ async function allocatePreorder() {
   toast('Stock allocated — order is now pending');
 }
 
+/* ═══ COUNTER (POS MODE) ═══════════════════════════════════════════════ */
+let currentTill = null;
+let posCart = [];
+let posTender = 'cash';
+
+async function loadCurrentTill() {
+  var res = await db.from('till_sessions').select('*')
+    .eq('tenant_id', TENANT_ID).eq('status', 'open')
+    .order('opened_at', { ascending: false }).limit(1);
+  if (res.error) { console.error('Load till failed:', res.error); return; }
+  currentTill = (res.data && res.data.length) ? res.data[0] : null;
+  renderCounterScreen();
+}
+
+function renderCounterScreen() {
+  var closedView = document.getElementById('tillClosedView');
+  var openView = document.getElementById('tillOpenView');
+  if (!closedView || !openView) return;
+  if (currentTill) {
+    closedView.style.display = 'none';
+    openView.style.display = '';
+    renderPosCart();
+    setPosTender(posTender);
+  } else {
+    closedView.style.display = '';
+    openView.style.display = 'none';
+  }
+}
+
+async function openTill() {
+  var raw = document.getElementById('tillOpeningCash').value;
+  var openingCash = parseFloat(raw);
+  if (isNaN(openingCash) || openingCash < 0) { toast('Enter the opening cash amount', true); return; }
+
+  var btn = document.getElementById('openTillBtn');
+  btn.disabled = true; btn.textContent = 'Opening…';
+
+  var res = await db.from('till_sessions').insert({
+    tenant_id: TENANT_ID,
+    opened_by: _session ? _session.user.id : null,
+    opened_by_name: (_profile && _profile.full_name) || 'Unknown',
+    opening_cash: openingCash
+  }).select();
+
+  btn.disabled = false; btn.textContent = 'Open Till';
+  if (res.error) { toast('Error: ' + res.error.message, true); return; }
+
+  currentTill = res.data[0];
+  document.getElementById('tillOpeningCash').value = '';
+  renderCounterScreen();
+  toast('Till opened with MVR ' + openingCash.toLocaleString());
+}
+
+function closeTill() {
+  if (!currentTill) return;
+  if (posCart.length) { toast('Clear or complete the current sale before closing the till', true); return; }
+  document.getElementById('tillClosingCash').value = '';
+  document.getElementById('closeTillMask').classList.add('open');
+}
+
+function closeCloseTillPrompt() {
+  document.getElementById('closeTillMask').classList.remove('open');
+}
+
+async function confirmCloseTill() {
+  if (!currentTill) return;
+  var countedRaw = document.getElementById('tillClosingCash').value;
+  var counted = parseFloat(countedRaw);
+  if (isNaN(counted) || counted < 0) { toast('Enter a valid amount', true); return; }
+
+  var cashRes = await db.from('orders').select('price').eq('till_session_id', currentTill.id).eq('payment', 'cash');
+  if (cashRes.error) { toast('Error: ' + cashRes.error.message, true); return; }
+  var cashSales = (cashRes.data || []).reduce(function(s, o) { return s + Number(o.price || 0); }, 0);
+  var expected = Number(currentTill.opening_cash) + cashSales;
+  var variance = counted - expected;
+
+  closeCloseTillPrompt();
+  if (!await showConfirm('Close Till', 'Expected MVR ' + expected.toLocaleString() + ', you counted MVR ' + counted.toLocaleString() + ' (variance ' + (variance>=0?'+':'') + variance.toLocaleString() + '). Close the till?', {confirmLabel:'Close Till'})) return;
+
+  var res = await db.from('till_sessions').update({
+    closed_by: _session ? _session.user.id : null,
+    closed_by_name: (_profile && _profile.full_name) || 'Unknown',
+    closed_at: new Date().toISOString(),
+    closing_cash_counted: counted,
+    expected_cash: expected,
+    variance: variance,
+    status: 'closed'
+  }).eq('id', currentTill.id);
+  if (res.error) { toast('Error: ' + res.error.message, true); return; }
+
+  currentTill = null;
+  renderCounterScreen();
+  toast('Till closed — variance ' + (variance>=0?'+':'') + 'MVR ' + variance.toLocaleString());
+}
+
+function posAddByCode(code) {
+  code = (code || '').trim();
+  if (!code) return;
+  var p = products.find(function(x) { return x.active && (x.barcode === code || String(x.id) === code); });
+  if (!p) { toast('No product found for "' + code + '"', true); return; }
+  if ((p.stock_qty || 0) <= 0) { toast(p.name + ' is out of stock', true); return; }
+
+  var existing = posCart.find(function(it) { return it.product_id === p.id; });
+  if (existing) {
+    if (existing.quantity + 1 > (p.stock_qty || 0)) { toast('Only ' + (p.stock_qty || 0) + ' in stock', true); return; }
+    existing.quantity += 1;
+  } else {
+    posCart.push({
+      product_id: p.id, name: p.name, color: p.color || '',
+      unit_price: effectivePrice(p), unit_cost: Number(p.cost_price) || 0,
+      quantity: 1, stock_qty: p.stock_qty || 0
+    });
+  }
+  renderPosCart();
+}
+
+function posChangeQty(i, delta) {
+  var it = posCart[i];
+  if (!it) return;
+  var newQty = it.quantity + delta;
+  if (newQty < 1) { posCart.splice(i, 1); renderPosCart(); return; }
+  if (newQty > it.stock_qty) { toast('Only ' + it.stock_qty + ' in stock', true); return; }
+  it.quantity = newQty;
+  renderPosCart();
+}
+
+function posRemoveItem(i) {
+  posCart.splice(i, 1);
+  renderPosCart();
+}
+
+function posClearCart() {
+  posCart = [];
+  renderPosCart();
+}
+
+function setPosTender(val) {
+  posTender = val;
+  var cashBtn = document.getElementById('posTenderCash');
+  var cardBtn = document.getElementById('posTenderCard');
+  if (cashBtn) cashBtn.className = 'epd-btn ' + (val === 'cash' ? 'epd-on-red' : 'epd-off');
+  if (cardBtn) cardBtn.className = 'epd-btn ' + (val === 'card' ? 'epd-on-red' : 'epd-off');
+}
+
+function renderPosCart() {
+  var el = document.getElementById('posCartList');
+  if (!el) return;
+  if (!posCart.length) {
+    el.innerHTML = '<div class="empty" style="padding:14px"><div class="empty-t" style="font-size:12px;color:var(--ink3)">No items yet</div></div>';
+  } else {
+    el.innerHTML = posCart.map(function(it, i) {
+      var lineTotal = it.unit_price * it.quantity;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--card2);border-radius:var(--r);margin-bottom:6px">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(it.name) + (it.color?' — '+esc(it.color):'') + '</div>'
+          + '<div style="font-size:11px;color:var(--ink3)">MVR ' + it.unit_price.toLocaleString() + ' each</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+          + '<button type="button" onclick="posChangeQty(' + i + ',-1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">−</button>'
+          + '<span style="font-size:13px;font-weight:700;min-width:16px;text-align:center">' + it.quantity + '</span>'
+          + '<button type="button" onclick="posChangeQty(' + i + ',1)" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:700;color:var(--ink)">+</button>'
+        + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--ink);min-width:58px;text-align:right;flex-shrink:0">MVR ' + lineTotal.toLocaleString() + '</div>'
+        + '<button type="button" onclick="posRemoveItem(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;padding:2px;flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+        + '</div>';
+    }).join('');
+  }
+  var total = posCart.reduce(function(s, it) { return s + it.unit_price * it.quantity; }, 0);
+  var totalEl = document.getElementById('posCartTotal');
+  if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString(undefined,{maximumFractionDigits:0});
+}
+
+async function posCompleteSale() {
+  if (!currentTill) { toast('Open a till first', true); return; }
+  if (!posCart.length) { toast('Add at least one item', true); return; }
+
+  for (var c = 0; c < posCart.length; c++) {
+    var ci = posCart[c];
+    var cp = products.find(function(x){ return x.id === ci.product_id; });
+    if (cp && ci.quantity > (cp.stock_qty||0)) { toast(ci.name + ' only has ' + (cp.stock_qty||0) + ' in stock', true); return; }
+  }
+
+  var subtotal = posCart.reduce(function(s,it){ return s + it.unit_price*it.quantity; }, 0);
+  var totalCost = posCart.reduce(function(s,it){ return s + it.unit_cost*it.quantity; }, 0);
+  var totalQty = posCart.reduce(function(s,it){ return s + it.quantity; }, 0);
+  var productLabel = posCart.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
+
+  var btn = document.getElementById('posCompleteBtn');
+  btn.disabled = true; btn.textContent = 'Completing…';
+  var orderDate = today();
+
+  var data = null, error = null, num = 1;
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var numRes = await db.from('orders').select('num').eq('order_date', orderDate).order('num', { ascending: false }).limit(1);
+    num = (numRes.data && numRes.data.length > 0) ? (numRes.data[0].num + 1) : 1;
+
+    var res = await db.from('orders').insert({
+      tenant_id: TENANT_ID,
+      num, customer_name: 'Walk-in',
+      contact: '',
+      product: productLabel,
+      product_id: posCart[0].product_id,
+      price: subtotal,
+      total_qty: totalQty,
+      total_cost: totalCost,
+      discount_amount: 0,
+      status: 'delivered',
+      source: 'in_store',
+      delivery: 'Counter',
+      payment: posTender,
+      payment_done: true,
+      till_session_id: currentTill.id,
+      order_date: orderDate,
+      order_time: new Date().toLocaleTimeString('en-MV',{hour:'2-digit',minute:'2-digit'})
+    }).select();
+
+    data = res.data; error = res.error;
+    if (!error) break;
+    if (error.code !== '23505') break;
+  }
+
+  btn.disabled = false; btn.textContent = 'Complete Sale';
+  if (error) { toast('Error: ' + error.message, true); return; }
+  if (!data || !data.length) { toast('Error: sale was not recorded', true); return; }
+
+  var newOrder = data[0];
+  var itemRows = posCart.map(function(it){
+    return {
+      tenant_id: TENANT_ID,
+      order_id: newOrder.id, product_id: it.product_id,
+      product_name: it.name + (it.color?' - '+it.color:''),
+      unit_price: it.unit_price, unit_cost: it.unit_cost,
+      quantity: it.quantity, line_total: it.unit_price * it.quantity
+    };
+  });
+  var itemsRes = await db.from('order_items').insert(itemRows);
+
+  orders.unshift(newOrder);
+  await logActivity(newOrder.id, 'created (counter sale)');
+  await deductStock(newOrder);
+
+  var saleNum = num, saleTotal = subtotal;
+  posCart = [];
+  setPosTender('cash');
+  renderPosCart();
+  render();
+
+  if (itemsRes.error) {
+    toast('Sale #'+saleNum+' recorded, but items failed to save: ' + itemsRes.error.message, true);
+  } else {
+    toast('Sale #'+saleNum+' complete — MVR ' + saleTotal.toLocaleString());
+  }
+}
+
 function clearForm() {
   console.log('[clearForm] Starting form clear...');
   
@@ -4746,6 +5090,7 @@ function loadProfile(uid) {
     loadProds();
     loadOrders();
     updateOrdersBadge();
+    loadCurrentTill();
   }).catch(function() { showLogin(); });
 }
 
@@ -4773,8 +5118,8 @@ function applyRole(profile) {
   renderHeroProfile(profile);
 
   var navMap = {
-    admin:   ['orders','new','history','copy','products','settings','users','sales','expenses'],
-    manager: ['orders','new','history','copy','products','sales','expenses'],
+    admin:   ['orders','new','counter','history','copy','products','settings','users','sales','expenses'],
+    manager: ['orders','new','counter','history','copy','products','sales','expenses'],
     delivery:['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
@@ -4784,6 +5129,8 @@ function applyRole(profile) {
   });
   var newBtn = document.getElementById('bn-new');
   if (newBtn) newBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
+  var counterBtn = document.getElementById('bn-counter');
+  if (counterBtn) counterBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   // Settings stays visible for managers too — hiding it left an empty slot in the
   // bottom nav, unbalanced around the center FAB. go() still redirects managers
   // away from the actual screen, so this only changes visibility, not access.
@@ -4791,7 +5138,7 @@ function applyRole(profile) {
   // same as About. This matters most for delivery, who need it to enable push notifications.
   var bnSettingsBtn = document.getElementById('bn-settings');
   if (bnSettingsBtn) bnSettingsBtn.style.display = '';
-  ['orders','new','history','copy','products','users','sales'].forEach(function(s) {
+  ['orders','new','counter','history','copy','products','users','sales'].forEach(function(s) {
     var btn = document.getElementById('dn-'+s);
     if (btn) btn.style.display = (role==='admin'||allowed.indexOf(s)>=0) ? '' : 'none';
   });
