@@ -997,7 +997,10 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
             <input type="text" id="posScanInput" placeholder="Scan barcode or enter SKU, then Enter" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();posAddByCode(this.value);this.value='';}">
           </div>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('pos-item')" style="width:100%;margin-top:6px">+ Find item</button>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openProductPicker('pos-item')" style="flex:1">+ Find item</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="posCameraScanBtn" onclick="openCameraScan()" style="flex:1;display:none">📷 Scan with camera</button>
+        </div>
       </div>
 
       <div class="fcard">
@@ -1649,6 +1652,24 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <div class="s-foot">
       <button class="sfbtn sf-ghost" onclick="closeRestockPrompt()">Cancel</button>
       <button class="sfbtn sf-blue" onclick="confirmRestock()">Add Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CAMERA BARCODE SCAN ════════════════════════════════════════════════ -->
+<div class="s-mask" id="cameraScanMask" style="z-index:150">
+  <div class="sheet" style="max-width:420px;margin:0 auto">
+    <div class="s-grip"></div>
+    <div class="s-hdr">
+      <div><div class="s-title">Scan Barcode</div><div class="s-sub">Point the camera at a barcode</div></div>
+      <button class="s-x" onclick="closeCameraScan()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="s-body">
+      <video id="cameraScanVideo" playsinline muted autoplay style="width:100%;border-radius:var(--r);background:#000"></video>
+      <div id="cameraScanStatus" style="font-size:12px;color:var(--ink3);margin-top:8px;text-align:center">Starting camera…</div>
+    </div>
+    <div class="s-foot">
+      <button class="sfbtn sf-ghost" onclick="closeCameraScan()" style="width:100%">Cancel</button>
     </div>
   </div>
 </div>
@@ -3638,6 +3659,8 @@ function renderCounterScreen() {
     openView.style.display = '';
     renderPosCart();
     setPosTender(posTender);
+    var camBtn = document.getElementById('posCameraScanBtn');
+    if (camBtn) camBtn.style.display = posCameraSupported() ? '' : 'none';
   } else {
     closedView.style.display = '';
     openView.style.display = 'none';
@@ -3729,6 +3752,77 @@ function posAddByCode(code) {
     });
   }
   renderPosCart();
+}
+
+/* Camera-based barcode scanning — a progressive enhancement on top of the
+   USB-scanner input above, using the native BarcodeDetector API. Not
+   supported in every browser (notably Safari/iOS as of writing), so the
+   button is feature-detected and hidden entirely where unavailable rather
+   than shown and failing. */
+function posCameraSupported() {
+  return typeof window.BarcodeDetector === 'function';
+}
+
+var _cameraScanStream = null;
+var _cameraScanRAF = null;
+var _cameraScanActive = false;
+var _barcodeDetector = null;
+
+async function openCameraScan() {
+  if (!posCameraSupported()) { toast('Camera scanning is not supported on this device/browser', true); return; }
+
+  document.getElementById('cameraScanMask').classList.add('open');
+  document.getElementById('cameraScanStatus').textContent = 'Starting camera…';
+
+  try {
+    _cameraScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  } catch (e) {
+    document.getElementById('cameraScanStatus').textContent = 'Could not access camera: ' + (e.message || e.name || 'permission denied');
+    return;
+  }
+
+  var video = document.getElementById('cameraScanVideo');
+  video.srcObject = _cameraScanStream;
+  // video has the autoplay attribute so playback starts on its own once
+  // srcObject is set — this explicit play() is a best-effort nudge for
+  // browsers that need it, raced against a timeout so a stalled/never-
+  // resolving play() promise can't leave the whole flow stuck on
+  // "Starting camera…" forever (confirmed this can actually happen).
+  try {
+    await Promise.race([video.play(), new Promise(function(r){ setTimeout(r, 1500); })]);
+  } catch (e) { /* autoplay quirks — detection loop still starts once frames arrive */ }
+  document.getElementById('cameraScanStatus').textContent = 'Point the camera at a barcode';
+
+  if (!_barcodeDetector) {
+    _barcodeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code'] });
+  }
+
+  _cameraScanActive = true;
+  scanLoop();
+}
+
+async function scanLoop() {
+  if (!_cameraScanActive) return;
+  var video = document.getElementById('cameraScanVideo');
+  try {
+    var codes = await _barcodeDetector.detect(video);
+    if (codes && codes.length) {
+      var value = codes[0].rawValue;
+      closeCameraScan();
+      posAddByCode(value);
+      return;
+    }
+  } catch (e) { /* transient per-frame decode errors are normal — keep scanning */ }
+  _cameraScanRAF = requestAnimationFrame(scanLoop);
+}
+
+function closeCameraScan() {
+  document.getElementById('cameraScanMask').classList.remove('open');
+  _cameraScanActive = false;
+  if (_cameraScanRAF) { cancelAnimationFrame(_cameraScanRAF); _cameraScanRAF = null; }
+  if (_cameraScanStream) { _cameraScanStream.getTracks().forEach(function(t){ t.stop(); }); _cameraScanStream = null; }
+  var video = document.getElementById('cameraScanVideo');
+  if (video) video.srcObject = null;
 }
 
 function posChangeQty(i, delta) {
