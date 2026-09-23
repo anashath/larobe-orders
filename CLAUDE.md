@@ -2,6 +2,8 @@
 
 Full project plan, decisions, and current status live in [`HANDOFF.md`](../HANDOFF.md) on the Desktop (one level up from this repo). **Read that file first in any new session** — this file only holds facts a session needs immediately; HANDOFF.md is the source of truth for status and decisions.
 
+**Two copies of HANDOFF.md exist, on purpose:** `C:\Users\User\OneDrive\Desktop\HANDOFF.md` is the canonical, live-edited copy (synced across devices via OneDrive) — always edit that one. `HANDOFF.md` at this repo's root is a **git-tracked mirror** of it, committed so the plan is reachable via `git pull` on a machine where OneDrive sync isn't available (e.g. Ali's laptop) — added 2026-09-23. When you update the Desktop copy, also re-copy it here and commit, so the mirror doesn't go stale. If you're on a machine where the Desktop copy isn't reachable at all, this mirror is your source of truth instead — but sync your edits back to the Desktop copy (or flag the discrepancy to Ali) as soon as both are reachable again.
+
 ## What this repo is
 
 Two things share this repo, on different branches:
