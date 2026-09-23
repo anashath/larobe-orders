@@ -583,6 +583,16 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   .stats{grid-template-columns:repeat(4,1fr)}
   .pg-title{font-size:34px}
 }
+
+/* Receipt is print-only — hidden on screen, shown (and everything else
+   hidden) when window.print() is called from printReceipt(). */
+#posReceiptPrint{display:none}
+@media print {
+  body *{visibility:hidden}
+  #posReceiptPrint,#posReceiptPrint *{visibility:visible}
+  #posReceiptPrint{display:block;position:absolute;top:0;left:0;width:72mm;padding:4mm;font-family:'Courier New',monospace;color:#000}
+  #rcptItems div{display:flex;justify-content:space-between;gap:6px}
+}
 </style>
 </head>
 <body>
@@ -968,6 +978,15 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 
   <div id="tillOpenView" style="display:none">
     <div class="fwrap">
+      <div class="fcard" id="posLastSaleCard" style="display:none;background:var(--card2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink)" id="posLastSaleLabel">Sale complete</div>
+            <div style="font-size:11px;color:var(--ink3)">Last sale — print a receipt if the customer wants one</div>
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="printReceipt()">Print Receipt</button>
+        </div>
+      </div>
       <div class="fcard">
         <div class="fcard-hdr" style="display:flex;align-items:center;justify-content:space-between">
           <span>Scan or search item</span>
@@ -1733,6 +1752,24 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
 </div>
 
 <div id="toast"></div>
+
+<!-- ═══ RECEIPT (print-only — see @media print rules in <style>) ══════════ -->
+<div id="posReceiptPrint">
+  <div style="text-align:center;margin-bottom:8px">
+    <div style="font-weight:700;font-size:14px">La Robe Maldives</div>
+    <div style="font-size:10px">Counter Sale Receipt</div>
+  </div>
+  <div style="font-size:10px;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin-bottom:6px">
+    <div>Sale #<span id="rcptNum"></span> &nbsp; <span id="rcptDate"></span></div>
+    <div>Served by <span id="rcptStaff"></span></div>
+  </div>
+  <div id="rcptItems" style="font-size:10px;margin-bottom:6px"></div>
+  <div style="font-size:12px;font-weight:700;border-top:1px dashed #000;padding-top:4px;display:flex;justify-content:space-between">
+    <span>TOTAL</span><span id="rcptTotal"></span>
+  </div>
+  <div style="font-size:10px;margin-top:2px">Paid by <span id="rcptTender"></span></div>
+  <div style="text-align:center;font-size:10px;margin-top:10px">Thank you for shopping with us!</div>
+</div>
 
 <script>
 
@@ -3820,16 +3857,41 @@ async function posCompleteSale() {
   await deductStock(newOrder);
 
   var saleNum = num, saleTotal = subtotal;
+  _posLastSale = { num: saleNum, total: saleTotal, tender: posTender, items: posCart.slice(), staff: (_profile && _profile.full_name) || 'Staff', when: new Date() };
   posCart = [];
   setPosTender('cash');
   renderPosCart();
   render();
+  showLastSaleCard();
 
   if (itemsRes.error) {
     toast('Sale #'+saleNum+' recorded, but items failed to save: ' + itemsRes.error.message, true);
   } else {
     toast('Sale #'+saleNum+' complete — MVR ' + saleTotal.toLocaleString());
   }
+}
+
+var _posLastSale = null;
+
+function showLastSaleCard() {
+  var card = document.getElementById('posLastSaleCard');
+  if (!card || !_posLastSale) return;
+  document.getElementById('posLastSaleLabel').textContent = 'Sale #' + _posLastSale.num + ' — MVR ' + _posLastSale.total.toLocaleString();
+  card.style.display = '';
+}
+
+function printReceipt() {
+  if (!_posLastSale) return;
+  document.getElementById('rcptNum').textContent = _posLastSale.num;
+  document.getElementById('rcptDate').textContent = _posLastSale.when.toLocaleString('en-MV', { dateStyle: 'medium', timeStyle: 'short' });
+  document.getElementById('rcptStaff').textContent = _posLastSale.staff;
+  document.getElementById('rcptTotal').textContent = 'MVR ' + _posLastSale.total.toLocaleString();
+  document.getElementById('rcptTender').textContent = _posLastSale.tender === 'card' ? 'Card' : 'Cash';
+  document.getElementById('rcptItems').innerHTML = _posLastSale.items.map(function(it) {
+    var lineTotal = it.unit_price * it.quantity;
+    return '<div><span>' + esc(it.name) + (it.color?' — '+esc(it.color):'') + (it.quantity>1?' x'+it.quantity:'') + '</span><span>' + lineTotal.toLocaleString() + '</span></div>';
+  }).join('');
+  window.print();
 }
 
 function clearForm() {
