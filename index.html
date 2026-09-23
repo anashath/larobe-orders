@@ -1006,6 +1006,11 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <div class="fcard">
         <div class="fcard-hdr">Cart</div>
         <div id="posCartList"><div class="empty"><div class="empty-t">No items yet</div></div></div>
+        <div class="fg ffull" style="margin-top:8px">
+          <label>Discount (MVR)</label>
+          <input type="number" id="posDiscount" placeholder="0" min="0" oninput="renderPosCart()">
+          <div id="posDiscountHint" style="font-size:11px;color:var(--ink3);margin-top:4px;display:none"></div>
+        </div>
         <div style="display:flex;justify-content:space-between;padding:12px 2px 2px;font-weight:700;font-size:15px;border-top:1px solid var(--line);margin-top:8px">
           <span>Total</span><span id="posCartTotal">MVR 0</span>
         </div>
@@ -1309,7 +1314,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <div class="fg"><label>Email</label><input type="email" id="nuEmail" placeholder="user@email.com"></div>
         <div class="fg"><label>Password</label><input type="password" id="nuPass" placeholder="Min 6 characters"></div>
         <div class="fg"><label>Role</label>
-          <div id="nuRoleDisplay" onclick="openOptionPicker('nuRole','nuRoleDisplay','Role',[{value:'manager',label:'Manager'},{value:'delivery',label:'Delivery'},{value:'admin',label:'Admin'}])" class="product-select-field">
+          <div id="nuRoleDisplay" onclick="openOptionPicker('nuRole','nuRoleDisplay','Role',[{value:'manager',label:'Manager'},{value:'cashier',label:'Cashier'},{value:'delivery',label:'Delivery'},{value:'admin',label:'Admin'}])" class="product-select-field">
             <span style="flex:1;font-size:14px;color:var(--ink)">Manager</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
@@ -1799,6 +1804,12 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // La Robe's fixed tenant id (Phase 1 multi-tenant conversion). Every insert
 // into a tenant-scoped table must include this — see HANDOFF.md.
 const TENANT_ID = 'aca3f6c5-62aa-4efc-824f-75f0d65bafcd';
+// Counter discounts above this need a manager/admin — cashiers can't apply
+// more on their own. Admin/manager have unrestricted discretion, matching
+// the existing New Order screen. A local constant for now, same pattern as
+// the checkout phone-rate-limit cap — promote to a per-tenant setting if
+// this ever needs to vary.
+const CASHIER_DISCOUNT_LIMIT = 50;
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
@@ -1883,6 +1894,7 @@ function go(s) {
     if (role !== 'admin') {
       var allowed = {
         manager:  ['orders','new','counter','history','copy','products','sales','expenses','expenseactivity','stockreport'],
+        cashier:  ['orders','counter','history'],
         delivery: ['orders','history']
       };
       var roleAllowed = allowed[role] || ['orders'];
@@ -3661,6 +3673,15 @@ function renderCounterScreen() {
     setPosTender(posTender);
     var camBtn = document.getElementById('posCameraScanBtn');
     if (camBtn) camBtn.style.display = posCameraSupported() ? '' : 'none';
+    var discHint = document.getElementById('posDiscountHint');
+    if (discHint) {
+      if (_profile && _profile.role === 'cashier') {
+        discHint.textContent = 'Discounts over MVR ' + CASHIER_DISCOUNT_LIMIT + ' need a manager or admin.';
+        discHint.style.display = '';
+      } else {
+        discHint.style.display = 'none';
+      }
+    }
   } else {
     closedView.style.display = '';
     openView.style.display = 'none';
@@ -3842,7 +3863,14 @@ function posRemoveItem(i) {
 
 function posClearCart() {
   posCart = [];
+  var discEl = document.getElementById('posDiscount');
+  if (discEl) discEl.value = '';
   renderPosCart();
+}
+
+function posDiscountAmount() {
+  var el = document.getElementById('posDiscount');
+  return el ? (parseFloat(el.value) || 0) : 0;
 }
 
 function setPosTender(val) {
@@ -3876,7 +3904,8 @@ function renderPosCart() {
         + '</div>';
     }).join('');
   }
-  var total = posCart.reduce(function(s, it) { return s + it.unit_price * it.quantity; }, 0);
+  var subtotal = posCart.reduce(function(s, it) { return s + it.unit_price * it.quantity; }, 0);
+  var total = Math.max(0, subtotal - posDiscountAmount());
   var totalEl = document.getElementById('posCartTotal');
   if (totalEl) totalEl.textContent = 'MVR ' + total.toLocaleString(undefined,{maximumFractionDigits:0});
 }
@@ -3896,6 +3925,16 @@ async function posCompleteSale() {
   var totalQty = posCart.reduce(function(s,it){ return s + it.quantity; }, 0);
   var productLabel = posCart.map(function(it){ return it.name + (it.color?' - '+it.color:'') + (it.quantity>1?' x'+it.quantity:''); }).join(', ');
 
+  var discount = posDiscountAmount();
+  if (discount < 0) { toast('Discount cannot be negative', true); return; }
+  if (discount > subtotal) { toast('Discount cannot exceed the cart total', true); return; }
+  var isCashier = _profile && _profile.role === 'cashier';
+  if (isCashier && discount > CASHIER_DISCOUNT_LIMIT) {
+    toast('Discounts over MVR ' + CASHIER_DISCOUNT_LIMIT + ' need a manager or admin to complete this sale', true);
+    return;
+  }
+  var total = subtotal - discount;
+
   var btn = document.getElementById('posCompleteBtn');
   btn.disabled = true; btn.textContent = 'Completing…';
   var orderDate = today();
@@ -3911,10 +3950,10 @@ async function posCompleteSale() {
       contact: '',
       product: productLabel,
       product_id: posCart[0].product_id,
-      price: subtotal,
+      price: total,
       total_qty: totalQty,
       total_cost: totalCost,
-      discount_amount: 0,
+      discount_amount: discount,
       status: 'delivered',
       source: 'in_store',
       delivery: 'Counter',
@@ -3950,9 +3989,11 @@ async function posCompleteSale() {
   await logActivity(newOrder.id, 'created (counter sale)');
   await deductStock(newOrder);
 
-  var saleNum = num, saleTotal = subtotal;
-  _posLastSale = { num: saleNum, total: saleTotal, tender: posTender, items: posCart.slice(), staff: (_profile && _profile.full_name) || 'Staff', when: new Date() };
+  var saleNum = num, saleTotal = total;
+  _posLastSale = { num: saleNum, total: saleTotal, discount: discount, tender: posTender, items: posCart.slice(), staff: (_profile && _profile.full_name) || 'Staff', when: new Date() };
   posCart = [];
+  var discEl = document.getElementById('posDiscount');
+  if (discEl) discEl.value = '';
   setPosTender('cash');
   renderPosCart();
   render();
@@ -3981,10 +4022,14 @@ function printReceipt() {
   document.getElementById('rcptStaff').textContent = _posLastSale.staff;
   document.getElementById('rcptTotal').textContent = 'MVR ' + _posLastSale.total.toLocaleString();
   document.getElementById('rcptTender').textContent = _posLastSale.tender === 'card' ? 'Card' : 'Cash';
-  document.getElementById('rcptItems').innerHTML = _posLastSale.items.map(function(it) {
+  var itemLines = _posLastSale.items.map(function(it) {
     var lineTotal = it.unit_price * it.quantity;
     return '<div><span>' + esc(it.name) + (it.color?' — '+esc(it.color):'') + (it.quantity>1?' x'+it.quantity:'') + '</span><span>' + lineTotal.toLocaleString() + '</span></div>';
-  }).join('');
+  });
+  if (_posLastSale.discount > 0) {
+    itemLines.push('<div><span>Discount</span><span>−' + _posLastSale.discount.toLocaleString() + '</span></div>');
+  }
+  document.getElementById('rcptItems').innerHTML = itemLines.join('');
   window.print();
 }
 
@@ -5276,6 +5321,7 @@ function applyRole(profile) {
   var navMap = {
     admin:   ['orders','new','counter','history','copy','products','settings','users','sales','expenses'],
     manager: ['orders','new','counter','history','copy','products','sales','expenses'],
+    cashier: ['orders','counter','history'],
     delivery:['orders','history']
   };
   var allowed = navMap[role] || ['orders'];
@@ -5286,7 +5332,7 @@ function applyRole(profile) {
   var newBtn = document.getElementById('bn-new');
   if (newBtn) newBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
   var counterBtn = document.getElementById('bn-counter');
-  if (counterBtn) counterBtn.style.display = (role==='admin'||role==='manager') ? '' : 'none';
+  if (counterBtn) counterBtn.style.display = (role==='admin'||role==='manager'||role==='cashier') ? '' : 'none';
   // Settings stays visible for managers too — hiding it left an empty slot in the
   // bottom nav, unbalanced around the center FAB. go() still redirects managers
   // away from the actual screen, so this only changes visibility, not access.
@@ -5417,7 +5463,7 @@ async function saveHeroName(newName) {
 }
 
 function roleLabel(role) {
-  var map = { admin:'Admin', manager:'Manager', delivery:'Delivery' };
+  var map = { admin:'Admin', manager:'Manager', delivery:'Delivery', cashier:'Cashier' };
   return map[role] || role;
 }
 
@@ -5485,7 +5531,7 @@ function handleChangeRole(btn) {
   var uid = btn.getAttribute('data-uid');
   var curRole = btn.getAttribute('data-role');
   openOptionPicker(null, null, 'Change Role',
-    [{value:'delivery',label:'Delivery'},{value:'manager',label:'Manager'},{value:'admin',label:'Admin'}],
+    [{value:'delivery',label:'Delivery'},{value:'cashier',label:'Cashier'},{value:'manager',label:'Manager'},{value:'admin',label:'Admin'}],
     function(newRole) { updateUserRole(uid, newRole, curRole); },
     curRole
   );
@@ -5497,6 +5543,10 @@ async function updateUserRole(uid, newRole, oldRole) {
   if (!await showConfirm('Change Role', 'Change this user\'s role to ' + roleLabel(newRole) + '? They\'ll see the change next time they open the app.', {confirmLabel:'Change Role'})) return;
   const {error} = await db.from('profiles').update({ role: newRole }).eq('id', uid);
   if (error) { toast('Error: ' + error.message, true); return; }
+  // Keep tenant_members.role in sync — that's what RLS actually reads via
+  // get_my_role(tenant_id), not profiles.role (see createUser()'s comment).
+  const {error: tError} = await db.from('tenant_members').update({ role: newRole }).eq('tenant_id', TENANT_ID).eq('user_id', uid);
+  if (tError) { toast('Profile updated but permissions failed: ' + tError.message, true); return; }
   toast('Role updated to ' + roleLabel(newRole));
   loadUsers();
 }
@@ -5528,6 +5578,18 @@ function createUser() {
       db.from('profiles').upsert({ id:res.data.user.id, full_name:name, role:role, is_active:true })
         .then(function(pres) {
           if (pres.error) { toast('Error: '+pres.error.message, true); return; }
+          // profiles.role only drives the UI (nav access, role labels) — every
+          // RLS policy actually reads tenant_members.role via get_my_role(tenant_id).
+          // Without this, a newly created user would see the right nav items but
+          // every RLS-gated action (viewing orders, ringing up a sale, anything)
+          // would silently fail since get_my_role() would return null for them.
+          return db.from('tenant_members').upsert(
+            { tenant_id: TENANT_ID, user_id: res.data.user.id, role: role, active: true },
+            { onConflict: 'tenant_id,user_id' }
+          );
+        })
+        .then(function(tres) {
+          if (tres && tres.error) { toast('Profile created but permissions failed: '+tres.error.message, true); return; }
           document.getElementById('nuName').value='';
           document.getElementById('nuEmail').value='';
           document.getElementById('nuPass').value='';
