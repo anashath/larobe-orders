@@ -731,7 +731,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <button class="d-signout" onclick="doLogout()">Sign Out</button>
     </div>
     <button class="d-signout-hero" id="drawerSignOutHero" onclick="doLogout()">Sign Out</button>
-    <div class="d-ver">La Robe Orders · v2.0</div>
+    <div class="d-ver"><span data-tenant-title>La Robe Orders</span> · v2.0</div>
   </div>
 </nav>
 
@@ -1349,7 +1349,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
   <div class="fcard" style="margin:0 16px 12px">
     <div class="fcard-hdr">Status</div>
     <div class="s-row"><div><div class="s-lbl">Sync</div><div class="s-hint" id="ssync">Checking…</div></div><div class="hdr-dot" id="sdot2"></div></div>
-    <div class="s-row"><div><div class="s-lbl">Version</div><div class="s-hint">La Robe Orders v2.0</div></div></div>
+    <div class="s-row"><div><div class="s-lbl">Version</div><div class="s-hint"><span data-tenant-title>La Robe Orders</span> v2.0</div></div></div>
   </div>
 </div>
 
@@ -1370,14 +1370,14 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
       </div>
       <div>
-        <div style="font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em">La Robe Orders</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em"><span data-tenant-title>La Robe Orders</span></div>
         <div style="font-size:12px;color:var(--ink3);margin-top:2px">Version 2.0 · Order Management PWA</div>
       </div>
     </div>
 
     <!-- Description -->
     <div style="font-size:13px;color:var(--ink2);line-height:1.75;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
-      A purpose-built progressive web application for <strong style="color:var(--ink)">La Robe Maldives</strong> — a fashion accessories retail business based in Hulhumalé, Maldives. Designed to streamline daily order management, track deliveries, manage products, and coordinate team workflows across multiple roles.
+      A purpose-built progressive web application for <strong style="color:var(--ink)" data-tenant-name>La Robe Maldives</strong>. Designed to streamline daily order management, track deliveries, manage products, and coordinate team workflows across multiple roles.
     </div>
 
     <!-- Built by -->
@@ -1403,8 +1403,7 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
     <!-- Copyright -->
     <div style="font-size:11px;color:var(--ink3);line-height:1.7;text-align:center">
       <div>© 2025 Syntax Trap. All rights reserved.</div>
-      <div style="margin-top:2px">La Robe Maldives is a registered trade name.</div>
-      <div style="margin-top:6px;color:var(--ink3);font-size:10px">This application is proprietary software developed exclusively for La Robe Maldives. Unauthorised reproduction or distribution is prohibited.</div>
+      <div style="margin-top:6px;color:var(--ink3);font-size:10px">This application is proprietary software developed exclusively for <span data-tenant-name>La Robe Maldives</span>. Unauthorised reproduction or distribution is prohibited.</div>
     </div>
     </div>
   </div>
@@ -1652,7 +1651,10 @@ const SB_URL = 'https://oyzfkknoeweafiqirurv.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95emZra25vZXdlYWZpcWlydXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjY1NTcsImV4cCI6MjA5NzAwMjU1N30.d7CkBi6Yc47a_VzFFbKfZG8ncm7hG9p4XJBDJ1zcjrY';
 // La Robe's fixed tenant id (Phase 1 multi-tenant conversion). Every insert
 // into a tenant-scoped table must include this — see HANDOFF.md.
-const TENANT_ID = 'aca3f6c5-62aa-4efc-824f-75f0d65bafcd';
+// Resolved at login from the user's tenant_members row (see resolveTenant), not
+// hardcoded — this same app serves any tenant, each user only ever sees their own.
+let TENANT_ID = null;
+let _tenant = null;
 const db = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
@@ -4731,14 +4733,43 @@ async function updateOrdersBadge() {
   if (dn) { dn.textContent = text; dn.style.display = count > 0 ? 'inline-block' : 'none'; }
 }
 
+// Finds which tenant this user belongs to. A user with more than one membership
+// gets the oldest one for now — a tenant picker is a later addition, and no user
+// has more than one today.
+async function resolveTenant(uid) {
+  var mem = await db.from('tenant_members').select('tenant_id')
+    .eq('user_id', uid).eq('active', true).order('created_at', { ascending: true });
+  if (mem.error || !mem.data || !mem.data.length) return null;
+  if (mem.data.length > 1) console.warn('User belongs to multiple tenants; using the oldest.');
+  var t = await db.from('tenants').select('id, name, slug, branding')
+    .eq('id', mem.data[0].tenant_id).single();
+  if (t.error || !t.data) return null;
+  return t.data;
+}
+
+function applyTenantName() {
+  var name = (_tenant && _tenant.name) || '';
+  document.querySelectorAll('[data-tenant-name]').forEach(function(el) { el.textContent = name; });
+  document.querySelectorAll('[data-tenant-title]').forEach(function(el) { el.textContent = name + ' Orders'; });
+  if (name) document.title = name + ' Orders';
+}
+
 function loadProfile(uid) {
-  db.from('profiles').select('*').eq('id', uid).single().then(function(res) {
+  db.from('profiles').select('*').eq('id', uid).single().then(async function(res) {
     if (res.error || !res.data) { showLogin(); return; }
     _profile = res.data;
     if (!_profile.is_active) {
       document.getElementById('loginErr').textContent = 'Your account has been deactivated.';
       db.auth.signOut(); return;
     }
+    var tenant = await resolveTenant(uid);
+    if (!tenant) {
+      document.getElementById('loginErr').textContent = 'Your account is not linked to a store yet. Ask your admin.';
+      db.auth.signOut(); return;
+    }
+    _tenant = tenant;
+    TENANT_ID = tenant.id;
+    applyTenantName();
     hideLogin();
     applyRole(_profile);
     var _od = document.getElementById('ordersDate');
@@ -5091,7 +5122,7 @@ function runCopy() {
     var d=dt.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     var sep='----------------------------------';
     var lines=[];
-    lines.push('LA ROBE MALDIVES - '+d+(fltLabel ? ' - '+fltLabel.toUpperCase()+' ONLY' : ''));
+    lines.push(((_tenant && _tenant.name) || 'ORDERS').toUpperCase()+' - '+d+(fltLabel ? ' - '+fltLabel.toUpperCase()+' ONLY' : ''));
     lines.push(''); lines.push(sep);
     data.forEach(function(o) {
       lines.push('ORDER #'+o.num);
@@ -6592,7 +6623,7 @@ function _autoLogin() {
 
 db.auth.onAuthStateChange(function(event, session) {
   if (event === 'SIGNED_OUT') {
-    _session = null; _profile = null;
+    _session = null; _profile = null; _tenant = null; TENANT_ID = null;
     showLogin();
   }
 });
