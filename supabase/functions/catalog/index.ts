@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     const productsRes = await fetch(
       `${SUPABASE_URL}/rest/v1/products?tenant_id=eq.${tenant.id}&active=eq.true` +
-        `&select=id,name,color,category,image_url,selling_price,price,stock_qty,low_stock_threshold,promo_price,promo_start,promo_end,created_at`,
+        `&select=id,name,color,category,style,image_url,selling_price,price,stock_qty,low_stock_threshold,promo_price,promo_start,promo_end,created_at`,
       { headers: serviceHeaders }
     );
     const rawProducts = await productsRes.json();
@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
       name: p.name,
       color: p.color,
       category: p.category,
+      style: p.style,
       image_url: p.image_url,
       price: p.selling_price ?? p.price,
       stock_status: stockStatus(p.stock_qty ?? 0, p.low_stock_threshold ?? 3),
