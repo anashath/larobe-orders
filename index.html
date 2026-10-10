@@ -1332,6 +1332,25 @@ body{font-family:'Plus Jakarta Sans','Inter',sans-serif;background:var(--bg);col
       <div class="tog-track" id="togTrack"><div class="tog-knob" id="togKnob"><svg id="togIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div></div>
     </div>
   </div>
+  <div class="fcard" id="brandingCard" style="margin:0 16px 12px;display:none">
+    <div class="fcard-hdr">Store Branding</div>
+    <div class="s-hint" style="margin-bottom:12px">How your online store looks to customers. Changes appear on the storefront within a minute.</div>
+    <div id="brandPreview" style="border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;border:1px solid var(--line)">
+      <img id="brandPreviewLogo" alt="" style="display:none;height:36px;max-width:120px;object-fit:contain">
+      <div style="flex:1;min-width:0"><div id="brandPreviewName" style="font-weight:700;font-size:15px"></div><div style="font-size:12px;opacity:.7">Preview</div></div>
+      <div id="brandPreviewBtn" style="padding:8px 14px;border-radius:6px;font-size:12px;font-weight:700">Add to bag</div>
+    </div>
+    <div class="s-lbl" style="margin-bottom:8px">Color theme</div>
+    <div id="brandPresets" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+    <div class="s-lbl" style="margin-bottom:8px">Logo</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('brandLogoInput').click()">Upload logo</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="brandLogoRemove" onclick="removeBrandLogo()" style="display:none">Remove</button>
+      <input type="file" id="brandLogoInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onBrandLogoPicked(this)">
+    </div>
+    <div class="s-hint" style="margin-bottom:14px">PNG, JPG or WebP, up to 1 MB. A wide logo on a transparent or light background works best.</div>
+    <button type="button" class="btn btn-blue" id="brandSaveBtn" onclick="saveBranding()" style="width:100%">Save Branding</button>
+  </div>
   <div class="fcard" style="margin:0 16px 12px">
     <div class="fcard-hdr">Notifications</div>
     <div class="s-row" onclick="togglePushNotifications()" style="cursor:pointer">
@@ -2014,7 +2033,122 @@ function setSync(ok) {
   ['sdot','sdot2'].forEach(function(id){var el=document.getElementById(id);if(el) el.className='hdr-dot'+(ok?'':' off');});
   var sh=document.getElementById('ssync'); if(sh) sh.textContent=ok?'Connected':'Not connected';
 }
-function updSett() { setSync(!document.getElementById('sdot').classList.contains('off')); updatePushToggleUI(); }
+/* ── STORE BRANDING (Phase 5.2) ── */
+// Curated presets rather than free color pickers: every one clears WCAG AA (4.5:1)
+// for text-on-background, white-on-accent (storefront buttons) and accent-on-background,
+// so a tenant can't publish an unreadable combination.
+var BRAND_PRESETS = [
+  { key: 'ivory-ember',   name: 'Ivory & Ember',   bg: '#f6f3ee', fg: '#161513', accent: '#b8450f' },
+  { key: 'ocean',         name: 'Ocean',           bg: '#f2f7f8', fg: '#0f1f24', accent: '#0b6e79' },
+  { key: 'sand-forest',   name: 'Sand & Forest',   bg: '#f5f1e8', fg: '#1b1f1a', accent: '#3f6b3a' },
+  { key: 'rose',          name: 'Rose',            bg: '#faf3f2', fg: '#231a1a', accent: '#a8324f' },
+  { key: 'slate-gold',    name: 'Slate & Gold',    bg: '#f4f4f2', fg: '#1a1d21', accent: '#8a5a00' }
+];
+var _brandDraft = null; // { colors:{background,foreground,accent}|null, logoUrl, logoFile, removeLogo }
+
+function _brandPresetFor(c) {
+  if (!c) return null;
+  return BRAND_PRESETS.find(function(p) {
+    return String(c.background||'').toLowerCase() === p.bg && String(c.foreground||'').toLowerCase() === p.fg && String(c.accent||'').toLowerCase() === p.accent;
+  }) || null;
+}
+
+function renderBrandingCard() {
+  var card = document.getElementById('brandingCard');
+  if (!card) return;
+  if (!_profile || _profile.role !== 'admin' || !_tenant) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  var b = _tenant.branding || {};
+  _brandDraft = { colors: b.colors ? { background: b.colors.background, foreground: b.colors.foreground, accent: b.colors.accent } : null,
+                  logoUrl: b.logo_url || null, logoFile: null, removeLogo: false };
+  drawBrandingCard();
+}
+
+function drawBrandingCard() {
+  if (!_brandDraft) return;
+  var cur = _brandPresetFor(_brandDraft.colors);
+  var box = document.getElementById('brandPresets');
+  box.innerHTML = '';
+  BRAND_PRESETS.forEach(function(p) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    var sel = cur && cur.key === p.key;
+    btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);background:var(--card2);border:2px solid ' + (sel ? 'var(--blue)' : 'var(--line)');
+    var sw = document.createElement('span');
+    sw.style.cssText = 'display:inline-flex;width:34px;height:16px;border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,.15)';
+    [p.bg, p.accent, p.fg].forEach(function(col) { var i = document.createElement('span'); i.style.cssText = 'flex:1;background:' + col; sw.appendChild(i); });
+    btn.appendChild(sw); btn.appendChild(document.createTextNode(p.name));
+    btn.onclick = function() { _brandDraft.colors = { background: p.bg, foreground: p.fg, accent: p.accent }; drawBrandingCard(); };
+    box.appendChild(btn);
+  });
+  var c = _brandDraft.colors || { background: '#ffffff', foreground: '#171717', accent: '#171717' };
+  var prev = document.getElementById('brandPreview');
+  prev.style.background = c.background; prev.style.color = c.foreground;
+  document.getElementById('brandPreviewBtn').style.background = c.accent;
+  document.getElementById('brandPreviewBtn').style.color = '#fff';
+  document.getElementById('brandPreviewName').textContent = (_tenant && _tenant.name) || '';
+  var logo = document.getElementById('brandPreviewLogo');
+  var shownUrl = _brandDraft.removeLogo ? null : (_brandDraft.logoFile ? URL.createObjectURL(_brandDraft.logoFile) : _brandDraft.logoUrl);
+  if (shownUrl) { logo.src = shownUrl; logo.style.display = ''; } else { logo.removeAttribute('src'); logo.style.display = 'none'; }
+  document.getElementById('brandLogoRemove').style.display = shownUrl ? '' : 'none';
+}
+
+function onBrandLogoPicked(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f || !_brandDraft) return;
+  if (['image/png','image/jpeg','image/webp'].indexOf(f.type) < 0) { toast('Logo must be a PNG, JPG or WebP image', true); return; }
+  if (f.size > 1048576) { toast('Logo must be 1 MB or smaller', true); return; }
+  _brandDraft.logoFile = f; _brandDraft.removeLogo = false;
+  drawBrandingCard();
+}
+
+function removeBrandLogo() {
+  if (!_brandDraft) return;
+  _brandDraft.logoFile = null; _brandDraft.removeLogo = true;
+  drawBrandingCard();
+}
+
+function _logoPathFromUrl(url) {
+  var m = url && String(url).split('/tenant-logos/')[1];
+  return m ? decodeURIComponent(m.split('?')[0]) : null;
+}
+
+async function saveBranding() {
+  if (!_brandDraft || !_tenant || !TENANT_ID) return;
+  var btn = document.getElementById('brandSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    var prevLogo = (_tenant.branding || {}).logo_url || null;
+    var newLogoUrl = _brandDraft.removeLogo ? null : _brandDraft.logoUrl;
+    if (_brandDraft.logoFile) {
+      var ext = _brandDraft.logoFile.type === 'image/png' ? 'png' : _brandDraft.logoFile.type === 'image/webp' ? 'webp' : 'jpg';
+      var path = TENANT_ID + '/logo-' + Date.now() + '.' + ext;
+      var up = await db.storage.from('tenant-logos').upload(path, _brandDraft.logoFile, { upsert: false, contentType: _brandDraft.logoFile.type });
+      if (up.error) { toast('Logo upload failed: ' + up.error.message, true); return; }
+      newLogoUrl = db.storage.from('tenant-logos').getPublicUrl(path).data.publicUrl;
+    }
+    var branding = Object.assign({}, _tenant.branding || {});
+    if (_brandDraft.colors) branding.colors = _brandDraft.colors;
+    if (newLogoUrl) branding.logo_url = newLogoUrl; else delete branding.logo_url;
+
+    var res = await db.from('tenants').update({ branding: branding }).eq('id', TENANT_ID).select('id');
+    if (res.error) { toast('Could not save: ' + res.error.message, true); return; }
+    if (!res.data || !res.data.length) { toast('You do not have permission to change branding', true); return; }
+
+    _tenant.branding = branding;
+    if (prevLogo && prevLogo !== newLogoUrl) {
+      var old = _logoPathFromUrl(prevLogo);
+      if (old && old.indexOf(TENANT_ID + '/') === 0) db.storage.from('tenant-logos').remove([old]).catch(function(){});
+    }
+    toast('Branding saved — live on your store within a minute');
+    renderBrandingCard();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Branding';
+  }
+}
+
+function updSett() { setSync(!document.getElementById('sdot').classList.contains('off')); updatePushToggleUI(); renderBrandingCard(); }
 
 /* PRODUCTS */
 async function loadProds() {
